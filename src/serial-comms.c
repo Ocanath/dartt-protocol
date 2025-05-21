@@ -23,7 +23,7 @@
 int create_write_message(unsigned char address, uint16_t index, unsigned char * payload, int payload_size, unsigned char * msg_buf, int msg_buf_size)
 {
     //basic error checking (bounds overrun, null pointer checks)
-    if(payload == NULL || msg_buf == NULL || msg_len == NULL)
+    if(payload == NULL || msg_buf == NULL)
     {
         return 0;
     }
@@ -49,7 +49,7 @@ int create_write_message(unsigned char address, uint16_t index, unsigned char * 
     }
 
     //load the checksum
-    uint16_t checksum = get_checksum16(msg_buf, payload_size + NUM_BYTES_ADDRESS + NUM_BYTES_INDEX);
+    uint16_t checksum = get_crc16(msg_buf, payload_size + NUM_BYTES_ADDRESS + NUM_BYTES_INDEX);
     unsigned char * p_checksum = (unsigned char *)(&checksum);
     msg_buf[cur_byte_index++] = p_checksum[0];
     msg_buf[cur_byte_index++] = p_checksum[1];
@@ -67,7 +67,7 @@ int parse_general_message(unsigned char address, unsigned char * msg, int len, c
         return ERROR_MALFORMED_MESSAGE;
     }
     uint16_t * pchecksum = (uint16_t *)(msg + len - sizeof(uint16_t));
-    uint16_t checksum = get_checksum16(msg, len - sizeof(uint16_t));
+    uint16_t checksum = get_crc16(msg, len - sizeof(uint16_t));
     if(checksum != *pchecksum)
     {
         return ERROR_MALFORMED_MESSAGE;

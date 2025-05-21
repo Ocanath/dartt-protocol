@@ -16,7 +16,7 @@ int parse_motor_message(unsigned char motor_address, unsigned char misc_address,
         return -2;
     }
     uint16_t * pchecksum = (uint16_t *)(msg + len - sizeof(uint16_t));
-    uint16_t checksum = get_checksum16(msg, len - sizeof(uint16_t));
+    uint16_t checksum = get_crc16(msg, len - sizeof(uint16_t));
     if(checksum != *pchecksum)
     {
         return -2;
