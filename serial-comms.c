@@ -2,30 +2,33 @@
 #include "serial-comms.h"
 #include "checksum.h"
 
-#define MINIMUM_MESSAGE_LENGTH 5
-
 
 /*
-
- */
-int parse_message(unsigned char motor_address, unsigned char misc_address, unsigned char * msg, int len, comms_t * comms)
+    Use the message protocol without splitting behavior based on address.
+*/
+int parse_general_message(unsigned char address, unsigned char * msg, int len, comms_t * comms)
 {
     if(len < MINIMUM_MESSAGE_LENGTH) //minimum message length is 5 bytes (device address + register address + data + checksum)
     {
         return -2;
     }
     uint16_t * pchecksum = (uint16_t *)(msg + len - sizeof(uint16_t));
-
-    
-    
-}
-
-/*
-    Special case for motor commands.
- */
-int parse_motor_command(unsigned char * msg, int len, comms_t * comms)
-{
-
+    uint16_t checksum = get_checksum16(msg, len - sizeof(uint16_t));
+    if(checksum != *pchecksum)
+    {
+        return -2;
+    }
+    else
+    {
+        if(msg[0] == address)
+        {
+            return parse_misc_command(msg, len, comms);
+        }
+        else
+        {
+            return -1;
+        }
+    }
 }
 
 /*
