@@ -1,9 +1,5 @@
 cmake_minimum_required(VERSION 3.10)
 
-# Force C compiler
-set(CMAKE_C_COMPILER gcc)
-set(CMAKE_CXX_COMPILER gcc)
-
 # Project name
 project(serial_comms C)
 

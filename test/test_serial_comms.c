@@ -74,7 +74,10 @@ void test_parse_general_message_write(void)
 	int32_t value = -15127;
 	int size = create_write_message(address, index, (unsigned char *)(&value), sizeof(value), message_buf, sizeof(message_buf));
 	
-	int parse_result = parse_general_message(address, message_buf, size, &comms);
+
+	unsigned char reply_buf[32] = {};
+	int reply_len = 0;
+	int parse_result = parse_general_message(address, message_buf, size, reply_buf, sizeof(reply_buf), &reply_len, &comms);
 	TEST_ASSERT_EQUAL(0, parse_result);
 	TEST_ASSERT_EQUAL(value, comms.gl_joint_theta);
 }

@@ -57,35 +57,6 @@ int create_write_message(unsigned char address, uint16_t index, unsigned char * 
     return cur_byte_index;
 }
 
-/*
-    Use the message protocol without splitting behavior based on address.
-*/
-int parse_general_message(unsigned char address, unsigned char * msg, int len, comms_t * comms)
-{
-    if(len < MINIMUM_MESSAGE_LENGTH) //minimum message length is 5 bytes (device address + register address + data + checksum)
-    {
-        return ERROR_MALFORMED_MESSAGE;
-    }
-    uint16_t * pchecksum = (uint16_t *)(msg + len - sizeof(uint16_t));
-    uint16_t checksum = get_crc16(msg, len - sizeof(uint16_t));
-    if(checksum != *pchecksum)
-    {
-        return ERROR_MALFORMED_MESSAGE;
-    }
-    else
-    {
-        if(msg[0] == address)
-        {
-            //remove address and checksum from the message and then parse
-            msg = &(msg[1]);
-            return parse_misc_command(msg, len-2, comms);
-        }
-        else
-        {
-            return ADDRESS_FILTERED;
-        }
-    }
-}
 
 /*
     Arguments:
@@ -97,7 +68,7 @@ int parse_general_message(unsigned char address, unsigned char * msg, int len, c
         -1 if the message is not intended for this device
         0 if the message is successfully parsed
  */
-int parse_misc_command(unsigned char * msg, int len, comms_t * comms, unsigned char * p_replybuf, int * reply_len, int replybuf_size)
+int parse_misc_command(unsigned char * msg, int len, unsigned char * p_replybuf, int replybuf_size, int * reply_len, comms_t * comms)
 {
     if(msg == NULL || len < 4)
     {
@@ -155,6 +126,36 @@ int parse_misc_command(unsigned char * msg, int len, comms_t * comms, unsigned c
                 *reply_len = numread_bytes;
                 return SUCCESS;
             }
+        }
+    }
+}
+
+/*
+    Use the message protocol without splitting behavior based on address.
+*/
+int parse_general_message(unsigned char address, unsigned char * msg, int len, unsigned char * reply_buf, int replybuf_size, int * reply_len, comms_t * comms)
+{
+    if(len < MINIMUM_MESSAGE_LENGTH) //minimum message length is 5 bytes (device address + register address + data + checksum)
+    {
+        return ERROR_MALFORMED_MESSAGE;
+    }
+    uint16_t * pchecksum = (uint16_t *)(msg + len - sizeof(uint16_t));
+    uint16_t checksum = get_crc16(msg, len - sizeof(uint16_t));
+    if(checksum != *pchecksum)
+    {
+        return ERROR_MALFORMED_MESSAGE;
+    }
+    else
+    {
+        if(msg[0] == address)
+        {
+            //remove address and checksum from the message and then parse
+            msg = &(msg[1]);
+            return parse_misc_command(msg, (len-(NUM_BYTES_CHECKSUM + NUM_BYTES_ADDRESS)), reply_buf, replybuf_size, reply_len, comms);
+        }
+        else
+        {
+            return ADDRESS_FILTERED;
         }
     }
 }

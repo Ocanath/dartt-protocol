@@ -7,7 +7,7 @@
 enum {ERROR_MALFORMED_MESSAGE = -2, ADDRESS_FILTERED = -1, SUCCESS = 0};
 
 int create_write_message(unsigned char address, uint16_t index, unsigned char * payload, int payload_size, unsigned char * msg_buf, int msg_buf_size);
-int parse_general_message(unsigned char address, unsigned char * msg, int len, comms_t * comms);
+int parse_general_message(unsigned char address, unsigned char * msg, int len, unsigned char * reply_buf, int replybuf_size, int * reply_len, comms_t * comms);
 
 #endif
 

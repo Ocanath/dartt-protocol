@@ -16,8 +16,11 @@ int main(void)
     }
     printf("\r\n");
 
-	int parse_result = parse_general_message(address, message_buf, size, &comms);	
-    printf("Parse result: %d\r\n", parse_result);
+    unsigned char reply_buf[32] = {};
+    int reply_len = 0;
+	int parsed_result = parse_general_message(address, message_buf, size, reply_buf, sizeof(reply_buf), &reply_len, &comms);	
+    printf("Parse result: %d\r\n", parsed_result);
+
 
 }
 
