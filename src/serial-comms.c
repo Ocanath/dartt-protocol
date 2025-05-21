@@ -10,7 +10,7 @@ int parse_general_message(unsigned char address, unsigned char * msg, int len, c
 {
     if(len < MINIMUM_MESSAGE_LENGTH) //minimum message length is 5 bytes (device address + register address + data + checksum)
     {
-        return -2;
+        return ERROR_MALFORMED_MESSAGE;
     }
     uint16_t * pchecksum = (uint16_t *)(msg + len - sizeof(uint16_t));
     uint16_t checksum = get_checksum16(msg, len - sizeof(uint16_t));
@@ -43,7 +43,7 @@ int parse_general_message(unsigned char address, unsigned char * msg, int len, c
         -1 if the message is not intended for this device
         0 if the message is successfully parsed
  */
-int parse_misc_command(unsigned char * msg, int len, comms_t * comms, unsigned char * p_replybuf, int * reply_len)
+int parse_misc_command(unsigned char * msg, int len, comms_t * comms, unsigned char * p_replybuf, int * reply_len, int replybuf_size)
 {
     if(msg == NULL || len < 4)
     {
@@ -88,7 +88,7 @@ int parse_misc_command(unsigned char * msg, int len, comms_t * comms, unsigned c
             //read
             uint16_t * p_numread_words = (uint16_t*)(&msg[2]);
             uint32_t numread_bytes = (uint32_t)(*p_numread_words * sizeof(uint32_t));
-            if(numread_bytes + byte_index > sizeof(comms))
+            if(numread_bytes + byte_index >= sizeof(comms) || numread_bytes >= replybuf_size)
             {
                 return ERROR_MALFORMED_MESSAGE;
             }
