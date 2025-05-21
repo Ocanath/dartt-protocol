@@ -1,4 +1,21 @@
 #include "serial-comms.h"
+#include "checksum.h"
+
+/*
+    Special case for motor commands.
+    Returns:
+        -2 if the message is malformed
+        -1 if the message is not intended for this device
+        0 if the message is successfully parsed
+    p_reply: pointer to the beginning of the memory you should pipe out over serial in reply to the message
+    
+    This command is special, because instead of sending out a region of the comms struct, it cherry picks data from the comms struct and sends it out in a reply buffer.
+    It will do this based on the reply_mode field in the comms struct.
+ */
+int parse_motor_command(unsigned char * msg, int len, comms_t * comms, unsigned char * p_replybuf, int * reply_len, int replybuf_size)
+{
+
+}
 
 /*
     Parse an unstuffed (raw) message, including checksum and address splitting.
@@ -25,11 +42,11 @@ int parse_motor_message(unsigned char motor_address, unsigned char misc_address,
     {
         if(msg[0] == motor_address)
         {
-            return parse_motor_command(msg, len, comms);
+            // return parse_motor_command();
         }
         else if(msg[0] == misc_address)
         {
-            return parse_misc_command(msg, len, comms);
+            // return parse_misc_command();
         }
         else
         {
@@ -38,18 +55,3 @@ int parse_motor_message(unsigned char motor_address, unsigned char misc_address,
     }    
 }
 
-/*
-    Special case for motor commands.
-    Returns:
-        -2 if the message is malformed
-        -1 if the message is not intended for this device
-        0 if the message is successfully parsed
-    p_reply: pointer to the beginning of the memory you should pipe out over serial in reply to the message
-    
-    This command is special, because instead of sending out a region of the comms struct, it cherry picks data from the comms struct and sends it out in a reply buffer.
-    It will do this based on the reply_mode field in the comms struct.
- */
-int parse_motor_command(unsigned char * msg, int len, comms_t * comms, unsigned char * p_replybuf, int * reply_len, int replybuf_size)
-{
-
-}
