@@ -84,7 +84,7 @@ int parse_misc_command(unsigned char * msg, int len, unsigned char * p_replybuf,
     {
         //write    
         int write_len = len - sizeof(uint16_t);   //index argument parsed, skip it
-        if(byte_index + write_len >= sizeof(comms))
+        if(byte_index + write_len >= sizeof(comms_t))
         {
             return ERROR_MALFORMED_MESSAGE;
         }
