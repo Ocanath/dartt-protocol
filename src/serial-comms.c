@@ -2,6 +2,60 @@
 #include "serial-comms.h"
 #include "checksum.h"
 
+#define NUM_BYTES_INDEX 2
+#define NUM_BYTES_CHECKSUM 2
+#define NUM_BYTES_ADDRESS 1
+#define NUM_BYTES_NON_PAYLOAD NUM_BYTES_INDEX + NUM_BYTES_CHECKSUM + NUM_BYTES_ADDRESS
+
+/*
+    Write message packet creation function.
+    Arguments:
+        address: the address of the device to write to
+        index: the word index (32 bit words) of the structure as your starting point for the write
+        payload: the bytes to write to the device
+        payload_size: the number of bytes of payload we are writing
+        msg_buf: the buffer containing the message
+        msg_len: the length of the message (variable, pass by pointer)
+        msg_buf_size: the size of the message buffer
+    Returns:
+        The number of bytes written to the message buffer
+*/
+int create_write_message(unsigned char address, uint16_t index, unsigned char * payload, int payload_size, unsigned char * msg_buf, int msg_buf_size)
+{
+    //basic error checking (bounds overrun, null pointer checks)
+    if(payload == NULL || msg_buf == NULL || msg_len == NULL)
+    {
+        return 0;
+    }
+    if(msg_buf_size < payload_size + NUM_BYTES_NON_PAYLOAD) //fixed size
+    {
+        return 0;
+    }
+    
+    //load the address
+    int cur_byte_index = 0;
+    msg_buf[cur_byte_index++] = address;
+    
+    //load the index
+    index = index & 0x7FFF;
+    unsigned char * p_index_word = (unsigned char *)(&index);
+    msg_buf[cur_byte_index++] = p_index_word[0];
+    msg_buf[cur_byte_index++] = p_index_word[1];
+    
+    //load the payload
+    for(int i = 0; i < payload_size; i++)
+    {
+        msg_buf[cur_byte_index++] = payload[i];
+    }
+
+    //load the checksum
+    uint16_t checksum = get_checksum16(msg_buf, payload_size + NUM_BYTES_ADDRESS + NUM_BYTES_INDEX);
+    unsigned char * p_checksum = (unsigned char *)(&checksum);
+    msg_buf[cur_byte_index++] = p_checksum[0];
+    msg_buf[cur_byte_index++] = p_checksum[1];
+
+    return cur_byte_index;
+}
 
 /*
     Use the message protocol without splitting behavior based on address.
