@@ -5,20 +5,21 @@
 
 typedef struct comms_t
 {
+    uint32_t motor_command_mode;
+
     /*Block off the words corresponding to default motor send values, so they can be sent in blocks */
     int32_t gl_iq;
     int32_t gl_joint_theta;
     int32_t gl_rotor_theta;
     int32_t gl_rotor_velocity;
 
+    //other random motor specific commands
     int32_t gl_id;
-    
-    uint32_t reply_mode;
-    uint32_t write_filesystem_flag;
 
+
+    uint32_t write_filesystem_flag;
     //more fields
 
-    
 
 } comms_t;
 

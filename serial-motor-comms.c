@@ -45,9 +45,11 @@ int parse_motor_message(unsigned char motor_address, unsigned char misc_address,
         -1 if the message is not intended for this device
         0 if the message is successfully parsed
     p_reply: pointer to the beginning of the memory you should pipe out over serial in reply to the message
-    reply_len: pointer to the length of the reply
+    
+    This command is special, because instead of sending out a region of the comms struct, it cherry picks data from the comms struct and sends it out in a reply buffer.
+    It will do this based on the reply_mode field in the comms struct.
  */
-int parse_motor_command(unsigned char * msg, int len, comms_t * comms, unsigned char * p_reply, int * reply_len)
+int parse_motor_command(unsigned char * msg, int len, comms_t * comms, unsigned char * p_replybuf, int * reply_len, int replybuf_size)
 {
 
 }
