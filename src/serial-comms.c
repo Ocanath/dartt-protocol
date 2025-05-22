@@ -2,10 +2,6 @@
 #include "serial-comms.h"
 #include "checksum.h"
 
-#define NUM_BYTES_INDEX 2
-#define NUM_BYTES_CHECKSUM 2
-#define NUM_BYTES_ADDRESS 1
-#define NUM_BYTES_NON_PAYLOAD NUM_BYTES_INDEX + NUM_BYTES_CHECKSUM + NUM_BYTES_ADDRESS
 
 
 /*
