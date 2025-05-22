@@ -88,6 +88,17 @@ void test_create_misc_read_message(void)
 	int size = create_misc_read_message(17, 1, 2, message_buf, sizeof(message_buf));
 	TEST_ASSERT_EQUAL(size, 7);
 	TEST_ASSERT_EQUAL(17, message_buf[0]);
+
+	unsigned char too_small_message_buf[4] = {};
+	size = create_misc_read_message(17, 1, 2, too_small_message_buf, sizeof(too_small_message_buf));
+	TEST_ASSERT_EQUAL(0, size);
+
+	size = create_misc_read_message(17, 1, 2, NULL, 0);
+	TEST_ASSERT_EQUAL(0, size);
+
+
+	// size = create_misc_read_message(-1, -10000, -200000, -12, -124);
+	// TEST_ASSERT_EQUAL(0, size);
 }
 
 /*
