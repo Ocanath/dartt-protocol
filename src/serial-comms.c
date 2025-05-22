@@ -188,7 +188,7 @@ int parse_general_message(unsigned char address, unsigned char * msg, int len, u
     uint16_t checksum = get_crc16(msg, len - sizeof(uint16_t));
     if(checksum != *pchecksum)
     {
-        return ERROR_MALFORMED_MESSAGE;
+        return ERROR_CHECKSUM_MISMATCH;
     }
     else
     {

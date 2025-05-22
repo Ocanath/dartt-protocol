@@ -109,3 +109,16 @@ void test_parse_general_message_read(void)
 	TEST_ASSERT_EQUAL(comms.gl_joint_theta, *p_value);
 
 }
+
+
+void test_address_filtering(void)
+{
+	comms_t comms = {};
+	unsigned char message_buf[32] = {};
+	unsigned char reply_buf[32] = {};
+	int reply_len = 0;
+	uint8_t address = 32;
+	int size = create_misc_read_message(address, 2, 1, message_buf, sizeof(message_buf));
+	int parse_result = parse_general_message(address+1, message_buf, size, reply_buf, sizeof(reply_buf), &reply_len, &comms);
+	TEST_ASSERT_EQUAL(ADDRESS_FILTERED, parse_result);
+}
