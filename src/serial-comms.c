@@ -12,13 +12,37 @@
 */
 int index_of_field(void * p_field, comms_t * comms)
 {
+    //null pointer checks
     if(p_field == NULL || comms == NULL)
     {
         return ERROR_INVALID_ARGUMENT;
     }
+    
+    // Ensure p_field is within the bounds of the comms struct
     unsigned char * pbase = (unsigned char *)(comms);
     unsigned char * p_field_nonvoid = (unsigned char *)p_field;
-    return (p_field_nonvoid - pbase)/sizeof(int32_t);
+    
+    //Check for underrun
+    if(p_field_nonvoid < pbase)
+    {
+        return ERROR_INVALID_ARGUMENT;
+    }
+
+    size_t offset = p_field_nonvoid - pbase;
+    
+    // Check if the field is actually within the struct (overrun check)
+    if(offset >= sizeof(comms_t))
+    {
+        return ERROR_INVALID_ARGUMENT;
+    }
+    
+    // Ensure the offset is aligned to 32-bit boundaries
+    if(offset % sizeof(int32_t) != 0)
+    {
+        return ERROR_INVALID_ARGUMENT;
+    }
+    
+    return offset / sizeof(int32_t);
 }
 
 /*
