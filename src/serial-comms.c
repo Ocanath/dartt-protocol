@@ -7,6 +7,50 @@
 #define NUM_BYTES_ADDRESS 1
 #define NUM_BYTES_NON_PAYLOAD NUM_BYTES_INDEX + NUM_BYTES_CHECKSUM + NUM_BYTES_ADDRESS
 
+
+/*
+    Create a message packet for a read operation.
+    Arguments:
+        address: the address of the device to read from
+        index: the word index (32 bit words) of the structure as your starting point for the read
+        num_words: the number of words to read
+        msg_buf: the buffer to store the message
+        msg_buf_size: the size of the message buffer
+*/
+int create_misc_read_message(unsigned char address, uint16_t index, uint16_t num_words, unsigned char * msg_buf, int msg_buf_size)
+{
+    //basic error checking (bounds overrun, null pointer checks)
+    if(msg_buf == NULL)
+    {
+        return 0;
+    }
+    if(msg_buf_size < NUM_BYTES_ADDRESS + NUM_BYTES_INDEX + sizeof(uint16_t) + NUM_BYTES_CHECKSUM)
+    {
+        return 0;   //ensure there is enough space to load message
+    }
+    // add more bounds checking
+
+    int cur_byte_index = 0;
+    msg_buf[cur_byte_index++] = address;    //byte 0 loaded
+    index = index | 0x8000; //set the read bit always
+    unsigned char * p_index_word = (unsigned char *)(&index);
+    msg_buf[cur_byte_index++] = p_index_word[0];    //byte 1 loaded
+    msg_buf[cur_byte_index++] = p_index_word[1];    //byte 2 loaded
+
+    unsigned char * p_num_words = (unsigned char *)(&num_words);
+    msg_buf[cur_byte_index++] = p_num_words[0];    //byte 3 loaded
+    msg_buf[cur_byte_index++] = p_num_words[1];    //byte 4 loaded
+
+    uint16_t checksum = get_crc16(msg_buf, cur_byte_index);
+    unsigned char * p_checksum = (unsigned char *)(&checksum);
+    msg_buf[cur_byte_index++] = p_checksum[0];    //byte 5 loaded
+    msg_buf[cur_byte_index++] = p_checksum[1];    //byte 6 loaded
+
+    return cur_byte_index;
+}
+
+
+
 /*
     Write message packet creation function.
     Arguments:
@@ -20,7 +64,7 @@
     Returns:
         The number of bytes written to the message buffer
 */
-int create_write_message(unsigned char address, uint16_t index, unsigned char * payload, int payload_size, unsigned char * msg_buf, int msg_buf_size)
+int create_misc_write_message(unsigned char address, uint16_t index, unsigned char * payload, int payload_size, unsigned char * msg_buf, int msg_buf_size)
 {
     //basic error checking (bounds overrun, null pointer checks)
     if(payload == NULL || msg_buf == NULL)
@@ -49,7 +93,7 @@ int create_write_message(unsigned char address, uint16_t index, unsigned char * 
     }
 
     //load the checksum
-    uint16_t checksum = get_crc16(msg_buf, payload_size + NUM_BYTES_ADDRESS + NUM_BYTES_INDEX);
+    uint16_t checksum = get_crc16(msg_buf, cur_byte_index);
     unsigned char * p_checksum = (unsigned char *)(&checksum);
     msg_buf[cur_byte_index++] = p_checksum[0];
     msg_buf[cur_byte_index++] = p_checksum[1];
@@ -113,15 +157,16 @@ int parse_misc_command(unsigned char * msg, int len, unsigned char * p_replybuf,
             //read
             uint16_t * p_numread_words = (uint16_t*)(&msg[2]);
             uint32_t numread_bytes = (uint32_t)(*p_numread_words * sizeof(uint32_t));
-            if(numread_bytes + byte_index >= sizeof(comms) || numread_bytes >= replybuf_size)
+            if(numread_bytes + byte_index > sizeof(comms_t) || numread_bytes > replybuf_size)
             {
                 return ERROR_MALFORMED_MESSAGE;
             }
             else
             {
+				unsigned char * p_comms = (unsigned char *)comms;
                 for(int i = 0; i < numread_bytes; i++)
                 {
-                    p_replybuf[i] = ((unsigned char *)(&comms))[byte_index + i];
+                    p_replybuf[i] = p_comms[byte_index + i];
                 }   
                 *reply_len = numread_bytes;
                 return SUCCESS;
