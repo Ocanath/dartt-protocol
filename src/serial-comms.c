@@ -2,7 +2,16 @@
 #include "serial-comms.h"
 #include "checksum.h"
 
-
+int index_of_field(void * p_field, comms_t * comms)
+{
+    if(p_field == NULL || comms == NULL)
+    {
+        return ERROR_INVALID_ARGUMENT;
+    }
+    unsigned char * pbase = (unsigned char *)(comms);
+    unsigned char * p_field_nonvoid = (unsigned char *)p_field;
+    return (p_field_nonvoid - pbase)/sizeof(int32_t);
+}
 
 /*
     Create a message packet for a read operation.

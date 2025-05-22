@@ -91,6 +91,16 @@ void test_create_misc_read_message(void)
 }
 
 /*
+	Test helper function index_of_field.
+*/
+void test_index_of_field(void)
+{
+	comms_t comms = {};
+	TEST_ASSERT_EQUAL(2, index_of_field(&comms.gl_joint_theta, &comms));
+	TEST_ASSERT_EQUAL(1, index_of_field(&comms.gl_iq, &comms));
+	TEST_ASSERT_EQUAL(0, index_of_field(&comms.motor_command_mode, &comms));
+}
+/*
 	Test that the parse_general_message function works for a read message.
 */
 void test_parse_general_message_read(void)
@@ -112,7 +122,7 @@ void test_parse_general_message_read(void)
 	int32_t * p_value = (int32_t *)(&reply_buf[0]);
 	TEST_ASSERT_EQUAL(comms.gl_joint_theta, *p_value);
 
-	size = create_misc_read_message(address, 1, 3, message_buf, sizeof(message_buf));
+	size = create_misc_read_message(address, index_of_field(&comms.gl_iq, &comms), 3, message_buf, sizeof(message_buf));
 	parse_result = parse_general_message(address, message_buf, size, reply_buf, sizeof(reply_buf), &reply_len, &comms);
 	TEST_ASSERT_EQUAL(0, parse_result);
 	TEST_ASSERT_EQUAL(12, reply_len);
@@ -140,3 +150,5 @@ void test_address_filtering(void)
 	int parse_result = parse_general_message(address+1, message_buf, size, reply_buf, sizeof(reply_buf), &reply_len, &comms);
 	TEST_ASSERT_EQUAL(ADDRESS_FILTERED, parse_result);
 }
+
+

@@ -3,6 +3,13 @@
 
 int main(void)
 {
+    {
+        comms_t comms = {};
+        printf("%d\r\n", index_of_field(&comms.gl_joint_theta, &comms));
+        printf("%d\r\n", index_of_field(&comms.gl_iq, &comms));
+        printf("%d\r\n", index_of_field(&comms.motor_command_mode, &comms));
+    }
+
 
     {
     	comms_t comms = {};
