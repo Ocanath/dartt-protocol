@@ -11,7 +11,7 @@
 #define NUM_BYTES_NON_PAYLOAD (NUM_BYTES_INDEX + NUM_BYTES_CHECKSUM + NUM_BYTES_ADDRESS)
 #define MINIMUM_MESSAGE_LENGTH NUM_BYTES_NON_PAYLOAD
 
-enum {ERROR_INVALID_ARGUMENT = -4, ERROR_CHECKSUM_MISMATCH = -3, ERROR_MALFORMED_MESSAGE = -2, ADDRESS_FILTERED = -1, SUCCESS = 0};
+enum {ERROR_INVALID_ARGUMENT = -4, ERROR_CHECKSUM_MISMATCH = -3, ERROR_MALFORMED_MESSAGE = -2, ADDRESS_FILTERED = -1, SERIAL_PROTOCOL_SUCCESS = 0};
 
 
 int create_misc_write_message(unsigned char address, uint16_t index, unsigned char * payload, int payload_size, unsigned char * msg_buf, int msg_buf_size);

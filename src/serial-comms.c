@@ -179,7 +179,7 @@ int parse_misc_command(unsigned char * msg, int len, unsigned char * p_replybuf,
                 pcomms[i] = pmsg[i];
             }
             *reply_len = 0;
-            return SUCCESS;
+            return SERIAL_PROTOCOL_SUCCESS;
         }
     }
     else
@@ -206,7 +206,7 @@ int parse_misc_command(unsigned char * msg, int len, unsigned char * p_replybuf,
                     p_replybuf[i] = p_comms[byte_index + i];
                 }   
                 *reply_len = numread_bytes;
-                return SUCCESS;
+                return SERIAL_PROTOCOL_SUCCESS;
             }
         }
     }
