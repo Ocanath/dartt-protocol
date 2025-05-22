@@ -67,7 +67,7 @@ int create_misc_write_message(unsigned char address, uint16_t index, unsigned ch
     {
         return 0;
     }
-    if(msg_buf_size < payload_size + NUM_BYTES_NON_PAYLOAD) //fixed size
+    if(msg_buf_size < (payload_size + NUM_BYTES_NON_PAYLOAD)) //fixed size
     {
         return 0;
     }
