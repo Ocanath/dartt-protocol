@@ -2,6 +2,14 @@
 #include "serial-comms.h"
 #include "checksum.h"
 
+/*
+    Helper function to get the index of a field in a comms struct.
+    Arguments:
+        p_field: the field to get the index of
+        comms: the comms struct
+    Returns:
+        The index of the field in the comms struct, for creating misc messages.
+*/
 int index_of_field(void * p_field, comms_t * comms)
 {
     if(p_field == NULL || comms == NULL)
