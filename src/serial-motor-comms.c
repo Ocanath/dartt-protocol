@@ -39,6 +39,11 @@ int cherrypick_reply_data(unsigned char * reply, int reply_len, comms_t * comms)
     else if(comms->motor_command_mode == REPLY_MODE_2)
     {
         //ETC.
+    	return 0;
+    }
+    else
+    {
+    	return 0;
     }
 }
 
@@ -69,9 +74,9 @@ int parse_motor_message(unsigned char motor_address, unsigned char misc_address,
     {
         if(msg[0] == motor_address)
         {
-            int32_t * p_cmd = (int32_t *)(&msg[1]);
+//            int32_t * p_cmd = (int32_t *)(&msg[1]);	//load out the p_cmd to the appropriate variable
             //do something with the command we parsed
-            cherrypick_reply_data(p_replybuf, replybuf_size, comms);
+            return cherrypick_reply_data(p_replybuf, replybuf_size, comms);
         }
         else if(msg[0] == misc_address)
         {
