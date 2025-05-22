@@ -90,12 +90,16 @@ void test_create_misc_read_message(void)
 	TEST_ASSERT_EQUAL(17, message_buf[0]);
 }
 
+/*
+	Test that the parse_general_message function works for a read message.
+*/
 void test_parse_general_message_read(void)
 {
 	comms_t comms = {};
 	comms.gl_joint_theta = -75411;
 	comms.gl_iq = 151151;
 	comms.motor_command_mode = 7;
+	comms.gl_rotor_velocity = 123456;
 	uint8_t address = 17;
 
 	unsigned char message_buf[32] = {};
@@ -108,9 +112,23 @@ void test_parse_general_message_read(void)
 	int32_t * p_value = (int32_t *)(&reply_buf[0]);
 	TEST_ASSERT_EQUAL(comms.gl_joint_theta, *p_value);
 
+	size = create_misc_read_message(address, 1, 3, message_buf, sizeof(message_buf));
+	parse_result = parse_general_message(address, message_buf, size, reply_buf, sizeof(reply_buf), &reply_len, &comms);
+	TEST_ASSERT_EQUAL(0, parse_result);
+	TEST_ASSERT_EQUAL(12, reply_len);
+	p_value = (int32_t *)(&reply_buf[0]);
+	TEST_ASSERT_EQUAL(comms.gl_iq, *p_value);
+	p_value = (int32_t *)(&reply_buf[4]);
+	TEST_ASSERT_EQUAL(comms.gl_joint_theta, *p_value);
+	p_value = (int32_t *)(&reply_buf[8]);
+	TEST_ASSERT_EQUAL(comms.gl_rotor_theta, *p_value);
+	
+	
 }
 
-
+/*
+	Test that the address filtering works.
+*/
 void test_address_filtering(void)
 {
 	comms_t comms = {};
