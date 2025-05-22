@@ -145,6 +145,26 @@ void test_parse_general_message_read(void)
 	
 }
 
+
+void test_general_message_read_replybuf_overflow(void)
+{
+	comms_t comms = {};
+	comms.gl_joint_theta = -75411;
+	comms.gl_iq = 151151;
+	comms.motor_command_mode = 7;
+	comms.gl_rotor_velocity = 123456;
+	uint8_t address = 17;
+
+	unsigned char message_buf[32] = {};
+	unsigned char reply_buf[4] = {};
+	int reply_len = 0;
+		// Test reading multiple fields
+	int size = create_misc_read_message(address, index_of_field(&comms.gl_iq, &comms), 3, message_buf, sizeof(message_buf));
+	int parse_result = parse_general_message(address, message_buf, size, reply_buf, sizeof(reply_buf), &reply_len, &comms);
+	TEST_ASSERT_EQUAL(ERROR_MALFORMED_MESSAGE, parse_result);
+	TEST_ASSERT_EQUAL(0, reply_len);
+}
+
 /*
 	Test that the address filtering works.
 */
