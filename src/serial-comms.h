@@ -1,5 +1,7 @@
 #ifndef SERIAL_COMMS_H  
 #define SERIAL_COMMS_H
+#include <stdint.h>
+#include <stddef.h>
 #include "serial-comms-struct.h"
 
 
