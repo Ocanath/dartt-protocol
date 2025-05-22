@@ -118,21 +118,30 @@ void test_parse_general_message_read(void)
 	int size = create_misc_read_message(address, 2, 1, message_buf, sizeof(message_buf));
 	int parse_result = parse_general_message(address, message_buf, size, reply_buf, sizeof(reply_buf), &reply_len, &comms);
 	TEST_ASSERT_EQUAL(0, parse_result);
-	TEST_ASSERT_EQUAL(4, reply_len);
-	int32_t * p_value = (int32_t *)(&reply_buf[0]);
+	TEST_ASSERT_EQUAL(7, reply_len);
+	TEST_ASSERT_EQUAL(MASTER_ADDRESS, reply_buf[0]);
+	int32_t * p_value = (int32_t *)(&reply_buf[1]);
 	TEST_ASSERT_EQUAL(comms.gl_joint_theta, *p_value);
+	uint16_t checksum = get_crc16(reply_buf, reply_len-2);
+	uint16_t * p_checksum = (uint16_t *)(&reply_buf[reply_len-2]);
+	TEST_ASSERT_EQUAL(checksum, *p_checksum);
 
+
+	// Test reading multiple fields
 	size = create_misc_read_message(address, index_of_field(&comms.gl_iq, &comms), 3, message_buf, sizeof(message_buf));
 	parse_result = parse_general_message(address, message_buf, size, reply_buf, sizeof(reply_buf), &reply_len, &comms);
 	TEST_ASSERT_EQUAL(0, parse_result);
-	TEST_ASSERT_EQUAL(12, reply_len);
-	p_value = (int32_t *)(&reply_buf[0]);
+	TEST_ASSERT_EQUAL(15, reply_len);
+	TEST_ASSERT_EQUAL(MASTER_ADDRESS, reply_buf[0]);
+	p_value = (int32_t *)(&reply_buf[1]);
 	TEST_ASSERT_EQUAL(comms.gl_iq, *p_value);
-	p_value = (int32_t *)(&reply_buf[4]);
+	p_value = (int32_t *)(&reply_buf[5]);
 	TEST_ASSERT_EQUAL(comms.gl_joint_theta, *p_value);
-	p_value = (int32_t *)(&reply_buf[8]);
+	p_value = (int32_t *)(&reply_buf[9]);
 	TEST_ASSERT_EQUAL(comms.gl_rotor_theta, *p_value);
-	
+	checksum = get_crc16(reply_buf, reply_len-2);
+	p_checksum = (uint16_t *)(&reply_buf[reply_len-2]);
+	TEST_ASSERT_EQUAL(checksum, *p_checksum);
 	
 }
 

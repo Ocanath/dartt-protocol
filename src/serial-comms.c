@@ -194,18 +194,33 @@ int parse_misc_command(unsigned char * msg, int len, unsigned char * p_replybuf,
             //read
             uint16_t * p_numread_words = (uint16_t*)(&msg[2]);
             uint32_t numread_bytes = (uint32_t)(*p_numread_words * sizeof(uint32_t));
-            if(numread_bytes + byte_index > sizeof(comms_t) || numread_bytes > replybuf_size)
+            if(numread_bytes + byte_index > sizeof(comms_t) || (numread_bytes + NUM_BYTES_CHECKSUM + NUM_BYTES_ADDRESS) > replybuf_size)	//pre-check size once
             {
                 return ERROR_MALFORMED_MESSAGE;
             }
             else
             {
 				unsigned char * p_comms = (unsigned char *)comms;
-                for(int i = 0; i < numread_bytes; i++)
+				int bidx = 0;
+
+				//first byte is the master address (all replies go to master)
+				p_replybuf[bidx++] = MASTER_ADDRESS;
+
+				//next n bytes get loaded into the payload
+				for(int i = 0; i < numread_bytes; i++)
                 {
-                    p_replybuf[i] = p_comms[byte_index + i];
+                    p_replybuf[bidx++] = p_comms[byte_index + i];
                 }   
-                *reply_len = numread_bytes;
+
+				//final 2 bytes get checksum
+                uint16_t checksum = get_crc16(p_replybuf, bidx);
+                unsigned char * p_checksum = (unsigned char *)(&checksum);
+                p_replybuf[bidx++] = p_checksum[0];
+                p_replybuf[bidx++] = p_checksum[1];
+
+                //load reply len for serial transmission
+                *reply_len = bidx;
+
                 return SERIAL_PROTOCOL_SUCCESS;
             }
         }
