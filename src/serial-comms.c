@@ -117,7 +117,7 @@ int create_misc_write_message(unsigned char address, uint16_t index, unsigned ch
     int cur_byte_index = 0;
     msg_buf[cur_byte_index++] = address;
     
-    //load the index
+    //load the index, clear the read bit
     index = index & 0x7FFF;
     unsigned char * p_index_word = (unsigned char *)(&index);
     msg_buf[cur_byte_index++] = p_index_word[0];
@@ -165,7 +165,7 @@ int parse_misc_command(unsigned char * msg, int len, unsigned char * p_replybuf,
     {
         //write    
         int write_len = len - sizeof(uint16_t);   //index argument parsed, skip it
-        if(byte_index + write_len >= sizeof(comms_t))
+        if(byte_index + write_len > sizeof(comms_t))
         {
             return ERROR_MALFORMED_MESSAGE;
         }
@@ -204,7 +204,7 @@ int parse_misc_command(unsigned char * msg, int len, unsigned char * p_replybuf,
 				int bidx = 0;
 
 				//first byte is the master address (all replies go to master)
-				p_replybuf[bidx++] = MASTER_ADDRESS;
+				p_replybuf[bidx++] = MASTER_MISC_ADDRESS;
 
 				//next n bytes get loaded into the payload
 				for(int i = 0; i < numread_bytes; i++)

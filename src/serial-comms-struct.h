@@ -16,6 +16,7 @@ typedef struct comms_t
     //other random motor specific commands
     int32_t gl_id;
 
+	int32_t command_word;
 
     uint32_t write_filesystem_flag;
     //more fields

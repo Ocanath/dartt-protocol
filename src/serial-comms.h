@@ -12,10 +12,17 @@
 #define MINIMUM_MESSAGE_LENGTH NUM_BYTES_NON_PAYLOAD
 
 //This is a fixed address that always corresponds
-#define MASTER_ADDRESS	0x7F
+#define MASTER_MOTOR_ADDRESS	0x7F
+#define MASTER_MISC_ADDRESS		(0xFF - 0x7F)
 
 enum {ERROR_INVALID_ARGUMENT = -4, ERROR_CHECKSUM_MISMATCH = -3, ERROR_MALFORMED_MESSAGE = -2, ADDRESS_FILTERED = -1, SERIAL_PROTOCOL_SUCCESS = 0};
 
+typedef struct data_frame_t
+{
+	unsigned char * buf;	//the actual memory
+	size_t size;	//the total size of the buffer
+	int len;	//the length of the message contained in the buffer
+}data_frame_t;
 
 int create_misc_write_message(unsigned char address, uint16_t index, unsigned char * payload, int payload_size, unsigned char * msg_buf, int msg_buf_size);
 int create_misc_read_message(unsigned char address, uint16_t index, uint16_t num_words, unsigned char * msg_buf, int msg_buf_size);

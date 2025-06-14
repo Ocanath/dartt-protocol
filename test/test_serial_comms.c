@@ -130,7 +130,7 @@ void test_parse_general_message_read(void)
 	int parse_result = parse_general_message(address, message_buf, size, reply_buf, sizeof(reply_buf), &reply_len, &comms);
 	TEST_ASSERT_EQUAL(0, parse_result);
 	TEST_ASSERT_EQUAL(7, reply_len);
-	TEST_ASSERT_EQUAL(MASTER_ADDRESS, reply_buf[0]);
+	TEST_ASSERT_EQUAL(MASTER_MISC_ADDRESS, reply_buf[0]);
 	int32_t * p_value = (int32_t *)(&reply_buf[1]);
 	TEST_ASSERT_EQUAL(comms.gl_joint_theta, *p_value);
 	uint16_t checksum = get_crc16(reply_buf, reply_len-2);
@@ -143,7 +143,7 @@ void test_parse_general_message_read(void)
 	parse_result = parse_general_message(address, message_buf, size, reply_buf, sizeof(reply_buf), &reply_len, &comms);
 	TEST_ASSERT_EQUAL(0, parse_result);
 	TEST_ASSERT_EQUAL(15, reply_len);
-	TEST_ASSERT_EQUAL(MASTER_ADDRESS, reply_buf[0]);
+	TEST_ASSERT_EQUAL(MASTER_MISC_ADDRESS, reply_buf[0]);
 	p_value = (int32_t *)(&reply_buf[1]);
 	TEST_ASSERT_EQUAL(comms.gl_iq, *p_value);
 	p_value = (int32_t *)(&reply_buf[5]);
