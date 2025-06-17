@@ -54,35 +54,36 @@ int index_of_field(void * p_field, comms_t * comms)
         msg_buf: the buffer to store the message
         msg_buf_size: the size of the message buffer
 */
-int create_misc_read_message(unsigned char address, uint16_t index, uint16_t num_words, unsigned char * msg_buf, int msg_buf_size)
+int create_misc_read_message(unsigned char address, uint16_t index, uint16_t num_words, buffer_t * msg)
 {
     //basic error checking (bounds overrun, null pointer checks)
-    if(msg_buf == NULL)
+    if(msg == NULL)
     {
         return 0;
     }
-    if(msg_buf_size < NUM_BYTES_ADDRESS + NUM_BYTES_INDEX + sizeof(uint16_t) + NUM_BYTES_CHECKSUM)
+    if(msg->size < NUM_BYTES_ADDRESS + NUM_BYTES_INDEX + sizeof(uint16_t) + NUM_BYTES_CHECKSUM)
     {
         return 0;   //ensure there is enough space to load message
     }
     // add more bounds checking
 
     int cur_byte_index = 0;
-    msg_buf[cur_byte_index++] = address;    //byte 0 loaded
+    msg->buf[cur_byte_index++] = address;    //byte 0 loaded
     index = index | 0x8000; //set the read bit always
     unsigned char * p_index_word = (unsigned char *)(&index);
-    msg_buf[cur_byte_index++] = p_index_word[0];    //byte 1 loaded
-    msg_buf[cur_byte_index++] = p_index_word[1];    //byte 2 loaded
+    msg->buf[cur_byte_index++] = p_index_word[0];    //byte 1 loaded
+    msg->buf[cur_byte_index++] = p_index_word[1];    //byte 2 loaded
 
     unsigned char * p_num_words = (unsigned char *)(&num_words);
-    msg_buf[cur_byte_index++] = p_num_words[0];    //byte 3 loaded
-    msg_buf[cur_byte_index++] = p_num_words[1];    //byte 4 loaded
+    msg->buf[cur_byte_index++] = p_num_words[0];    //byte 3 loaded
+    msg->buf[cur_byte_index++] = p_num_words[1];    //byte 4 loaded
 
-    uint16_t checksum = get_crc16(msg_buf, cur_byte_index);
+    uint16_t checksum = get_crc16(msg->buf, cur_byte_index);
     unsigned char * p_checksum = (unsigned char *)(&checksum);
-    msg_buf[cur_byte_index++] = p_checksum[0];    //byte 5 loaded
-    msg_buf[cur_byte_index++] = p_checksum[1];    //byte 6 loaded
+    msg->buf[cur_byte_index++] = p_checksum[0];    //byte 5 loaded
+    msg->buf[cur_byte_index++] = p_checksum[1];    //byte 6 loaded
 
+    msg->len = cur_byte_index;
     return cur_byte_index;
 }
 
@@ -101,40 +102,41 @@ int create_misc_read_message(unsigned char address, uint16_t index, uint16_t num
     Returns:
         The number of bytes written to the message buffer
 */
-int create_misc_write_message(unsigned char address, uint16_t index, unsigned char * payload, int payload_size, unsigned char * msg_buf, int msg_buf_size)
+int create_misc_write_message(unsigned char address, uint16_t index, buffer_t * payload, buffer_t * msg)
 {
     //basic error checking (bounds overrun, null pointer checks)
-    if(payload == NULL || msg_buf == NULL)
+    if(payload == NULL || msg == NULL)
     {
         return 0;
     }
-    if(msg_buf_size < (payload_size + NUM_BYTES_NON_PAYLOAD)) //fixed size
+    if(msg->size < (payload->len + NUM_BYTES_NON_PAYLOAD)) //fixed size
     {
         return 0;
     }
     
     //load the address
     int cur_byte_index = 0;
-    msg_buf[cur_byte_index++] = address;
+    msg->buf[cur_byte_index++] = address;
     
     //load the index, clear the read bit
     index = index & 0x7FFF;
     unsigned char * p_index_word = (unsigned char *)(&index);
-    msg_buf[cur_byte_index++] = p_index_word[0];
-    msg_buf[cur_byte_index++] = p_index_word[1];
+    msg->buf[cur_byte_index++] = p_index_word[0];
+    msg->buf[cur_byte_index++] = p_index_word[1];
     
     //load the payload
-    for(int i = 0; i < payload_size; i++)
+    for(int i = 0; i < payload->len; i++)
     {
-        msg_buf[cur_byte_index++] = payload[i];
+        msg->buf[cur_byte_index++] = payload->buf[i];
     }
 
     //load the checksum
-    uint16_t checksum = get_crc16(msg_buf, cur_byte_index);
+    uint16_t checksum = get_crc16(msg->buf, cur_byte_index);
     unsigned char * p_checksum = (unsigned char *)(&checksum);
-    msg_buf[cur_byte_index++] = p_checksum[0];
-    msg_buf[cur_byte_index++] = p_checksum[1];
+    msg->buf[cur_byte_index++] = p_checksum[0];
+    msg->buf[cur_byte_index++] = p_checksum[1];
 
+    msg->len = cur_byte_index;
     return cur_byte_index;
 }
 
@@ -149,14 +151,14 @@ int create_misc_write_message(unsigned char address, uint16_t index, unsigned ch
         -1 if the message is not intended for this device
         0 if the message is successfully parsed
  */
-int parse_misc_command(unsigned char * msg, int len, unsigned char * p_replybuf, int replybuf_size, int * reply_len, comms_t * comms)
+int parse_misc_command(buffer_t * msg, buffer_t * reply, comms_t * comms)
 {
-    if(msg == NULL || len < 4)
+    if(msg == NULL) //  || msg->len < (NUM_BYTES_ADDRESS+NUM_BYTES_INDEX+NUM_BYTES_CHECKSUM) //message length check should have been done before we enter here
     {
         return ERROR_MALFORMED_MESSAGE;
     }
 
-    uint16_t * p_index_argument = (uint16_t *)(&msg[0]);
+    uint16_t * p_index_argument = (uint16_t *)(&msg->buf[NUM_BYTES_ADDRESS]);		//previously this function offsetted with pointer logic before entry. That is dumb. We parse the whole message now with correct offsets
     uint16_t read_mask = *p_index_argument & 0x8000;
     uint16_t index = *p_index_argument & 0x7FFF;
     uint32_t byte_index = (uint32_t)(index*sizeof(uint32_t));
@@ -164,7 +166,7 @@ int parse_misc_command(unsigned char * msg, int len, unsigned char * p_replybuf,
     if(read_mask == 0)    //
     {
         //write    
-        int write_len = len - sizeof(uint16_t);   //index argument parsed, skip it
+        int write_len = msg->len - (NUM_BYTES_ADDRESS + NUM_BYTES_INDEX + NUM_BYTES_CHECKSUM);   //We start after the index section, and go until we hit the checksum
         if(byte_index + write_len > sizeof(comms_t))
         {
             return ERROR_MALFORMED_MESSAGE;
@@ -173,53 +175,53 @@ int parse_misc_command(unsigned char * msg, int len, unsigned char * p_replybuf,
         {
             unsigned char * pcomms = (unsigned char *)(comms);
             pcomms = &pcomms[byte_index];
-            unsigned char * pmsg = &msg[sizeof(uint16_t)];  //skip past the index argument portion for the write payload
+            unsigned char * pmsg = &msg->buf[NUM_BYTES_ADDRESS+NUM_BYTES_INDEX];  //skip past the index argument portion for the write payload
             for(int i = 0; i < write_len; i++)
             {
                 pcomms[i] = pmsg[i];
             }
-            *reply_len = 0;
+            reply->len = 0;
             return SERIAL_PROTOCOL_SUCCESS;
         }
     }
     else
     {
         //read
-        if(len != 4 && p_replybuf == NULL)
+        if( (msg->len != (NUM_BYTES_ADDRESS + NUM_BYTES_INDEX + NUM_BYTES_NUMWORDS_READREQUEST + NUM_BYTES_CHECKSUM) ) || reply == NULL)
         {
             return ERROR_MALFORMED_MESSAGE;
         }
         else
         {
             //read
-            uint16_t * p_numread_words = (uint16_t*)(&msg[2]);
+            uint16_t * p_numread_words = (uint16_t*)(&msg->buf[NUM_BYTES_ADDRESS+NUM_BYTES_INDEX]);
             uint32_t numread_bytes = (uint32_t)(*p_numread_words * sizeof(uint32_t));
-            if(numread_bytes + byte_index > sizeof(comms_t) || (numread_bytes + NUM_BYTES_CHECKSUM + NUM_BYTES_ADDRESS) > replybuf_size)	//pre-check size once
+            if(numread_bytes + byte_index > sizeof(comms_t) || (numread_bytes + NUM_BYTES_CHECKSUM + NUM_BYTES_ADDRESS) > reply->size)	//pre-check size once
             {
                 return ERROR_MALFORMED_MESSAGE;
             }
             else
             {
-				unsigned char * p_comms = (unsigned char *)comms;
-				int bidx = 0;
+                unsigned char * p_comms = (unsigned char *)comms;
+                int bidx = 0;
 
-				//first byte is the master address (all replies go to master)
-				p_replybuf[bidx++] = MASTER_MISC_ADDRESS;
+                //first byte is the master address (all replies go to master)
+                reply->buf[bidx++] = MASTER_MISC_ADDRESS;
 
-				//next n bytes get loaded into the payload
-				for(int i = 0; i < numread_bytes; i++)
+                //next n bytes get loaded into the payload
+                for(int i = 0; i < numread_bytes; i++)
                 {
-                    p_replybuf[bidx++] = p_comms[byte_index + i];
+                    reply->buf[bidx++] = p_comms[byte_index + i];
                 }   
 
-				//final 2 bytes get checksum
-                uint16_t checksum = get_crc16(p_replybuf, bidx);
+                //final 2 bytes get checksum
+                uint16_t checksum = get_crc16(reply->buf, bidx);
                 unsigned char * p_checksum = (unsigned char *)(&checksum);
-                p_replybuf[bidx++] = p_checksum[0];
-                p_replybuf[bidx++] = p_checksum[1];
+                reply->buf[bidx++] = p_checksum[0];
+                reply->buf[bidx++] = p_checksum[1];
 
                 //load reply len for serial transmission
-                *reply_len = bidx;
+                reply->len = bidx;
 
                 return SERIAL_PROTOCOL_SUCCESS;
             }
@@ -230,25 +232,23 @@ int parse_misc_command(unsigned char * msg, int len, unsigned char * p_replybuf,
 /*
     Use the message protocol without splitting behavior based on address.
 */
-int parse_general_message(unsigned char address, unsigned char * msg, int len, unsigned char * reply_buf, int replybuf_size, int * reply_len, comms_t * comms)
+int parse_general_message(unsigned char address, buffer_t * msg, buffer_t * reply, comms_t * comms)
 {
-    if(len < MINIMUM_MESSAGE_LENGTH) //minimum message length is 5 bytes (device address + register address + data + checksum)
+    if(msg->len < MINIMUM_MESSAGE_LENGTH) //minimum message length is 5 bytes (device address + register address + data + checksum)
     {
         return ERROR_MALFORMED_MESSAGE;
     }
-    uint16_t * pchecksum = (uint16_t *)(msg + len - sizeof(uint16_t));
-    uint16_t checksum = get_crc16(msg, len - sizeof(uint16_t));
+    uint16_t * pchecksum = (uint16_t *)(msg->buf + msg->len - sizeof(uint16_t));
+    uint16_t checksum = get_crc16(msg->buf, msg->len - sizeof(uint16_t));
     if(checksum != *pchecksum)
     {
         return ERROR_CHECKSUM_MISMATCH;
     }
     else
     {
-        if(msg[0] == address)
+        if(msg->buf[0] == address)
         {
-            //remove address and checksum from the message and then parse
-            msg = &(msg[1]);
-            return parse_misc_command(msg, (len-(NUM_BYTES_CHECKSUM + NUM_BYTES_ADDRESS)), reply_buf, replybuf_size, reply_len, comms);
+            return parse_misc_command(msg, reply, comms);
         }
         else
         {

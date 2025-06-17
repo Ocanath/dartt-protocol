@@ -4,11 +4,11 @@
 #include <stddef.h>
 #include "serial-comms-struct.h"
 
-
-#define NUM_BYTES_INDEX 2
-#define NUM_BYTES_CHECKSUM 2
-#define NUM_BYTES_ADDRESS 1
-#define NUM_BYTES_NON_PAYLOAD (NUM_BYTES_INDEX + NUM_BYTES_CHECKSUM + NUM_BYTES_ADDRESS)
+#define NUM_BYTES_ADDRESS sizeof(unsigned char)
+#define NUM_BYTES_INDEX sizeof(uint16_t)
+#define NUM_BYTES_NUMWORDS_READREQUEST	sizeof(uint16_t)	//for a read struct request, we send a fixed 16bit integer argument in the payload section for the readsize request
+#define NUM_BYTES_CHECKSUM sizeof(uint16_t)
+#define NUM_BYTES_NON_PAYLOAD (NUM_BYTES_ADDRESS + NUM_BYTES_INDEX + NUM_BYTES_CHECKSUM)
 #define MINIMUM_MESSAGE_LENGTH NUM_BYTES_NON_PAYLOAD
 
 //This is a fixed address that always corresponds
@@ -17,17 +17,17 @@
 
 enum {ERROR_INVALID_ARGUMENT = -4, ERROR_CHECKSUM_MISMATCH = -3, ERROR_MALFORMED_MESSAGE = -2, ADDRESS_FILTERED = -1, SERIAL_PROTOCOL_SUCCESS = 0};
 
-typedef struct data_frame_t
+typedef struct buffer_t
 {
-	unsigned char * buf;	//the actual memory
-	size_t size;	//the total size of the buffer
-	int len;	//the length of the message contained in the buffer
-}data_frame_t;
+	unsigned char * buf;
+	int size;
+	int len;
+} buffer_t;
 
-int create_misc_write_message(unsigned char address, uint16_t index, unsigned char * payload, int payload_size, unsigned char * msg_buf, int msg_buf_size);
-int create_misc_read_message(unsigned char address, uint16_t index, uint16_t num_words, unsigned char * msg_buf, int msg_buf_size);
-int parse_general_message(unsigned char address, unsigned char * msg, int len, unsigned char * reply_buf, int replybuf_size, int * reply_len, comms_t * comms);
-int parse_misc_command(unsigned char * msg, int len, unsigned char * p_replybuf, int replybuf_size, int * reply_len, comms_t * comms);
+int create_misc_write_message(unsigned char address, uint16_t index, buffer_t * payload, buffer_t * msg);
+int create_misc_read_message(unsigned char address, uint16_t index, uint16_t num_words, buffer_t * msg);
+int parse_general_message(unsigned char address, buffer_t * msg, buffer_t * reply, comms_t * comms);
+int parse_misc_command(buffer_t * msg, buffer_t * reply, comms_t * comms);
 int index_of_field(void * p_field, comms_t * comms);
 
 #endif

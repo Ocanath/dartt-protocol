@@ -9,22 +9,26 @@ void setUp(void)
 
 void test_correct_create_write_message(void)
 {	
-	int32_t value = -15127;
 	unsigned char message_buf[32] = {};
-
+	buffer_t msg = {
+			.buf = message_buf,
+			.size = sizeof(message_buf),
+			.len = 0
+	};
 
 	/* Hack/kludge to the  */
 	uint16_t index = 2;
-	
-	
-	int size = create_misc_write_message(17, index, (unsigned char *)(&value), sizeof(value), message_buf, sizeof(message_buf));
-	for(int i = 0; i < size; i++)
-	{
-		printf("%02X ", message_buf[i]);
-	}
-	printf("\r\n");
 
-	TEST_ASSERT_EQUAL(size, 4+1+2+2);
+	int32_t value = -15127;
+	buffer_t payload = {
+			.buf = (unsigned char *)&value,
+			.size = sizeof(value),
+			.len = sizeof(value)
+	};
+	
+	int size = create_misc_write_message(17, index, &payload, &msg);
+
+	TEST_ASSERT_EQUAL(4+1+2+2, size);
 	TEST_ASSERT_EQUAL(17, message_buf[0]);
 	TEST_ASSERT_EQUAL(2, message_buf[1]);
 	TEST_ASSERT_EQUAL(0, message_buf[2]);
@@ -35,8 +39,8 @@ void test_correct_create_write_message(void)
 		TEST_ASSERT_EQUAL(p_value[i], message_buf[i+3]);
 	}	
 	
-	uint16_t checksum = get_crc16(message_buf, size-2);
-	uint16_t * p_checksum = (uint16_t *)(&message_buf[size-2]);
+	uint16_t checksum = get_crc16(msg.buf, msg.len-2);
+	uint16_t * p_checksum = (uint16_t *)(&msg.buf[msg.len - 2]);
 	TEST_ASSERT_EQUAL(checksum, *p_checksum);
 
 }
@@ -44,24 +48,46 @@ void test_correct_create_write_message(void)
 void test_memory_bounds_create_write_message(void)
 {
 	unsigned char message_buf[32] = {};
-	int size = create_misc_write_message(17, 0, NULL, 0, message_buf, sizeof(message_buf));
+	buffer_t msg = {
+			.buf = message_buf,
+			.size = sizeof(message_buf),
+			.len = 0
+	};
+	int size = create_misc_write_message(17, 0, NULL, &msg);
 	TEST_ASSERT_EQUAL(0, size);
 
 	int32_t value = -15127;
-	size = create_misc_write_message(17, 0, (unsigned char *)(&value), sizeof(value), NULL, 0);
+	buffer_t payload = {
+			.buf = (unsigned char *)(&value),
+			.size = sizeof(value),
+			.len = sizeof(value)
+	};
+	size = create_misc_write_message(17, 0, &payload, NULL);
 	TEST_ASSERT_EQUAL(0, size);
 
-	size = create_misc_write_message(17, 0, NULL, 0, NULL, 0);
+	size = create_misc_write_message(17, 0, NULL, NULL);
 	TEST_ASSERT_EQUAL(0, size);
 
-	unsigned char payload[] = {0,1,2,3,4,5};
+	unsigned char payload_buf[] = {0,1,2,3,4,5};
+	payload.buf = payload_buf;
+	payload.size = sizeof(payload_buf);
+	payload.len = sizeof(payload_buf);
 	unsigned char small_message_buf[] = {0,0};
-	size = create_misc_write_message(17, 0, payload, sizeof(payload), small_message_buf, sizeof(small_message_buf));
+	msg.buf = small_message_buf;
+	msg.size = sizeof(small_message_buf);
+	msg.len = 0;
+	size = create_misc_write_message(17, 0, &payload, &msg);
 	TEST_ASSERT_EQUAL(0, size);
-		
+
 	unsigned char payload_2[] = {0,1,2,3,4,5};
+	payload.buf = payload_2;
+	payload.size = sizeof(payload_2);
+	payload.len = sizeof(payload_2);
 	unsigned char small_message_buf_2[] = {0,0,0,0,0,0};	//address, index, one byte payload, checksum
-	size = create_misc_write_message(17, 0, payload_2, sizeof(payload_2), small_message_buf_2, sizeof(small_message_buf_2));
+	msg.buf = small_message_buf_2;
+	msg.size = sizeof(small_message_buf_2);
+	msg.len = 0;
+	size = create_misc_write_message(17, 0, &payload, &msg);
 	TEST_ASSERT_EQUAL(0, size);
 }
 
@@ -69,15 +95,29 @@ void test_parse_general_message_write(void)
 {
 	comms_t comms = {};
 	unsigned char message_buf[32] = {};
+	buffer_t message = {
+			.buf = message_buf,
+			.size = sizeof(message_buf),
+			.len = 0
+	};
 	uint8_t address = 17;
 	uint16_t index = 2;// second value in the comms struct
 	int32_t value = -15127;
-	int size = create_misc_write_message(address, index, (unsigned char *)(&value), sizeof(value), message_buf, sizeof(message_buf));
+	buffer_t payload = {
+			.buf = (unsigned char *)&value,
+			.size = sizeof(value),
+			.len = sizeof(value)
+	};
+	int size = create_misc_write_message(address, index, &payload, &message);
 	
 
 	unsigned char reply_buf[32] = {};
-	int reply_len = 0;
-	int parse_result = parse_general_message(address, message_buf, size, reply_buf, sizeof(reply_buf), &reply_len, &comms);
+	buffer_t reply = {
+			.buf = reply_buf,
+			.size = sizeof(reply_buf),
+			.len = 0
+	};
+	int parse_result = parse_general_message(address, &message, &reply, &comms);
 	TEST_ASSERT_EQUAL(0, parse_result);
 	TEST_ASSERT_EQUAL(value, comms.gl_joint_theta);
 }
@@ -85,17 +125,26 @@ void test_parse_general_message_write(void)
 void test_create_misc_read_message(void)
 {
 	unsigned char message_buf[32] = {};
-	int size = create_misc_read_message(17, 1, 2, message_buf, sizeof(message_buf));
+	buffer_t message = {
+			.buf = message_buf,
+			.size = sizeof(message_buf),
+			.len = 0
+	};
+	int size = create_misc_read_message(17, 1, 2, &message);
 	TEST_ASSERT_EQUAL(size, 7);
 	TEST_ASSERT_EQUAL(17, message_buf[0]);
 
 	unsigned char too_small_message_buf[4] = {};
-	size = create_misc_read_message(17, 1, 2, too_small_message_buf, sizeof(too_small_message_buf));
+	buffer_t too_small_message = {
+			.buf = too_small_message_buf,
+			.size = sizeof(too_small_message_buf),
+			.len = 0
+	};
+	size = create_misc_read_message(17, 1, 2, &too_small_message);
 	TEST_ASSERT_EQUAL(0, size);
 
-	size = create_misc_read_message(17, 1, 2, NULL, 0);
+	size = create_misc_read_message(17, 1, 2, NULL);
 	TEST_ASSERT_EQUAL(0, size);
-
 
 	// size = create_misc_read_message(-1, -10000, -200000, -12, -124);
 	// TEST_ASSERT_EQUAL(0, size);
@@ -124,25 +173,34 @@ void test_parse_general_message_read(void)
 	uint8_t address = 17;
 
 	unsigned char message_buf[32] = {};
+	buffer_t message = {
+			.buf = message_buf,
+			.size = sizeof(message_buf),
+			.len = 0
+	};
 	unsigned char reply_buf[32] = {};
-	int reply_len = 0;
-	int size = create_misc_read_message(address, 2, 1, message_buf, sizeof(message_buf));
-	int parse_result = parse_general_message(address, message_buf, size, reply_buf, sizeof(reply_buf), &reply_len, &comms);
+	buffer_t reply = {
+			.buf = reply_buf,
+			.size = sizeof(reply_buf),
+			.len = 0
+	};
+	int size = create_misc_read_message(address, 2, 1, &message);
+	int parse_result = parse_general_message(address, &message, &reply, &comms);
 	TEST_ASSERT_EQUAL(0, parse_result);
-	TEST_ASSERT_EQUAL(7, reply_len);
+	TEST_ASSERT_EQUAL(7, reply.len);
 	TEST_ASSERT_EQUAL(MASTER_MISC_ADDRESS, reply_buf[0]);
 	int32_t * p_value = (int32_t *)(&reply_buf[1]);
 	TEST_ASSERT_EQUAL(comms.gl_joint_theta, *p_value);
-	uint16_t checksum = get_crc16(reply_buf, reply_len-2);
-	uint16_t * p_checksum = (uint16_t *)(&reply_buf[reply_len-2]);
+	uint16_t checksum = get_crc16(reply_buf, reply.len-2);
+	uint16_t * p_checksum = (uint16_t *)(&reply_buf[reply.len-2]);
 	TEST_ASSERT_EQUAL(checksum, *p_checksum);
 
 
 	// Test reading multiple fields
-	size = create_misc_read_message(address, index_of_field(&comms.gl_iq, &comms), 3, message_buf, sizeof(message_buf));
-	parse_result = parse_general_message(address, message_buf, size, reply_buf, sizeof(reply_buf), &reply_len, &comms);
+	size = create_misc_read_message(address, index_of_field(&comms.gl_iq, &comms), 3, &message);
+	parse_result = parse_general_message(address, &message, &reply, &comms);
 	TEST_ASSERT_EQUAL(0, parse_result);
-	TEST_ASSERT_EQUAL(15, reply_len);
+	TEST_ASSERT_EQUAL(15, reply.len);
 	TEST_ASSERT_EQUAL(MASTER_MISC_ADDRESS, reply_buf[0]);
 	p_value = (int32_t *)(&reply_buf[1]);
 	TEST_ASSERT_EQUAL(comms.gl_iq, *p_value);
@@ -150,8 +208,8 @@ void test_parse_general_message_read(void)
 	TEST_ASSERT_EQUAL(comms.gl_joint_theta, *p_value);
 	p_value = (int32_t *)(&reply_buf[9]);
 	TEST_ASSERT_EQUAL(comms.gl_rotor_theta, *p_value);
-	checksum = get_crc16(reply_buf, reply_len-2);
-	p_checksum = (uint16_t *)(&reply_buf[reply_len-2]);
+	checksum = get_crc16(reply_buf, reply.len-2);
+	p_checksum = (uint16_t *)(&reply_buf[reply.len-2]);
 	TEST_ASSERT_EQUAL(checksum, *p_checksum);
 	
 }
@@ -167,13 +225,24 @@ void test_general_message_read_replybuf_overflow(void)
 	uint8_t address = 17;
 
 	unsigned char message_buf[32] = {};
+	buffer_t message = {
+			.buf = message_buf,
+			.size = sizeof(message_buf),
+			.len = 0
+	};
+
 	unsigned char reply_buf[4] = {};
-	int reply_len = 0;
+	buffer_t reply = {
+			.buf = reply_buf,
+			.size = sizeof(reply_buf),
+			.len = 0
+	};
+
 		// Test reading multiple fields
-	int size = create_misc_read_message(address, index_of_field(&comms.gl_iq, &comms), 3, message_buf, sizeof(message_buf));
-	int parse_result = parse_general_message(address, message_buf, size, reply_buf, sizeof(reply_buf), &reply_len, &comms);
+	int size = create_misc_read_message(address, index_of_field(&comms.gl_iq, &comms), 3, &message);
+	int parse_result = parse_general_message(address, &message, &reply, &comms);
 	TEST_ASSERT_EQUAL(ERROR_MALFORMED_MESSAGE, parse_result);
-	TEST_ASSERT_EQUAL(0, reply_len);
+	TEST_ASSERT_EQUAL(0, reply.len);
 }
 
 /*
@@ -183,11 +252,22 @@ void test_address_filtering(void)
 {
 	comms_t comms = {};
 	unsigned char message_buf[32] = {};
+	buffer_t message = {
+			.buf = message_buf,
+			.size = sizeof(message_buf),
+			.len = 0
+	};
+
 	unsigned char reply_buf[32] = {};
-	int reply_len = 0;
+	buffer_t reply = {
+			.buf = reply_buf,
+			.size = sizeof(reply_buf),
+			.len = 0
+	};
+
 	uint8_t address = 32;
-	int size = create_misc_read_message(address, 2, 1, message_buf, sizeof(message_buf));
-	int parse_result = parse_general_message(address+1, message_buf, size, reply_buf, sizeof(reply_buf), &reply_len, &comms);
+	int size = create_misc_read_message(address, 2, 1, &message);
+	int parse_result = parse_general_message(address+1, &message, &reply, &comms);
 	TEST_ASSERT_EQUAL(ADDRESS_FILTERED, parse_result);
 }
 
