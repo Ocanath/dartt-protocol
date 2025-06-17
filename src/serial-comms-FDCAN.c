@@ -5,6 +5,7 @@
  *      Author: ocanath
  */
 #include "serial-comms-FDCAN.h"
+#include "checksum.h"
 
 /*
  * Take a 'serial write' data frame and parse it into a can struct (i.e. separate out the fields for address, ID, and checksum)
