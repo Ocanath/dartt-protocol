@@ -11,8 +11,8 @@
 
 typedef struct can_frame_t
 {
-	uint16_t id;	//loaded with the device address
-	uint16_t length;
+	uint32_t id;	//loaded with the device address
+	uint32_t length;
 	uint8_t * data;	//the can 'payload' content
 }can_frame_t;
 

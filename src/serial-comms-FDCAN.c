@@ -17,7 +17,7 @@ int create_can_frame_from_message(buffer_t * msg, can_frame_t * canframe)
 	{
 		return ERROR_INVALID_ARGUMENT;
 	}
-	canframe->id = (uint16_t)msg->buf[0]; //address is always the first argument
+	canframe->id = (uint32_t)msg->buf[0]; //address is always the first argument
     canframe->data = (uint8_t*)(&msg->buf[NUM_BYTES_ADDRESS]);	//start the data section after the address. Instead of copying the buffer, use a pointer
     canframe->length = (uint32_t)(msg->len - (NUM_BYTES_ADDRESS + NUM_BYTES_CHECKSUM));	//CRC and address are built-in for CAN, so chop them off the length
     return SERIAL_PROTOCOL_SUCCESS;
