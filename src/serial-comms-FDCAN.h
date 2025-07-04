@@ -8,6 +8,7 @@
 #ifndef SRC_SERIAL_COMMS_FDCAN_H_
 #define SRC_SERIAL_COMMS_FDCAN_H_
 #include "serial-comms.h"
+#include "serial-comms-struct.h"
 
 typedef struct can_frame_t
 {

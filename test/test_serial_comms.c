@@ -1,6 +1,7 @@
 #include "checksum.h"
 #include "serial-comms.h"
 #include "unity.h"
+#include "serial-comms-struct.h"
 
 void setUp(void)
 {
@@ -117,7 +118,7 @@ void test_parse_general_message_write(void)
 			.size = sizeof(reply_buf),
 			.len = 0
 	};
-	int parse_result = parse_general_message(address, &message, &reply, &comms);
+	int parse_result = parse_general_message(address, &message, TYPE_UART_MESSAGE, &reply, (void*)&comms, sizeof(comms_t));
 	TEST_ASSERT_EQUAL(0, parse_result);
 	TEST_ASSERT_EQUAL(value, comms.gl_joint_theta);
 }
@@ -156,9 +157,9 @@ void test_create_misc_read_message(void)
 void test_index_of_field(void)
 {
 	comms_t comms = {};
-	TEST_ASSERT_EQUAL(2, index_of_field(&comms.gl_joint_theta, &comms));
-	TEST_ASSERT_EQUAL(1, index_of_field(&comms.gl_iq, &comms));
-	TEST_ASSERT_EQUAL(0, index_of_field(&comms.motor_command_mode, &comms));
+	TEST_ASSERT_EQUAL(2, index_of_field(&comms.gl_joint_theta, (void*)&comms, sizeof(comms_t)));
+	TEST_ASSERT_EQUAL(1, index_of_field(&comms.gl_iq, (void*)&comms, sizeof(comms_t)));
+	TEST_ASSERT_EQUAL(0, index_of_field(&comms.motor_command_mode, (void*)&comms, sizeof(comms_t)));
 }
 /*
 	Test that the parse_general_message function works for a read message.
@@ -185,7 +186,7 @@ void test_parse_general_message_read(void)
 			.len = 0
 	};
 	int size = create_misc_read_message(address, 2, 1, &message);
-	int parse_result = parse_general_message(address, &message, &reply, &comms);
+	int parse_result = parse_general_message(address, &message, TYPE_UART_MESSAGE, &reply, (void*)&comms, sizeof(comms_t));
 	TEST_ASSERT_EQUAL(0, parse_result);
 	TEST_ASSERT_EQUAL(7, reply.len);
 	TEST_ASSERT_EQUAL(MASTER_MISC_ADDRESS, reply_buf[0]);
@@ -197,8 +198,8 @@ void test_parse_general_message_read(void)
 
 
 	// Test reading multiple fields
-	size = create_misc_read_message(address, index_of_field(&comms.gl_iq, &comms), 3, &message);
-	parse_result = parse_general_message(address, &message, &reply, &comms);
+	size = create_misc_read_message(address, index_of_field(&comms.gl_iq, (void*)&comms, sizeof(comms_t)), 3, &message);
+	parse_result = parse_general_message(address, &message, TYPE_UART_MESSAGE, &reply, (void*)&comms, sizeof(comms_t));
 	TEST_ASSERT_EQUAL(0, parse_result);
 	TEST_ASSERT_EQUAL(15, reply.len);
 	TEST_ASSERT_EQUAL(MASTER_MISC_ADDRESS, reply_buf[0]);
@@ -239,8 +240,8 @@ void test_general_message_read_replybuf_overflow(void)
 	};
 
 		// Test reading multiple fields
-	int size = create_misc_read_message(address, index_of_field(&comms.gl_iq, &comms), 3, &message);
-	int parse_result = parse_general_message(address, &message, &reply, &comms);
+	int size = create_misc_read_message(address, index_of_field(&comms.gl_iq, (void*)&comms, sizeof(comms_t)), 3, &message);
+	int parse_result = parse_general_message(address, &message, TYPE_UART_MESSAGE, &reply, (void*)&comms, sizeof(comms_t));
 	TEST_ASSERT_EQUAL(ERROR_MALFORMED_MESSAGE, parse_result);
 	TEST_ASSERT_EQUAL(0, reply.len);
 }
@@ -267,7 +268,7 @@ void test_address_filtering(void)
 
 	uint8_t address = 32;
 	int size = create_misc_read_message(address, 2, 1, &message);
-	int parse_result = parse_general_message(address+1, &message, &reply, &comms);
+	int parse_result = parse_general_message(address+1, &message, TYPE_UART_MESSAGE, &reply, (void*)&comms, sizeof(comms_t));
 	TEST_ASSERT_EQUAL(ADDRESS_FILTERED, parse_result);
 }
 

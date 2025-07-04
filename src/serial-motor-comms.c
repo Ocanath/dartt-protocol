@@ -1,6 +1,6 @@
 #include "serial-comms.h"
 #include "checksum.h"
-
+#include "serial-comms-struct.h"
 
 /*
 Helper function to create a motor command.

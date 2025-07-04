@@ -10,16 +10,19 @@
     Returns:
         The index of the field in the comms struct, for creating misc messages.
 */
-int index_of_field(void * p_field, comms_t * comms)
+int index_of_field(void * p_field, void * mem, size_t mem_size)
 {
     //null pointer checks
-    if(p_field == NULL || comms == NULL)
+    if(p_field == NULL || mem == NULL)
     {
         return ERROR_INVALID_ARGUMENT;
     }
-    
+    if(p_field < mem || p_field > mem + mem_size)
+    {
+        return ERROR_INVALID_ARGUMENT;
+    }
     // Ensure p_field is within the bounds of the comms struct
-    unsigned char * pbase = (unsigned char *)(comms);
+    unsigned char * pbase = (unsigned char *)(mem);
     unsigned char * p_field_nonvoid = (unsigned char *)p_field;
     
     //Check for underrun
@@ -31,7 +34,7 @@ int index_of_field(void * p_field, comms_t * comms)
     size_t offset = p_field_nonvoid - pbase;
     
     // Check if the field is actually within the struct (overrun check)
-    if(offset >= sizeof(comms_t))
+    if(offset >= mem_size)
     {
         return ERROR_INVALID_ARGUMENT;
     }
@@ -151,29 +154,39 @@ int create_misc_write_message(unsigned char address, uint16_t index, buffer_t * 
         -1 if the message is not intended for this device
         0 if the message is successfully parsed
  */
-int parse_misc_command(buffer_t * msg, buffer_t * reply, comms_t * comms)
+int parse_misc_command(buffer_t * msg, serial_message_type_t type, buffer_t * reply, void * mem, size_t mem_size)
 {
     if(msg == NULL) //  || msg->len < (NUM_BYTES_ADDRESS+NUM_BYTES_INDEX+NUM_BYTES_CHECKSUM) //message length check should have been done before we enter here
     {
         return ERROR_MALFORMED_MESSAGE;
     }
 
-    uint16_t * p_index_argument = (uint16_t *)(&msg->buf[NUM_BYTES_ADDRESS]);		//previously this function offsetted with pointer logic before entry. That is dumb. We parse the whole message now with correct offsets
-    uint16_t read_mask = *p_index_argument & 0x8000;
-    uint16_t index = *p_index_argument & 0x7FFF;
+    //TODO: finish the implementation of this, where you drop address and checksum if they're handled in hardware or by the parent protocol
+    uint32_t num_bytes_address = NUM_BYTES_ADDRESS;
+    uint32_t num_bytes_checksum = NUM_BYTES_CHECKSUM;
+    if(type != TYPE_UART_MESSAGE)
+    {
+        num_bytes_address = 0;
+        num_bytes_checksum = 0;
+    }
+
+    uint16_t index_argument;
+    index_argument = (msg->buf[NUM_BYTES_ADDRESS + 1] << 8) | msg->buf[NUM_BYTES_ADDRESS];
+    uint16_t read_mask = index_argument & 0x8000;
+    uint16_t index = index_argument & 0x7FFF;
     uint32_t byte_index = (uint32_t)(index*sizeof(uint32_t));
     
     if(read_mask == 0)    //
     {
         //write    
         int write_len = msg->len - (NUM_BYTES_ADDRESS + NUM_BYTES_INDEX + NUM_BYTES_CHECKSUM);   //We start after the index section, and go until we hit the checksum
-        if(byte_index + write_len > sizeof(comms_t))
+        if(byte_index + write_len > mem_size)
         {
             return ERROR_MALFORMED_MESSAGE;
         }
         else
         {
-            unsigned char * pcomms = (unsigned char *)(comms);
+            unsigned char * pcomms = (unsigned char *)(mem);
             pcomms = &pcomms[byte_index];
             unsigned char * pmsg = &msg->buf[NUM_BYTES_ADDRESS+NUM_BYTES_INDEX];  //skip past the index argument portion for the write payload
             for(int i = 0; i < write_len; i++)
@@ -196,13 +209,13 @@ int parse_misc_command(buffer_t * msg, buffer_t * reply, comms_t * comms)
             //read
             uint16_t * p_numread_words = (uint16_t*)(&msg->buf[NUM_BYTES_ADDRESS+NUM_BYTES_INDEX]);
             uint32_t numread_bytes = (uint32_t)(*p_numread_words * sizeof(uint32_t));
-            if(numread_bytes + byte_index > sizeof(comms_t) || (numread_bytes + NUM_BYTES_CHECKSUM + NUM_BYTES_ADDRESS) > reply->size)	//pre-check size once
+            if(numread_bytes + byte_index > mem_size || (numread_bytes + NUM_BYTES_CHECKSUM + NUM_BYTES_ADDRESS) > reply->size)	//pre-check size once
             {
                 return ERROR_MALFORMED_MESSAGE;
             }
             else
             {
-                unsigned char * p_comms = (unsigned char *)comms;
+                unsigned char * p_comms = (unsigned char *)mem;
                 int bidx = 0;
 
                 //first byte is the master address (all replies go to master)
@@ -232,7 +245,7 @@ int parse_misc_command(buffer_t * msg, buffer_t * reply, comms_t * comms)
 /*
     Use the message protocol without splitting behavior based on address.
 */
-int parse_general_message(unsigned char address, buffer_t * msg, buffer_t * reply, comms_t * comms)
+int parse_general_message(unsigned char address, buffer_t * msg, serial_message_type_t type, buffer_t * reply, void * mem, size_t mem_size)
 {
     if(msg->len < MINIMUM_MESSAGE_LENGTH) //minimum message length is 5 bytes (device address + register address + data + checksum)
     {
@@ -248,7 +261,7 @@ int parse_general_message(unsigned char address, buffer_t * msg, buffer_t * repl
     {
         if(msg->buf[0] == address)
         {
-            return parse_misc_command(msg, reply, comms);
+            return parse_misc_command(msg, type, reply, mem, mem_size);
         }
         else
         {

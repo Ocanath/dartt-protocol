@@ -2,7 +2,6 @@
 #define SERIAL_COMMS_H
 #include <stdint.h>
 #include <stddef.h>
-#include "serial-comms-struct.h"
 
 #define NUM_BYTES_ADDRESS sizeof(unsigned char)
 #define NUM_BYTES_INDEX sizeof(uint16_t)
@@ -17,6 +16,8 @@
 
 enum {ERROR_INVALID_ARGUMENT = -4, ERROR_CHECKSUM_MISMATCH = -3, ERROR_MALFORMED_MESSAGE = -2, ADDRESS_FILTERED = -1, SERIAL_PROTOCOL_SUCCESS = 0};
 
+typedef enum {TYPE_UART_MESSAGE = 0, TYPE_CAN_MESSAGE = 1} serial_message_type_t;	
+
 typedef struct buffer_t
 {
 	unsigned char * buf;
@@ -26,9 +27,9 @@ typedef struct buffer_t
 
 int create_misc_write_message(unsigned char address, uint16_t index, buffer_t * payload, buffer_t * msg);
 int create_misc_read_message(unsigned char address, uint16_t index, uint16_t num_words, buffer_t * msg);
-int parse_general_message(unsigned char address, buffer_t * msg, buffer_t * reply, comms_t * comms);
-int parse_misc_command(buffer_t * msg, buffer_t * reply, comms_t * comms);
-int index_of_field(void * p_field, comms_t * comms);
+int parse_general_message(unsigned char address, buffer_t * msg, serial_message_type_t type, buffer_t * reply, void * mem, size_t mem_size);
+int parse_misc_command(buffer_t * msg, serial_message_type_t type, buffer_t * reply, void * mem, size_t mem_size);
+int index_of_field(void * p_field, void * mem, size_t mem_size);
 
 #endif
 
