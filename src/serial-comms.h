@@ -30,6 +30,7 @@ typedef struct misc_message_t
 	uint8_t address;	//the address
 	uint16_t index;	//MSB is read (1) / write (0)
 	buffer_t * payload;	//the content of the messasge
+	//the checksum is computed in the message loader function, iff the hardware doesn't support it inherently. Therefore it is considered 'user alterable' data and not part of the message structure.
 }misc_message_t;
 
 
