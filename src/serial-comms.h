@@ -25,6 +25,15 @@ typedef struct buffer_t
 	int len;
 } buffer_t;
 
+typedef struct misc_message_t
+{
+	uint8_t address;	//the address
+	uint16_t index;	//MSB is read (1) / write (0)
+	buffer_t * payload;	//the content of the messasge
+}misc_message_t;
+
+
+
 int create_misc_write_message(unsigned char address, uint16_t index, buffer_t * payload, buffer_t * msg);
 int create_misc_read_message(unsigned char address, uint16_t index, uint16_t num_words, buffer_t * msg);
 int parse_general_message(unsigned char address, buffer_t * msg, serial_message_type_t type, buffer_t * reply, void * mem, size_t mem_size);
