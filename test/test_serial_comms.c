@@ -361,6 +361,14 @@ void test_misc_message_to_serial_buf(void)
 		TEST_ASSERT_EQUAL(0x11, output.buf[0]);
 		TEST_ASSERT_EQUAL(output.len, NUM_BYTES_NON_PAYLOAD);
 		TEST_ASSERT_EQUAL(1, (output.buf[2] & 0x80)>> 7);
+		uint16_t val = 0;
+		unsigned char * pval = &val;
+		for(int i = 0; i < sizeof(uint16_t); i++)
+		{
+			pval[i] = output.buf[output.len-2+i];
+		}
+		uint16_t checksum = get_crc16(output.buf, output.len-2);
+		TEST_ASSERT_EQUAL(checksum, val);
 	}
 
 	{	//sad path test - write message - memory overrun
