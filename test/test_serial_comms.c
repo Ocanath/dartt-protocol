@@ -272,10 +272,32 @@ void test_address_filtering(void)
 	TEST_ASSERT_EQUAL(ADDRESS_FILTERED, parse_result);
 }
 
+void test_set_rw_and_index(void)
+{
+	unsigned char buf[5] = {};
+	misc_message_t msg = {
+		.address = 0x11,
+		.rw_index = 0,
+		.payload = {
+			.buf = buf,
+			.len = 0,
+			.size = sizeof(buf)
+		}
+	};
+	set_rw(&msg, READ_MESSAGE);
+	TEST_ASSERT_EQUAL(READ_WRITE_BITMASK, msg.rw_index);
+	set_index(&msg, 10);
+	TEST_ASSERT_EQUAL(READ_WRITE_BITMASK | 10, msg.rw_index);
+	set_rw(&msg, WRITE_MESSAGE);
+	TEST_ASSERT_EQUAL(10, msg.rw_index);
+	msg.rw_index = 0x0123;
+	set_rw(&msg, READ_MESSAGE);
+	TEST_ASSERT_EQUAL(READ_WRITE_BITMASK | 0x0123, msg.rw_index);
+}
 
 void test_misc_message_to_serial_buf(void)
 {
-	{	//happy path test
+	{	//happy path test - write message
 		unsigned char msgbuf[] = {1,2,3,4,5,6};
 		misc_message_t msg = {
 			.address = 0x45,
@@ -313,5 +335,47 @@ void test_misc_message_to_serial_buf(void)
 		}
 		uint16_t checksum = get_crc16(output.buf, output.len-2);
 		TEST_ASSERT_EQUAL(checksum, val);
+	}
+	{	//happy path test -- read message
+		unsigned char buf[5] = {};
+		misc_message_t msg = {
+			.address = 0x11,
+			.rw_index = 0,
+			.payload = {
+				.buf = buf,
+				.len = 0,
+				.size = sizeof(buf)
+			}
+		};
+		set_rw(&msg, READ_MESSAGE);
+		TEST_ASSERT_EQUAL(READ_WRITE_BITMASK, msg.rw_index);
+		unsigned char outputbuf[32] = {};
+		buffer_t output = {
+			.buf = outputbuf,
+			.len = 0,
+			.size = sizeof(outputbuf)
+		};
+		misc_message_to_serial_buf(&msg, TYPE_UART_MESSAGE, &output);
+	}
+
+	{	//sad path test - write message - memory overrun
+		unsigned char msgbuf[] = {1,2,3,4,5,6};
+		misc_message_t msg = {
+			.address = 0x45,
+			.rw_index = 0x0123,
+			.payload = {
+				.buf = msgbuf,
+				.len = sizeof(msgbuf),
+				.size = sizeof(msgbuf)
+			}
+		};
+		unsigned char outpubuf[] = {1,2};
+		buffer_t output = {
+			.buf = outpubuf,
+			.len = 0,
+			.size = sizeof(outpubuf)
+		};
+		int rc = misc_message_to_serial_buf(&msg, TYPE_UART_MESSAGE, &output);
+		TEST_ASSERT_EQUAL(ERROR_MEMORY_OVERRUN, rc);
 	}
 }

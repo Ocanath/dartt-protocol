@@ -60,7 +60,9 @@ typedef struct misc_message_t
 	//the checksum is computed in the message loader function, iff the hardware doesn't support it inherently. Therefore it is considered 'user alterable' data and not part of the message structure.
 }misc_message_t;
 
-
+int set_rw(misc_message_t * msg, read_write_type_t read_write);
+int set_index(misc_message_t * msg, uint16_t index);
+int misc_message_to_serial_buf(misc_message_t * msg, serial_message_type_t type, buffer_t * output);
 
 int create_misc_write_message(unsigned char address, uint16_t index, buffer_t * payload, buffer_t * msg);
 int create_misc_read_message(unsigned char address, uint16_t index, uint16_t num_words, buffer_t * msg);
