@@ -349,13 +349,18 @@ void test_misc_message_to_serial_buf(void)
 		};
 		set_rw(&msg, READ_MESSAGE);
 		TEST_ASSERT_EQUAL(READ_WRITE_BITMASK, msg.rw_index);
+		set_index(&msg, 10);
 		unsigned char outputbuf[32] = {};
 		buffer_t output = {
 			.buf = outputbuf,
 			.len = 0,
 			.size = sizeof(outputbuf)
 		};
-		misc_message_to_serial_buf(&msg, TYPE_UART_MESSAGE, &output);
+		int rc = misc_message_to_serial_buf(&msg, TYPE_UART_MESSAGE, &output);
+		TEST_ASSERT_EQUAL(SERIAL_PROTOCOL_SUCCESS, rc);
+		TEST_ASSERT_EQUAL(0x11, output.buf[0]);
+		TEST_ASSERT_EQUAL(output.len, NUM_BYTES_NON_PAYLOAD);
+		TEST_ASSERT_EQUAL(1, (output.buf[2] & 0x80)>> 7);
 	}
 
 	{	//sad path test - write message - memory overrun
