@@ -1,5 +1,8 @@
 {
 	"files.associations": {
-		"unity.h": "c"
+		"unity.h": "c",
+		"serial-comms.h": "c",
+		"checksum.h": "c",
+		"stdint.h": "c"
 	}
 }

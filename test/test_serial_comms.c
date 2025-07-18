@@ -273,3 +273,45 @@ void test_address_filtering(void)
 }
 
 
+void test_misc_message_to_serial_buf(void)
+{
+	{	//happy path test
+		unsigned char msgbuf[] = {1,2,3,4,5,6};
+		misc_message_t msg = {
+			.address = 0x45,
+			.rw_index = 0x0123,
+			.payload = {
+				.buf = msgbuf,
+				.len = sizeof(msgbuf),
+				.size = sizeof(msgbuf)
+			}
+		};
+		unsigned char outpubuf[] = {1,2,3,4,5,6,7,8,9,10,11,12};
+		buffer_t output = {
+			.buf = outpubuf,
+			.len = 0,
+			.size = sizeof(outpubuf)
+		};
+		int rc = misc_message_to_serial_buf(&msg, TYPE_UART_MESSAGE, &output);
+		TEST_ASSERT_EQUAL(SERIAL_PROTOCOL_SUCCESS, rc);
+		TEST_ASSERT_EQUAL(0x45, output.buf[0]);
+		TEST_ASSERT_EQUAL(sizeof(msgbuf)+NUM_BYTES_NON_PAYLOAD, output.len);
+		uint16_t val = 0;
+		unsigned char * pval = &val;
+		for(int i = 0; i < sizeof(uint16_t); i++)
+		{
+			pval[i] = output.buf[i+1];
+		}
+		TEST_ASSERT_EQUAL(0x0123, val);
+		for(int i = 0; i < sizeof(msgbuf); i++)
+		{
+			TEST_ASSERT_EQUAL(msgbuf[i], output.buf[i+3]);
+		}
+		for(int i = 0; i < sizeof(uint16_t); i++)
+		{
+			pval[i] = output.buf[i+output.len-2];
+		}
+		uint16_t checksum = get_crc16(output.buf, output.len-2);
+		TEST_ASSERT_EQUAL(checksum, val);
+	}
+}

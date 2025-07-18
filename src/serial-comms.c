@@ -144,14 +144,16 @@ int misc_message_to_serial_buf(misc_message_t * msg, serial_message_type_t type,
 		//implement little-endian loading op for maximum portability. we always use little endian due to mainly using this on little endian systems.
 		output->buf[bidx++] = (unsigned char)(msg->rw_index & 0x00FF);	
 		output->buf[bidx++] = (unsigned char)((msg->rw_index & 0xFF00) >> 8);	
-		if(msg->rw_index & READ_WRITE_BITMASK == 0)	//iff this is a write message, we need to copy the msg->payload. Otherwise we can fall through and simply load the crc, then exit
+		if((msg->rw_index & READ_WRITE_BITMASK) == 0)	//iff this is a write message, we need to copy the msg->payload. Otherwise we can fall through and simply load the crc, then exit
 		{
 			for(int i = 0; i < msg->payload.len; i++)
 			{
 				output->buf[bidx++] = msg->payload.buf[i];
 			}
 		}
-		output->buf[bidx++] = get_crc16(output->buf, bidx);
+		uint16_t checksum = get_crc16(output->buf, bidx);
+		output->buf[bidx++] = (unsigned char)(checksum & 0x00FF);	
+		output->buf[bidx++] = (unsigned char)((checksum & 0xFF00) >> 8);	
 		output->len = bidx;
 		return SERIAL_PROTOCOL_SUCCESS;
 	}

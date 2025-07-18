@@ -2,13 +2,22 @@
     "version": "2.0.0",
     "tasks": [
         {
-            "label": "build",
+            "label": "build_ceedling_test",
             "type": "shell",
-            "command": "cmake --build ${workspaceFolder}/build --config Debug",
+            "command": "ceedling",
+            "args": [
+                "test",
+                "${fileBasenameNoExtension}"
+            ],
             "group": {
                 "kind": "build",
                 "isDefault": true
-            }
+            },
+            "presentation": {
+                "reveal": "always",
+                "panel": "new"
+            },
+            "problemMatcher": "$gcc"
         }
     ]
-} 
+}
