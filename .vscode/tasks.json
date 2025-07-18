@@ -6,8 +6,7 @@
             "type": "shell",
             "command": "ceedling",
             "args": [
-                "test",
-                "${fileBasenameNoExtension}"
+                "test:${fileBasenameNoExtension}"
             ],
             "group": {
                 "kind": "build",
