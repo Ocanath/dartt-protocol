@@ -118,7 +118,7 @@ void test_parse_general_message_write(void)
 			.size = sizeof(reply_buf),
 			.len = 0
 	};
-	int parse_result = parse_general_message(address, &message, TYPE_UART_MESSAGE, &reply, (void*)&comms, sizeof(comms_t));
+	int parse_result = parse_general_message(address, &message, TYPE_SERIAL_MESSAGE, &reply, (void*)&comms, sizeof(comms_t));
 	TEST_ASSERT_EQUAL(0, parse_result);
 	TEST_ASSERT_EQUAL(value, comms.gl_joint_theta);
 }
@@ -186,7 +186,7 @@ void test_parse_general_message_read(void)
 			.len = 0
 	};
 	int size = create_misc_read_message(address, 2, 1, &message);
-	int parse_result = parse_general_message(address, &message, TYPE_UART_MESSAGE, &reply, (void*)&comms, sizeof(comms_t));
+	int parse_result = parse_general_message(address, &message, TYPE_SERIAL_MESSAGE, &reply, (void*)&comms, sizeof(comms_t));
 	TEST_ASSERT_EQUAL(0, parse_result);
 	TEST_ASSERT_EQUAL(7, reply.len);
 	TEST_ASSERT_EQUAL(MASTER_MISC_ADDRESS, reply_buf[0]);
@@ -199,7 +199,7 @@ void test_parse_general_message_read(void)
 
 	// Test reading multiple fields
 	size = create_misc_read_message(address, index_of_field(&comms.gl_iq, (void*)&comms, sizeof(comms_t)), 3, &message);
-	parse_result = parse_general_message(address, &message, TYPE_UART_MESSAGE, &reply, (void*)&comms, sizeof(comms_t));
+	parse_result = parse_general_message(address, &message, TYPE_SERIAL_MESSAGE, &reply, (void*)&comms, sizeof(comms_t));
 	TEST_ASSERT_EQUAL(0, parse_result);
 	TEST_ASSERT_EQUAL(15, reply.len);
 	TEST_ASSERT_EQUAL(MASTER_MISC_ADDRESS, reply_buf[0]);
@@ -241,7 +241,7 @@ void test_general_message_read_replybuf_overflow(void)
 
 		// Test reading multiple fields
 	int size = create_misc_read_message(address, index_of_field(&comms.gl_iq, (void*)&comms, sizeof(comms_t)), 3, &message);
-	int parse_result = parse_general_message(address, &message, TYPE_UART_MESSAGE, &reply, (void*)&comms, sizeof(comms_t));
+	int parse_result = parse_general_message(address, &message, TYPE_SERIAL_MESSAGE, &reply, (void*)&comms, sizeof(comms_t));
 	TEST_ASSERT_EQUAL(ERROR_MALFORMED_MESSAGE, parse_result);
 	TEST_ASSERT_EQUAL(0, reply.len);
 }
@@ -268,7 +268,7 @@ void test_address_filtering(void)
 
 	uint8_t address = 32;
 	int size = create_misc_read_message(address, 2, 1, &message);
-	int parse_result = parse_general_message(address+1, &message, TYPE_UART_MESSAGE, &reply, (void*)&comms, sizeof(comms_t));
+	int parse_result = parse_general_message(address+1, &message, TYPE_SERIAL_MESSAGE, &reply, (void*)&comms, sizeof(comms_t));
 	TEST_ASSERT_EQUAL(ADDRESS_FILTERED, parse_result);
 }
 
@@ -314,7 +314,7 @@ void test_misc_message_to_serial_buf(void)
 			.len = 0,
 			.size = sizeof(outpubuf)
 		};
-		int rc = misc_message_to_serial_buf(&msg, TYPE_UART_MESSAGE, &output);
+		int rc = misc_message_to_serial_buf(&msg, TYPE_SERIAL_MESSAGE, &output);
 		TEST_ASSERT_EQUAL(SERIAL_PROTOCOL_SUCCESS, rc);
 		TEST_ASSERT_EQUAL(0x45, output.buf[0]);
 		TEST_ASSERT_EQUAL(sizeof(msgbuf)+NUM_BYTES_NON_PAYLOAD, output.len);
@@ -356,7 +356,7 @@ void test_misc_message_to_serial_buf(void)
 			.len = 0,
 			.size = sizeof(outputbuf)
 		};
-		int rc = misc_message_to_serial_buf(&msg, TYPE_UART_MESSAGE, &output);
+		int rc = misc_message_to_serial_buf(&msg, TYPE_SERIAL_MESSAGE, &output);
 		TEST_ASSERT_EQUAL(SERIAL_PROTOCOL_SUCCESS, rc);
 		TEST_ASSERT_EQUAL(0x11, output.buf[0]);
 		TEST_ASSERT_EQUAL(output.len, NUM_BYTES_NON_PAYLOAD);
@@ -388,7 +388,7 @@ void test_misc_message_to_serial_buf(void)
 			.len = 0,
 			.size = sizeof(outpubuf)
 		};
-		int rc = misc_message_to_serial_buf(&msg, TYPE_UART_MESSAGE, &output);
+		int rc = misc_message_to_serial_buf(&msg, TYPE_SERIAL_MESSAGE, &output);
 		TEST_ASSERT_EQUAL(ERROR_MEMORY_OVERRUN, rc);
 	}
 }

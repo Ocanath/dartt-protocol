@@ -132,7 +132,7 @@ int misc_message_to_serial_buf(misc_message_t * msg, serial_message_type_t type,
 	{
 		return ERROR_INVALID_ARGUMENT;
 	}
-	if(type == TYPE_UART_MESSAGE)
+	if(type == TYPE_SERIAL_MESSAGE)
 	{
 		if( (msg->payload.len + NUM_BYTES_NON_PAYLOAD) > output->size)	//we'll write an address, two index, and a crc. Precheck for overrun
 		{
@@ -157,7 +157,11 @@ int misc_message_to_serial_buf(misc_message_t * msg, serial_message_type_t type,
 		output->len = bidx;
 		return SERIAL_PROTOCOL_SUCCESS;
 	}
-	else	//fall through to simple payload copying if you aren't a UART message. This can be handled outside this function trivially in a true CAN implementation for speed
+    else if(type == TYPE_ADDR_MESSAGE)
+    {
+        
+    }
+	else if(type == TYPE_ADDR_CRC_MESSAGE)	//fall through to simple payload copying if you aren't a UART message. This can be handled outside this function trivially in a true CAN implementation for speed
 	{
 		if(msg->payload.len > output->size)
 		{
@@ -192,7 +196,99 @@ int misc_message_to_serial_buf(misc_message_t * msg, serial_message_type_t type,
  */
 int serial_buf_to_misc_message(buffer_t * input, serial_message_type_t type, buffer_t * mem_base, misc_message_t * msg)
 {
-	
+    if(input == NULL || msg == NULL)
+    {
+        return ERROR_INVALID_ARGUMENT;
+    }
+    if(input->len == 0)
+    {
+        return ERROR_MALFORMED_MESSAGE;
+    }
+
+    int input_len = input->len; //create local ref to the end of the input messsage, so we can truncate off the crc if
+    int bidx = 0;
+	if(type == TYPE_SERIAL_MESSAGE)
+    {
+        if(input_len < NUM_BYTES_NON_PAYLOAD)
+        {
+            return ERROR_MALFORMED_MESSAGE;
+        }
+        //iff there is an address present, load it from the message
+        msg->address = input->buf[bidx++];
+    }
+    else if(type == TYPE_ADDR_MESSAGE)
+    {
+        if(input_len < NUM_BYTES_INDEX + NUM_BYTES_CHECKSUM)
+        {
+            return ERROR_MEMORY_OVERRUN;
+        }
+    }
+    else if(type == TYPE_ADDR_CRC_MESSAGE)
+    {
+        if(input->len < NUM_BYTES_INDEX)
+        {
+            return ERROR_MEMORY_OVERRUN;
+        }
+    }
+    else
+    {
+        return ERROR_INVALID_ARGUMENT;
+    }
+
+    if(type == TYPE_SERIAL_MESSAGE || type == TYPE_ADDR_MESSAGE)    //if we have a message type that expects a CRC, perform CRC filtering and removal from input message
+    {
+        uint16_t input_crc = 0;
+        input_crc |= (uint16_t)(input->buf[input_len - NUM_BYTES_CHECKSUM]);
+        input_crc |= ((uint16_t)input->buf[input_len - NUM_BYTES_CHECKSUM]) << 8;
+        uint16_t crc = get_checksum16(input->buf, input_len - NUM_BYTES_CHECKSUM);
+        if(crc != input_crc)
+        {
+            return ERROR_CHECKSUM_MISMATCH;
+        }
+        input_len -= NUM_BYTES_CHECKSUM;  //truncate off the checksum via local copy (preserve original input buffer data)
+    }
+
+    
+    msg->rw_index = 0;
+    msg->rw_index |= (uint16_t)(input->buf[bidx++]);
+    msg->rw_index |= ((uint16_t)(input->buf[bidx++]) << 8);
+    uint16_t index = msg->rw_index & (~READ_WRITE_BITMASK);
+
+
+    if(mem_base->buf != NULL)
+    {
+        if(msg->payload.buf == NULL && msg->payload.size == 0) //if you have a valid mem_base, the msg payload MUST be empty and uninitialized
+        {
+            size_t offset = index * sizeof(uint32_t);
+            if(offset >= mem_base->size)
+            {
+                return ERROR_MEMORY_OVERRUN;
+            }
+            msg->payload.buf = mem_base->buf + offset;
+            msg->payload.size = mem_base->size - offset; //must be at least 1
+        }
+        else
+        {
+            return ERROR_INVALID_ARGUMENT;
+        }
+    }
+    else if(msg->payload.buf == NULL)
+    {
+        return ERROR_INVALID_ARGUMENT;
+    }
+    size_t payload_size = (size_t)(input_len - bidx);
+    if(payload_size > msg->payload.size)
+    {
+        return ERROR_MEMORY_OVERRUN;
+    }
+
+    msg->payload.len = 0;
+    for(int i = 0; i < payload_size; i++)
+    {
+        msg->payload.buf[i - bidx] = input->buf[i];
+        msg->payload.len++;
+    }
+    return SERIAL_PROTOCOL_SUCCESS;
 }
 
 /*
@@ -267,7 +363,7 @@ int parse_misc_command(buffer_t * input, serial_message_type_t type, buffer_t * 
     //TODO: finish the implementation of this, where you drop address and checksum if they're handled in hardware or by the parent protocol
     uint32_t num_bytes_address = NUM_BYTES_ADDRESS;
     uint32_t num_bytes_checksum = NUM_BYTES_CHECKSUM;
-    if(type != TYPE_UART_MESSAGE)
+    if(type != TYPE_SERIAL_MESSAGE)
     {
         num_bytes_address = 0;
         num_bytes_checksum = 0;

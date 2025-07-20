@@ -41,14 +41,23 @@
 
 enum {ERROR_MEMORY_OVERRUN = -5, ERROR_INVALID_ARGUMENT = -4, ERROR_CHECKSUM_MISMATCH = -3, ERROR_MALFORMED_MESSAGE = -2, ADDRESS_FILTERED = -1, SERIAL_PROTOCOL_SUCCESS = 0};
 
-typedef enum {TYPE_UART_MESSAGE = 0, TYPE_CAN_MESSAGE = 1} serial_message_type_t;	
+/*
+ * Flags to capture byte field definitions for different physical and link layer protocols,
+ 	such as UART, CAN, FDCAN, UDP, SPI, and I2C.
+ */
+typedef enum 
+{
+	TYPE_SERIAL_MESSAGE = 0, 	//raw serial bytes. Must include our own address filtering and CRC appending. Examples: UART, RS485, RS232
+	TYPE_ADDR_CRC_MESSAGE = 1,	//built-in address filtering and CRC filtering. Flag the message preparation software to not expect these fields in the byte stream. Examples: CAN, UDP
+	TYPE_ADDR_MESSAGE = 2,	//built-in addressing but no CRC. Examples: SPI, I2C
+} serial_message_type_t;	
 
 typedef enum {WRITE_MESSAGE, READ_MESSAGE} read_write_type_t;
 
 typedef struct buffer_t
 {
 	unsigned char * buf;
-	int size;
+	size_t size;
 	int len;
 } buffer_t;
 
