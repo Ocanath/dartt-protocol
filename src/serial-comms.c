@@ -289,56 +289,61 @@ int parse_base_serial_message(buffer_t * input_buffer_base, buffer_t * mem_base,
     type: the message type
     dest: location to copy the reply contents to (similar to mem in slave parse)
 */
-int parse_read_reply(buffer_t input, serial_message_type_t type, buffer_t * dest)
+int parse_read_reply(buffer_t * input, serial_message_type_t type, buffer_t * dest)
 {     
-    if(dest == NULL)
+    if(dest == NULL || input == NULL)
     {
         return ERROR_INVALID_ARGUMENT;
     }
-    if(dest->size == 0)
+    if(dest->size == 0 || input->size == 0 || dest->buf == NULL || input->buf == NULL)
     {
         return ERROR_INVALID_ARGUMENT;
     }
 
+    buffer_t input_cpy = {  
+        .buf = input->buf,
+        .size = input->size,
+        .len = input->len
+    };
     
     if(type == TYPE_SERIAL_MESSAGE || type == TYPE_ADDR_MESSAGE)    //crc filtering if relevant
     {
-        if(input.len <= NUM_BYTES_CHECKSUM)
+        if(input_cpy.len <= NUM_BYTES_CHECKSUM)
         {
             return ERROR_MALFORMED_MESSAGE;
         }
-        uint16_t crc = get_crc16(input.buf, input.len - NUM_BYTES_CHECKSUM);
+        uint16_t crc = get_crc16(input_cpy.buf, input_cpy.len - NUM_BYTES_CHECKSUM);
         uint16_t msg_crc = 0;
-        msg_crc |= (uint16_t)(input.buf[input.len - 2]);
-        msg_crc |= (((uint16_t)(input.buf[input.len - 1])) << 8);
+        msg_crc |= (uint16_t)(input_cpy.buf[input_cpy.len - 2]);
+        msg_crc |= (((uint16_t)(input_cpy.buf[input_cpy.len - 1])) << 8);
         if(crc != msg_crc)
         {
             return ERROR_CHECKSUM_MISMATCH;
         }
-        input.len -= NUM_BYTES_CHECKSUM;
+        input_cpy.len -= NUM_BYTES_CHECKSUM;
     }
     if(type == TYPE_SERIAL_MESSAGE)     //address filtering if relevant
     {
-        if(input.len <= NUM_BYTES_ADDRESS)  //input.len now must be greater or equal to 2 for a valid message. CRC may have been removed
+        if(input_cpy.len <= NUM_BYTES_ADDRESS)  //input.len now must be greater or equal to 2 for a valid message. CRC may have been removed
         {
             return ERROR_MALFORMED_MESSAGE;
         }
-        unsigned char addr = input.buf[0];
+        unsigned char addr = input_cpy.buf[0];
         if(addr != MASTER_MISC_ADDRESS)
         {
             return ADDRESS_FILTERED;
         }
-        input.buf++;
-        input.len--;
+        input_cpy.buf++;
+        input_cpy.len--;
     }
-    if(input.len > dest->size)
+    if(input_cpy.len > dest->size)
     {
         return ERROR_MEMORY_OVERRUN;
     }
     dest->len = 0;
-    for(int i = 0; i < input.len; i++)
+    for(int i = 0; i < input_cpy.len; i++)
     {
-        dest->buf[dest->len++] = input.buf[i];
+        dest->buf[dest->len++] = input_cpy.buf[i];
     }
     return SERIAL_PROTOCOL_SUCCESS;
 
