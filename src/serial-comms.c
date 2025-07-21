@@ -56,6 +56,7 @@ int index_of_field(void * p_field, void * mem, size_t mem_size)
  */
 int check_write_args(misc_write_message_t * msg, serial_message_type_t type, buffer_t * output)
 {
+    assert(type == TYPE_SERIAL_MESSAGE || type == TYPE_ADDR_MESSAGE || type == TYPE_ADDR_CRC_MESSAGE);
     if(msg == NULL || output == NULL)
     {
         return ERROR_INVALID_ARGUMENT;
@@ -96,6 +97,7 @@ int check_write_args(misc_write_message_t * msg, serial_message_type_t type, buf
 
 int misc_write_message_to_serial_buf(misc_write_message_t * msg, serial_message_type_t type, buffer_t * output)
 {
+    assert(type == TYPE_SERIAL_MESSAGE || type == TYPE_ADDR_MESSAGE || type == TYPE_ADDR_CRC_MESSAGE);
     assert(check_write_args(msg,type,output) == SERIAL_PROTOCOL_SUCCESS);  //assert to save on runtime execution
 
     //prepare the serial buffer
@@ -127,6 +129,7 @@ pre-checked arguments.
 */
 int check_read_args(misc_read_message_t * msg, serial_message_type_t type, buffer_t * output)
 {
+    assert(type == TYPE_SERIAL_MESSAGE || type == TYPE_ADDR_MESSAGE || type == TYPE_ADDR_CRC_MESSAGE);
     if(msg == NULL || output == NULL)
     {
         return ERROR_INVALID_ARGUMENT;
@@ -169,6 +172,7 @@ int check_read_args(misc_read_message_t * msg, serial_message_type_t type, buffe
  */
 int misc_read_message_to_serial_buf(misc_read_message_t * msg, serial_message_type_t type, buffer_t * output)
 {
+    assert(type == TYPE_SERIAL_MESSAGE || type == TYPE_ADDR_MESSAGE || type == TYPE_ADDR_CRC_MESSAGE);
     assert(check_read_args(msg,type,output) == SERIAL_PROTOCOL_SUCCESS);
     output->len = 0;
     if(type == TYPE_SERIAL_MESSAGE)
@@ -212,21 +216,16 @@ int misc_read_message_to_serial_buf(misc_read_message_t * msg, serial_message_ty
 */
 int parse_base_serial_message(buffer_t * input_buffer_base, buffer_t * mem_base, buffer_t * reply_base)
 {
-    if(input_buffer_base == NULL || mem_base == NULL || reply_base == NULL)
-    {
-        return ERROR_INVALID_ARGUMENT;
-    }
-    //critical check 
-    if(input_buffer_base->len <= NUM_BYTES_INDEX || input_buffer_base->size <= NUM_BYTES_INDEX)   //if write, it must contain at least one byte of payload. If read, it must contain exactly two additional bytes of read size
+    assert(input_buffer_base != NULL && mem_base != NULL && reply_base != NULL);
+    assert(input_buffer_base->buf != NULL && mem_base->buf != NULL && reply_base->buf != NULL);
+    assert(input_buffer_base->size > NUM_BYTES_INDEX && mem_base->size > 0 && reply_base->size > 0);
+    assert(input_buffer_base->len <= input_buffer_base->size && mem_base->len <= mem_base->size && reply_base->len <= reply_base->size);
+    
+    //critical check - keep as runtime since this is data-dependent
+    if(input_buffer_base->len <= NUM_BYTES_INDEX)   //if write, it must contain at least one byte of payload. If read, it must contain exactly two additional bytes of read size
     {
         return ERROR_MALFORMED_MESSAGE;
     }
-
-    // //optional checks - basic buffer_t construction
-    // if(input_buffer_base->len > input_buffer_base->size || mem_base->len > mem_base->size || reply_base->len > reply_base->size)  //is this really necessary
-    // {
-    //     return ERROR_INVALID_ARGUMENT;
-    // }
 
     size_t bidx = 0;
     uint16_t rw_index = 0;
@@ -284,6 +283,35 @@ int parse_base_serial_message(buffer_t * input_buffer_base, buffer_t * mem_base,
 }
 
 /*
+    Helper function to validate the crc in a buffer_t, which is always the last two bytes of the message
+    if present.
+ */
+int validate_crc(buffer_t * input)
+{
+    assert(input != NULL);
+    assert(input->buf != NULL);
+    assert(input->size != 0);
+    assert(input->len <= input->size);
+    if(input->len <= NUM_BYTES_CHECKSUM)
+    {
+        return ERROR_INVALID_ARGUMENT;
+    }
+    uint16_t crc = get_crc16(input->buf, input->len - NUM_BYTES_CHECKSUM);
+    uint16_t m_crc = 0;
+    unsigned char * pchecksum = input->buf + (input->len - NUM_BYTES_CHECKSUM);
+    m_crc |= (uint16_t)pchecksum[0];
+    m_crc |= ((uint16_t)pchecksum[1]) << 8;
+    if(m_crc == crc)
+    {
+        return SERIAL_PROTOCOL_SUCCESS;
+    }
+    else
+    {
+        return ERROR_CHECKSUM_MISMATCH;
+    }
+}
+
+/*
     Master function to parse slave reply.
     input: the input buffer/message. This can be of any serial_message_type_t
     type: the message type
@@ -303,17 +331,10 @@ int parse_read_reply(buffer_t * input, serial_message_type_t type, buffer_t * de
     
     if(type == TYPE_SERIAL_MESSAGE || type == TYPE_ADDR_MESSAGE)    //crc filtering if relevant
     {
-        if(input_cpy.len <= NUM_BYTES_CHECKSUM)
+        int rc = validate_crc(&input_cpy);
+        if(rc != SERIAL_PROTOCOL_SUCCESS)
         {
-            return ERROR_MALFORMED_MESSAGE;
-        }
-        uint16_t crc = get_crc16(input_cpy.buf, input_cpy.len - NUM_BYTES_CHECKSUM);
-        uint16_t msg_crc = 0;
-        msg_crc |= (uint16_t)(input_cpy.buf[input_cpy.len - 2]);
-        msg_crc |= (((uint16_t)(input_cpy.buf[input_cpy.len - 1])) << 8);
-        if(crc != msg_crc)
-        {
-            return ERROR_CHECKSUM_MISMATCH;
+            return rc;
         }
         input_cpy.len -= NUM_BYTES_CHECKSUM;
     }
@@ -345,127 +366,47 @@ int parse_read_reply(buffer_t * input, serial_message_type_t type, buffer_t * de
 }
 
 /*
-    Arguments:
-        input: the message buffer, excluding address and checksum. If byte stuffing is used, this must be the unstuffed message.
-        len: the length of the message
-        comms: the global comms struct
-    Returns:
-        -2 if the message is malformed
-        -1 if the message is not intended for this device
-        0 if the message is successfully parsed
- */
-int parse_misc_command(buffer_t * input, serial_message_type_t type, buffer_t * reply, void * mem, size_t mem_size)
-{
-    if(input == NULL) //  || input->len < (NUM_BYTES_ADDRESS+NUM_BYTES_INDEX+NUM_BYTES_CHECKSUM) //message length check should have been done before we enter here
-    {
-        return ERROR_MALFORMED_MESSAGE;
-    }
-
-    //TODO: finish the implementation of this, where you drop address and checksum if they're handled in hardware or by the parent protocol
-    uint32_t num_bytes_address = NUM_BYTES_ADDRESS;
-    uint32_t num_bytes_checksum = NUM_BYTES_CHECKSUM;
-    if(type != TYPE_SERIAL_MESSAGE)
-    {
-        num_bytes_address = 0;
-        num_bytes_checksum = 0;
-    }
-
-    uint16_t index_argument;
-    index_argument = (input->buf[NUM_BYTES_ADDRESS + 1] << 8) | input->buf[NUM_BYTES_ADDRESS];
-    uint16_t read_mask = index_argument & READ_WRITE_BITMASK;
-    uint16_t index = index_argument & 0x7FFF;
-    uint32_t byte_index = (uint32_t)(index*sizeof(uint32_t));
-    
-    if(read_mask == 0)    //
-    {
-        //write    
-        int write_len = input->len - (NUM_BYTES_ADDRESS + NUM_BYTES_INDEX + NUM_BYTES_CHECKSUM);   //We start after the index section, and go until we hit the checksum
-        if(byte_index + write_len > mem_size)
-        {
-            return ERROR_MALFORMED_MESSAGE;
-        }
-        else
-        {
-            unsigned char * pcomms = (unsigned char *)(mem);
-            pcomms = &pcomms[byte_index];
-            unsigned char * pinput = &input->buf[NUM_BYTES_ADDRESS+NUM_BYTES_INDEX];  //skip past the index argument portion for the write payload
-            for(int i = 0; i < write_len; i++)
-            {
-                pcomms[i] = pinput[i];
-            }
-            reply->len = 0;
-            return SERIAL_PROTOCOL_SUCCESS;
-        }
-    }
-    else
-    {
-        //read
-        if( (input->len != (NUM_BYTES_ADDRESS + NUM_BYTES_INDEX + NUM_BYTES_NUMWORDS_READREQUEST + NUM_BYTES_CHECKSUM) ) || reply == NULL)
-        {
-            return ERROR_MALFORMED_MESSAGE;
-        }
-        else
-        {
-            //read
-            uint16_t * p_numread_words = (uint16_t*)(&input->buf[NUM_BYTES_ADDRESS+NUM_BYTES_INDEX]);
-            uint32_t numread_bytes = (uint32_t)(*p_numread_words * sizeof(uint32_t));
-            if(numread_bytes + byte_index > mem_size || (numread_bytes + NUM_BYTES_CHECKSUM + NUM_BYTES_ADDRESS) > reply->size)	//pre-check size once
-            {
-                return ERROR_MALFORMED_MESSAGE;
-            }
-            else
-            {
-                unsigned char * p_comms = (unsigned char *)mem;
-                int bidx = 0;
-
-                //first byte is the master address (all replies go to master)
-                reply->buf[bidx++] = MASTER_MISC_ADDRESS;
-
-                //next n bytes get loaded into the payload
-                for(int i = 0; i < numread_bytes; i++)
-                {
-                    reply->buf[bidx++] = p_comms[byte_index + i];
-                }   
-
-                //final 2 bytes get checksum
-                uint16_t checksum = get_crc16(reply->buf, bidx);
-                unsigned char * p_checksum = (unsigned char *)(&checksum);
-                reply->buf[bidx++] = p_checksum[0];
-                reply->buf[bidx++] = p_checksum[1];
-
-                //load reply len for serial transmission
-                reply->len = bidx;
-
-                return SERIAL_PROTOCOL_SUCCESS;
-            }
-        }
-    }
-}
-
-/*
     Use the message protocol without splitting behavior based on address.
 */
-int parse_general_message(unsigned char address, buffer_t * input, serial_message_type_t type, buffer_t * reply, void * mem, size_t mem_size)
+int parse_general_message(unsigned char address, buffer_t * input, serial_message_type_t type, buffer_t * mem_base, buffer_t * reply)
 {
-    if(input->len < MINIMUM_MESSAGE_LENGTH) //minimum message length is 5 bytes (device address + register address + data + checksum)
+    assert(input != NULL && mem_base != NULL && reply != NULL);
+    assert(input->buf != NULL && mem_base->buf != NULL && reply->buf != NULL);
+    assert(input->size != 0 && mem_base->size != 0 && reply->size != 0);
+    assert(input->len <= input->size && mem_base->len < mem_base->size && reply->len < reply->size);   
+
+    buffer_t input_cpy = {
+        .buf = input->buf,
+        .size = input->size,
+        .len = input->len
+    };
+
+    if(type == TYPE_SERIAL_MESSAGE || type == TYPE_ADDR_MESSAGE)
     {
-        return ERROR_MALFORMED_MESSAGE;
-    }
-    uint16_t * pchecksum = (uint16_t *)(input->buf + input->len - sizeof(uint16_t));
-    uint16_t checksum = get_crc16(input->buf, input->len - sizeof(uint16_t));
-    if(checksum != *pchecksum)
-    {
-        return ERROR_CHECKSUM_MISMATCH;
-    }
-    else
-    {
-        if(input->buf[0] == address)
+        if(input_cpy.len <= (NUM_BYTES_CHECKSUM + NUM_BYTES_INDEX))    //message has to have room for a checksum, an index, and at least one additional byte
         {
-            return parse_misc_command(input, type, reply, mem, mem_size);
+            return ERROR_MALFORMED_MESSAGE;
         }
-        else
+        int rc = validate_crc(&input_cpy);
+        if(rc != SERIAL_PROTOCOL_SUCCESS)
+        {
+            return rc;
+        }
+        input_cpy.len -= NUM_BYTES_CHECKSUM;
+    }
+    if(type == TYPE_SERIAL_MESSAGE)     //address filtering if relevant
+    {
+        if(input_cpy.len <= NUM_BYTES_ADDRESS)  //input.len now must be greater or equal to 2 for a valid message. CRC may have been removed
+        {
+            return ERROR_MALFORMED_MESSAGE;
+        }
+        unsigned char addr = input_cpy.buf[0];
+        if(addr != MASTER_MISC_ADDRESS)
         {
             return ADDRESS_FILTERED;
         }
+        input_cpy.buf++;
+        input_cpy.len--;
     }
+
 }

@@ -94,7 +94,7 @@ typedef struct misc_reply_t
 
 int create_misc_write_message(unsigned char address, uint16_t index, buffer_t * payload, buffer_t * msg);
 int create_misc_read_message(unsigned char address, uint16_t index, uint16_t num_words, buffer_t * msg);
-int parse_general_message(unsigned char address, buffer_t * msg, serial_message_type_t type, buffer_t * reply, void * mem, size_t mem_size);
+int parse_general_message(unsigned char address, buffer_t * input, serial_message_type_t type, buffer_t * mem_base, buffer_t * reply);
 int parse_misc_command(buffer_t * msg, serial_message_type_t type, buffer_t * reply, void * mem, size_t mem_size);
 int index_of_field(void * p_field, void * mem, size_t mem_size);
 
