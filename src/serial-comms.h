@@ -62,6 +62,33 @@ typedef struct buffer_t
 } buffer_t;
 
 /*
+	Containter struct for base protocol messages.
+	address: the address of the associated message
+	msg: the base message, stripped of any address and crc information.
+		-if a motor message, this is a custom format designed to be very tight/fast
+		-if a general message, this follows the [r][index][nbytes]/[w][index][payload] pattern.
+	reply: if there is a reply, it will be contained in this buffer_t
+*/
+typedef struct payload_layer_msg_t
+{
+	unsigned char address;
+	buffer_t msg;
+} payload_layer_msg_t;
+
+/*
+	Contatiner struct for frame layer messages.
+	Depending on type, these will have:
+		TYPE_SERIAL_MESSAGE: address (byte 0) - crc (last two bytes)
+		TYPE_ADDR_MESSAGE: crc (last two bytes)
+		TYPE_ADDR_CRC_MESSAGE: neither address nor crc - the frame_msg contents are equal to the payload layer contents
+*/
+// typedef struct frame_layer_msg_t
+// {
+// 	serial_message_type_t type;
+// 	buffer_t * ser_msg;
+// }frame_layer_msg_t;
+
+/*
 Master write message/write request
  */
 typedef struct misc_write_message_t
@@ -101,7 +128,7 @@ typedef struct misc_reply_t
 
 int create_misc_write_message(unsigned char address, uint16_t index, buffer_t * payload, buffer_t * msg);
 int create_misc_read_message(unsigned char address, uint16_t index, uint16_t num_words, buffer_t * msg);
-int parse_general_message(unsigned char address, buffer_t * input, serial_message_type_t type, buffer_t * mem_base, buffer_t * reply);
+int parse_general_message(payload_layer_msg_t * pld_msg, serial_message_type_t type, buffer_t * mem_base, buffer_t * reply);
 int parse_misc_command(buffer_t * msg, serial_message_type_t type, buffer_t * reply, void * mem, size_t mem_size);
 int index_of_field(void * p_field, void * mem, size_t mem_size);
 

@@ -57,7 +57,7 @@ int create_write_struct_mem_message(void * pstart, size_t num_bytes, comms_t * p
  * */
 int create_read_struct_mem_message(void * pstart, size_t num_words, comms_t * pcomm, buffer_t * msg)
 {
-	int idx = index_of_field(pstart, pcomm);
+	int idx = index_of_field(pstart, pcomm, sizeof(comms_t));
 	if(idx < 0)
 	{
 		return idx;

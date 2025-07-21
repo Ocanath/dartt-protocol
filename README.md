@@ -123,3 +123,11 @@ Write Message:
     Full Serial: [Byte 0: address][Bytes 1-2: read/write bit (MSB), index (low 15)][Bytes 3 - (N-3): payload][Bytes (N-2)-(N-1): checksum]
 
 ```
+
+
+### Protocol Definition:
+``` 
+This protocol has a layered structure. 
+
+It is designed to have a flexible and easy to implement custom Application layer. The Application layer consists of an address On embedded systems, the application layer can be implemented with typedef structs (with packed attributes for different types), or
+can be made standard-compliant with pointer arithmetic. The Application layer is simply implemented on a block of protected memory, which is written to and read from via the Payload layer. 

@@ -18,7 +18,7 @@ int index_of_field(void * p_field, void * mem, size_t mem_size)
     {
         return ERROR_INVALID_ARGUMENT;
     }
-    if(p_field < mem || p_field > mem + mem_size)
+    if(p_field < mem || p_field > (void*)(mem + mem_size))
     {
         return ERROR_INVALID_ARGUMENT;
     }
@@ -95,7 +95,7 @@ int check_write_args(misc_write_message_t * msg, serial_message_type_t type, buf
     return SERIAL_PROTOCOL_SUCCESS;
 }
 
-int misc_write_message_to_serial_buf(misc_write_message_t * msg, serial_message_type_t type, buffer_t * output)
+int create_write_frame(misc_write_message_t * msg, serial_message_type_t type, buffer_t * output)
 {
     assert(check_write_args(msg,type,output) == SERIAL_PROTOCOL_SUCCESS);  //assert to save on runtime execution
     assert(type == TYPE_SERIAL_MESSAGE || type == TYPE_ADDR_MESSAGE || type == TYPE_ADDR_CRC_MESSAGE);
@@ -170,7 +170,7 @@ int check_read_args(misc_read_message_t * msg, serial_message_type_t type, buffe
 
 /*
  */
-int misc_read_message_to_serial_buf(misc_read_message_t * msg, serial_message_type_t type, buffer_t * output)
+int create_read_frame(misc_read_message_t * msg, serial_message_type_t type, buffer_t * output)
 {
     assert(check_read_args(msg,type,output) == SERIAL_PROTOCOL_SUCCESS);
     assert(type == TYPE_SERIAL_MESSAGE || type == TYPE_ADDR_MESSAGE || type == TYPE_ADDR_CRC_MESSAGE);
@@ -215,34 +215,34 @@ int misc_read_message_to_serial_buf(misc_read_message_t * msg, serial_message_ty
             -can use similar logic to handle the input adjustments, with local buffer_t's. that allows you 
             to leave the original buffer_t's untouched, for a small RAM cost, while eliminating O(n) shifting
 */
-int parse_base_serial_message(buffer_t * input_buffer_base, buffer_t * mem_base, buffer_t * reply_base)
+int parse_base_serial_message(payload_layer_msg_t* pld_msg, buffer_t * mem_base, buffer_t * reply_base)
 {
-    assert(input_buffer_base != NULL && mem_base != NULL && reply_base != NULL);
-    assert(input_buffer_base->buf != NULL && mem_base->buf != NULL && reply_base->buf != NULL);
-    assert(input_buffer_base->size > NUM_BYTES_INDEX && mem_base->size > 0 && reply_base->size > 0);
-    assert(input_buffer_base->len <= input_buffer_base->size && mem_base->len <= mem_base->size && reply_base->len <= reply_base->size);
+    assert(pld_msg != NULL && mem_base != NULL && reply_base != NULL);
+    assert(pld_msg->msg.buf != NULL && mem_base->buf != NULL && reply_base->buf != NULL);
+    assert(pld_msg->msg.size > NUM_BYTES_INDEX && mem_base->size > 0 && reply_base->size > 0);
+    assert(pld_msg->msg.len <= pld_msg->msg.size && mem_base->len <= mem_base->size && reply_base->len <= reply_base->size);
     
     //critical check - keep as runtime since this is data-dependent
-    if(input_buffer_base->len <= NUM_BYTES_INDEX)   //if write, it must contain at least one byte of payload. If read, it must contain exactly two additional bytes of read size
+    if(pld_msg->msg.len <= NUM_BYTES_INDEX)   //if write, it must contain at least one byte of payload. If read, it must contain exactly two additional bytes of read size
     {
         return ERROR_MALFORMED_MESSAGE;
     }
 
     size_t bidx = 0;
     uint16_t rw_index = 0;
-    rw_index |= (uint16_t)(input_buffer_base->buf[bidx++]);
-    rw_index |= (((uint16_t)(input_buffer_base->buf[bidx++])) << 8);
+    rw_index |= (uint16_t)(pld_msg->msg.buf[bidx++]);
+    rw_index |= (((uint16_t)(pld_msg->msg.buf[bidx++])) << 8);
     uint16_t rw_bit = rw_index & READ_WRITE_BITMASK;  //omit the shift and perform zero comparison for speed
     size_t word_offset = ((size_t)(rw_index & (~READ_WRITE_BITMASK)))*sizeof(uint32_t); 
     if(rw_bit != 0) //read
     {
-        if(input_buffer_base->len != NUM_BYTES_INDEX + NUM_BYTES_NUMWORDS_READREQUEST)  //read messages must have precisely this content (once addr and crc are removed, if relevant)
+        if(pld_msg->msg.len != NUM_BYTES_INDEX + NUM_BYTES_NUMWORDS_READREQUEST)  //read messages must have precisely this content (once addr and crc are removed, if relevant)
         {
             return ERROR_MALFORMED_MESSAGE;
         }
         uint16_t num_bytes = 0;
-        num_bytes |= (uint16_t)(input_buffer_base->buf[bidx++]);
-        num_bytes |= (((uint16_t)(input_buffer_base->buf[bidx++])) << 8);
+        num_bytes |= (uint16_t)(pld_msg->msg.buf[bidx++]);
+        num_bytes |= (((uint16_t)(pld_msg->msg.buf[bidx++])) << 8);
         if(num_bytes > reply_base->size)
         {
             return ERROR_MEMORY_OVERRUN;
@@ -268,8 +268,8 @@ int parse_base_serial_message(buffer_t * input_buffer_base, buffer_t * mem_base,
         //from our min length and min size checks, we know the input buffer must have both minimum size and
         //minimum length of 3, and we know that if we are here, bidx is equal to 2.
         //Therefore, it is safe to subtract bidx from len
-        unsigned char * write_ptr = input_buffer_base->buf + bidx;
-        size_t nbytes_to_write = input_buffer_base->len - bidx; //this can be 1 at minimum, and cannot underflow due to our checks above. overrun protection is guaranteed here too due to size and len checks
+        unsigned char * write_ptr = pld_msg->msg.buf + bidx;
+        size_t nbytes_to_write = pld_msg->msg.len - bidx; //this can be 1 at minimum, and cannot underflow due to our checks above. overrun protection is guaranteed here too due to size and len checks
         
         if(word_offset + nbytes_to_write > mem_base->size)
         {
@@ -392,50 +392,141 @@ int parse_read_reply(buffer_t * input, serial_message_type_t type, buffer_t * de
 }
 
 /*
-    Use the message protocol without splitting behavior based on address.
+	This function takes as input a serial message of any type, and strips away the address
+		1. validates the checksum (if applicable)
+		2. loads the address into the base protocol message (if applicable). Otherwise, it will pass through
+
+	This is a Frame Layer to Payload Layer translation function. The input is a Frame/Transport layer message
+	of any serial_message_type
 */
-int parse_general_message(unsigned char address, buffer_t * input, serial_message_type_t type, buffer_t * mem_base, buffer_t * reply)
+int frame_to_payload(buffer_t * ser_msg, serial_message_type_t type, payload_layer_msg_t * pld)
 {
-    assert(input != NULL && mem_base != NULL && reply != NULL);
-    assert(input->buf != NULL && mem_base->buf != NULL && reply->buf != NULL);
-    assert(input->size != 0 && mem_base->size != 0 && reply->size != 0);
-    assert(input->len <= input->size && mem_base->len < mem_base->size && reply->len < reply->size);   
+    assert(ser_msg != NULL && pld != NULL);
     assert(type == TYPE_SERIAL_MESSAGE || type == TYPE_ADDR_MESSAGE || type == TYPE_ADDR_CRC_MESSAGE);
+	assert(ser_msg != NULL);
+	assert(ser_msg->buf != NULL);
+	assert(ser_msg->size != 0);
+	assert(ser_msg->len != 0);
+	assert((pld->msg.buf == NULL && pld->msg.size == 0) || (pld->msg.buf != NULL && pld->msg.size != 0));
 
-    
-    if(type == TYPE_SERIAL_MESSAGE)
+	if(type == TYPE_SERIAL_MESSAGE)
     {
-        buffer_t input_cpy = {  //make a copy so we can truncate off the crc and address before passing to the core parser
-            .buf = input->buf,
-            .size = input->size,
-            .len = input->len
-        };
-
-        if(input_cpy.len <= (NUM_BYTES_ADDRESS + NUM_BYTES_CHECKSUM + NUM_BYTES_INDEX))    //message has to have room for a checksum, an index, and at least one additional byte
+		//first step - crc validation on input message
+        if(ser_msg->len <= (NUM_BYTES_ADDRESS + NUM_BYTES_CHECKSUM))    //message has to have room for a checksum, an index, and at least one additional byte
         {
             return ERROR_MALFORMED_MESSAGE;
         }
-        int rc = validate_crc(&input_cpy);
+        int rc = validate_crc(ser_msg);
+        if(rc != SERIAL_PROTOCOL_SUCCESS)
+        {
+            return rc;	//checksum must match
+        }
+
+		if(pld->msg.buf == NULL)	//unassigned. Use pointer arithmetic
+		{
+			pld->msg.buf = ser_msg->buf;
+			pld->msg.size = ser_msg->size;
+			pld->msg.len = ser_msg->len - NUM_BYTES_CHECKSUM;	
+			
+			pld->address = ser_msg->buf[0];
+			pld->msg.buf += NUM_BYTES_ADDRESS;
+			pld->msg.len -= NUM_BYTES_ADDRESS;
+			//truncate checksum off and use pointer arithmetic to load payload to addr
+		}
+		else	//
+		{
+			size_t newlen  = ser_msg->len - (NUM_BYTES_ADDRESS + NUM_BYTES_CHECKSUM);
+			if(newlen > pld->msg.size)
+			{
+				return ERROR_MEMORY_OVERRUN;
+			}
+			unsigned char * sm_start = ser_msg->buf + NUM_BYTES_ADDRESS; //skip address
+			
+			for(int i = 0; i < newlen; i++)
+			{
+				pld->msg.buf[i] = sm_start[i];
+			}
+			pld->msg.len = newlen;
+		}
+        return SERIAL_PROTOCOL_SUCCESS;
+    }
+	else if (type == TYPE_ADDR_MESSAGE)
+    {
+        if(ser_msg->len <= NUM_BYTES_CHECKSUM)    //message has to have room for a checksum, an index, and at least one additional byte
+        {
+            return ERROR_MALFORMED_MESSAGE;
+        }
+        int rc = validate_crc(ser_msg);
         if(rc != SERIAL_PROTOCOL_SUCCESS)
         {
             return rc;
         }
-        input_cpy.len -= NUM_BYTES_CHECKSUM;
+		if(pld->msg.buf == NULL)
+		{
+			pld->msg.buf = ser_msg->buf;
+			pld->msg.size = ser_msg->size;
+			pld->msg.len = (ser_msg->len - NUM_BYTES_CHECKSUM);
+		}
+		else
+		{
+			size_t newlen  = ser_msg->len - NUM_BYTES_CHECKSUM;
+			if(newlen > pld->msg.size)
+			{
+				return ERROR_MEMORY_OVERRUN;
+			}
+			for(int i = 0; i < newlen; i++)
+			{
+				pld->msg.buf[i] = ser_msg->buf[i];
+			}
+			pld->msg.len = newlen;
+		}
+        return SERIAL_PROTOCOL_SUCCESS;
+    }
+	else if(type == TYPE_ADDR_CRC_MESSAGE)
+	{
+		if(pld->msg.buf == NULL)	//use pointer arithmetic to have the pld->msg refer to the payload section of the frame layer message
+		{
+			pld->msg.buf = ser_msg->buf;
+			pld->msg.size = ser_msg->size;
+			pld->msg.len = ser_msg->len;
+		}
+		else	//make a copy
+		{
+			if(ser_msg->len > pld->msg.size)
+			{
+				return ERROR_MEMORY_OVERRUN;
+			}
+			for(int i = 0; i < ser_msg->len; i++)
+			{
+				pld->msg.buf[i] = ser_msg->buf[i];
+			}
+			pld->msg.len = ser_msg->len;
+		}
+		return SERIAL_PROTOCOL_SUCCESS;
+	}
+}
 
-        unsigned char addr = input_cpy.buf[0];
-        if(addr != MASTER_MISC_ADDRESS)
-        {
-            return ADDRESS_FILTERED;
-        }
-        input_cpy.buf++;
-        input_cpy.len--;
-        
+/*
+    Implement the general message memory write-reply behavior on a payload-layer message.
+	Loads a reply frame with the associated frame layer format (type) based on the input frame layer type.
+	Usage: call within a parent function that calls frame_to_payload, bifurcates based on address range, and calls this if it's in the misc range.
+*/
+int parse_general_message(payload_layer_msg_t * pld_msg, serial_message_type_t type, buffer_t * mem_base, buffer_t * reply)
+{
+    assert(pld_msg != NULL && mem_base != NULL && reply != NULL);
+    assert(pld_msg->msg.buf != NULL && mem_base->buf != NULL && reply->buf != NULL);
+    assert(pld_msg->msg.size != 0 && mem_base->size != 0 && reply->size != 0);
+    assert(pld_msg->msg.len <= pld_msg->msg.size && mem_base->len < mem_base->size && reply->len < reply->size);   
+    assert(type == TYPE_SERIAL_MESSAGE || type == TYPE_ADDR_MESSAGE || type == TYPE_ADDR_CRC_MESSAGE);
+	
+    if(type == TYPE_SERIAL_MESSAGE)
+    {
         buffer_t reply_cpy = {
             .buf = reply->buf + NUM_BYTES_ADDRESS,     //make room for the address, which we will load after if necessary
             .size = reply->size - 1,
             .len = 0
         };
-        rc = parse_base_serial_message(&input_cpy, mem_base, &reply_cpy);    //will copy from 1 to len. the original reply buffer is now ready for address and crc loading
+        int rc = parse_base_serial_message(pld_msg, mem_base, &reply_cpy);    //will copy from 1 to len. the original reply buffer is now ready for address and crc loading
         if(rc == SERIAL_PROTOCOL_SUCCESS && reply_cpy.len != 0)
         {
             //append address
@@ -451,24 +542,8 @@ int parse_general_message(unsigned char address, buffer_t * input, serial_messag
     }
     else if (type == TYPE_ADDR_MESSAGE)
     {
-        buffer_t input_cpy = {  //make a copy so we can truncate off the crc and address before passing to the core parser
-            .buf = input->buf,
-            .size = input->size,
-            .len = input->len
-        };
-
-        if(input_cpy.len <= (NUM_BYTES_CHECKSUM + NUM_BYTES_INDEX))    //message has to have room for a checksum, an index, and at least one additional byte
-        {
-            return ERROR_MALFORMED_MESSAGE;
-        }
-        int rc = validate_crc(&input_cpy);
-        if(rc != SERIAL_PROTOCOL_SUCCESS)
-        {
-            return rc;
-        }
-        input_cpy.len -= NUM_BYTES_CHECKSUM;
         reply->len = 0;
-        rc = parse_base_serial_message(input, mem_base, reply);
+        int rc = parse_base_serial_message(pld_msg, mem_base, reply);
         if(rc == SERIAL_PROTOCOL_SUCCESS && reply->len != 0)
         {
             return append_crc(reply);
@@ -482,11 +557,10 @@ int parse_general_message(unsigned char address, buffer_t * input, serial_messag
     }
     else if (type == TYPE_ADDR_CRC_MESSAGE)
     {
-        return parse_base_serial_message(input, mem_base, reply);   //type 3 carries the base protocol with no additional payload dressings
+        return parse_base_serial_message(pld_msg, mem_base, reply);   //type 3 carries the base protocol with no additional payload dressings
     }
     else
     {
         return ERROR_INVALID_ARGUMENT;  //should never end up here - assert should catch this. Can only happen in release builds untested in debug
     }
-    
 }
