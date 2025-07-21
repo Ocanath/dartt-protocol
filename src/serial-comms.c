@@ -403,7 +403,7 @@ int parse_general_message(unsigned char address, buffer_t * input, serial_messag
     assert(type == TYPE_SERIAL_MESSAGE || type == TYPE_ADDR_MESSAGE || type == TYPE_ADDR_CRC_MESSAGE);
 
     
-    if(type == TYPE_ADDR_MESSAGE)
+    if(type == TYPE_SERIAL_MESSAGE)
     {
         buffer_t input_cpy = {  //make a copy so we can truncate off the crc and address before passing to the core parser
             .buf = input->buf,
@@ -435,7 +435,7 @@ int parse_general_message(unsigned char address, buffer_t * input, serial_messag
             .size = reply->size - 1,
             .len = 0
         };
-        int rc = parse_base_serial_message(&input_cpy, mem_base, &reply_cpy);    //will copy from 1 to len. the original reply buffer is now ready for address and crc loading
+        rc = parse_base_serial_message(&input_cpy, mem_base, &reply_cpy);    //will copy from 1 to len. the original reply buffer is now ready for address and crc loading
         if(rc == SERIAL_PROTOCOL_SUCCESS && reply_cpy.len != 0)
         {
             //append address
@@ -468,7 +468,7 @@ int parse_general_message(unsigned char address, buffer_t * input, serial_messag
         }
         input_cpy.len -= NUM_BYTES_CHECKSUM;
         reply->len = 0;
-        int rc = parse_base_serial_message(input, mem_base, reply);
+        rc = parse_base_serial_message(input, mem_base, reply);
         if(rc == SERIAL_PROTOCOL_SUCCESS && reply->len != 0)
         {
             return append_crc(reply);

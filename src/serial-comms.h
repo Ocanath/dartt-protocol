@@ -91,6 +91,13 @@ typedef struct misc_reply_t
 	buffer_t reply;
 }misc_reply_t;
 
+// // Consider: Context struct
+// typedef struct 
+// {
+// 	unsigned char address;
+// 	serial_message_type_t type;
+// 	buffer_t * mem_base;
+// } protocol_context_t;
 
 int create_misc_write_message(unsigned char address, uint16_t index, buffer_t * payload, buffer_t * msg);
 int create_misc_read_message(unsigned char address, uint16_t index, uint16_t num_words, buffer_t * msg);
