@@ -126,11 +126,12 @@ typedef struct misc_reply_t
 // 	buffer_t * mem_base;
 // } protocol_context_t;
 
-int create_misc_write_message(unsigned char address, uint16_t index, buffer_t * payload, buffer_t * msg);
-int create_misc_read_message(unsigned char address, uint16_t index, uint16_t num_words, buffer_t * msg);
-int parse_general_message(payload_layer_msg_t * pld_msg, serial_message_type_t type, buffer_t * mem_base, buffer_t * reply);
-int parse_misc_command(buffer_t * msg, serial_message_type_t type, buffer_t * reply, void * mem, size_t mem_size);
 int index_of_field(void * p_field, void * mem, size_t mem_size);
+int create_write_frame(misc_write_message_t * msg, serial_message_type_t type, buffer_t * output);
+int create_read_frame(misc_read_message_t * msg, serial_message_type_t type, buffer_t * output);
+int frame_to_payload(buffer_t * ser_msg, serial_message_type_t type, payload_layer_msg_t * pld);
+int parse_base_serial_message(payload_layer_msg_t* pld_msg, buffer_t * mem_base, buffer_t * reply_base);
+int parse_general_message(payload_layer_msg_t * pld_msg, serial_message_type_t type, buffer_t * mem_base, buffer_t * reply);
 
 #endif
 

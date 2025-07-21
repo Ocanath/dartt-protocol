@@ -57,11 +57,14 @@ int index_of_field(void * p_field, void * mem, size_t mem_size)
  */
 int check_write_args(misc_write_message_t * msg, serial_message_type_t type, buffer_t * output)
 {
-    assert(type == TYPE_SERIAL_MESSAGE || type == TYPE_ADDR_MESSAGE || type == TYPE_ADDR_CRC_MESSAGE);
     if(msg == NULL || output == NULL)
     {
         return ERROR_INVALID_ARGUMENT;
     }
+	if(!(type == TYPE_SERIAL_MESSAGE || type == TYPE_ADDR_MESSAGE || type == TYPE_ADDR_CRC_MESSAGE))
+	{
+		return ERROR_INVALID_ARGUMENT;
+	}
     if(msg->payload.len == 0 || msg->payload.buf == NULL || output->buf == NULL)
     {
         return ERROR_INVALID_ARGUMENT;  
@@ -99,8 +102,7 @@ int check_write_args(misc_write_message_t * msg, serial_message_type_t type, buf
 int create_write_frame(misc_write_message_t * msg, serial_message_type_t type, buffer_t * output)
 {
     assert(check_write_args(msg,type,output) == SERIAL_PROTOCOL_SUCCESS);  //assert to save on runtime execution
-    assert(type == TYPE_SERIAL_MESSAGE || type == TYPE_ADDR_MESSAGE || type == TYPE_ADDR_CRC_MESSAGE);
-
+    
     //prepare the serial buffer
     output->len = 0;
     if(type == TYPE_SERIAL_MESSAGE)
@@ -130,11 +132,14 @@ pre-checked arguments.
 */
 int check_read_args(misc_read_message_t * msg, serial_message_type_t type, buffer_t * output)
 {
-    assert(type == TYPE_SERIAL_MESSAGE || type == TYPE_ADDR_MESSAGE || type == TYPE_ADDR_CRC_MESSAGE);
     if(msg == NULL || output == NULL)
     {
         return ERROR_INVALID_ARGUMENT;
     }
+	if(!(type == TYPE_SERIAL_MESSAGE || type == TYPE_ADDR_MESSAGE || type == TYPE_ADDR_CRC_MESSAGE))
+	{
+		return ERROR_INVALID_ARGUMENT;
+	}
     if(output->buf == NULL)
     {
         return ERROR_INVALID_ARGUMENT;  
