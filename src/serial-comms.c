@@ -1,4 +1,5 @@
 #include <stdint.h>
+#include <assert.h>
 #include "serial-comms.h"
 #include "checksum.h"
 
@@ -49,183 +50,39 @@ int index_of_field(void * p_field, void * mem, size_t mem_size)
 }
 
 /*
-    Create a message packet for a read operation.
-    Arguments:
-        address: the address of the device to read from
-        index: the word index (32 bit words) of the structure as your starting point for the read
-        num_words: the number of words to read
-
-*/
-int create_misc_read_message(unsigned char address, uint16_t index, uint16_t num_words, buffer_t * output)
-{
-    //basic error checking (bounds overrun, null pointer checks)
-    if(output == NULL)
-    {
-        return 0;
-    }
-    if(output->size < NUM_BYTES_ADDRESS + NUM_BYTES_INDEX + sizeof(uint16_t) + NUM_BYTES_CHECKSUM)
-    {
-        return 0;   //ensure there is enough space to load message
-    }
-    // add more bounds checking
-
-    int cur_byte_index = 0;
-    output->buf[cur_byte_index++] = address;    //byte 0 loaded
-    index = index | READ_WRITE_BITMASK; //set the read bit always
-    unsigned char * p_index_word = (unsigned char *)(&index);
-    output->buf[cur_byte_index++] = p_index_word[0];    //byte 1 loaded
-    output->buf[cur_byte_index++] = p_index_word[1];    //byte 2 loaded
-
-    unsigned char * p_num_words = (unsigned char *)(&num_words);
-    output->buf[cur_byte_index++] = p_num_words[0];    //byte 3 loaded
-    output->buf[cur_byte_index++] = p_num_words[1];    //byte 4 loaded
-
-    uint16_t checksum = get_crc16(output->buf, cur_byte_index);
-    unsigned char * p_checksum = (unsigned char *)(&checksum);
-    output->buf[cur_byte_index++] = p_checksum[0];    //byte 5 loaded
-    output->buf[cur_byte_index++] = p_checksum[1];    //byte 6 loaded
-
-    output->len = cur_byte_index;
-    return cur_byte_index;
-}
-
-/*
-	Helper function to set the read/write bit argument of the index parameter in the message_t. 
-	If paired with set_index, can be used in any order.
-	It will overwrite the MSB of the index argument.
-*/
-int set_rw(misc_message_t * msg, read_write_type_t read_write)
-{
-	if(read_write == READ_MESSAGE)
-	{
-		msg->rw_index |= READ_WRITE_BITMASK;
-	}
-	else
-	{
-		msg->rw_index &= ~READ_WRITE_BITMASK;
-	}
-	return SERIAL_PROTOCOL_SUCCESS;
-}
-
-/*
-	Helper function to load the index portion of the rw_index argument of a misc_message.
-	
-*/
-int set_index(misc_message_t * msg, uint16_t index)
-{
-	if(msg == NULL)
-	{
-		return ERROR_INVALID_ARGUMENT;
-	}
-	msg->rw_index &= READ_WRITE_BITMASK;	//zero out all bits below the R/W bit
-	msg->rw_index |= (index & (~READ_WRITE_BITMASK));	//or-in all nonzero bits of the lowest 15 bits of the argument. This effectively copies in the index without overwriting the rw bit, allowing order independent calling of these functions
-	return SERIAL_PROTOCOL_SUCCESS;
-}
-
-/*
-	Format an output buffer_t based on a serial message_t structure.
-	You must load the msg address, rw_index, and payload fields properly
-*/
-int misc_message_to_serial_buf(misc_message_t * msg, serial_message_type_t type, buffer_t * output)
-{
-	if(msg == NULL || output == NULL)
-	{
-		return ERROR_INVALID_ARGUMENT;
-	}
-	if(type == TYPE_SERIAL_MESSAGE)
-	{
-		if( (msg->payload.len + NUM_BYTES_NON_PAYLOAD) > output->size)	//we'll write an address, two index, and a crc. Precheck for overrun
-		{
-			return ERROR_MEMORY_OVERRUN;
-		}
-
-		int bidx = 0;
-		output->buf[bidx++] = msg->address;
-		//implement little-endian loading op for maximum portability. we always use little endian due to mainly using this on little endian systems.
-		output->buf[bidx++] = (unsigned char)(msg->rw_index & 0x00FF);	
-		output->buf[bidx++] = (unsigned char)((msg->rw_index & 0xFF00) >> 8);	
-		if((msg->rw_index & READ_WRITE_BITMASK) == 0)	//iff this is a write message, we need to copy the msg->payload. Otherwise we can fall through and simply load the crc, then exit
-		{
-			for(int i = 0; i < msg->payload.len; i++)
-			{
-				output->buf[bidx++] = msg->payload.buf[i];
-			}
-		}
-		uint16_t checksum = get_crc16(output->buf, bidx);
-		output->buf[bidx++] = (unsigned char)(checksum & 0x00FF);	
-		output->buf[bidx++] = (unsigned char)((checksum & 0xFF00) >> 8);	
-		output->len = bidx;
-		return SERIAL_PROTOCOL_SUCCESS;
-	}
-    else if(type == TYPE_ADDR_MESSAGE)
-    {
-        
-    }
-	else if(type == TYPE_ADDR_CRC_MESSAGE)	//fall through to simple payload copying if you aren't a UART message. This can be handled outside this function trivially in a true CAN implementation for speed
-	{
-		if(msg->payload.len > output->size)
-		{
-			return ERROR_MEMORY_OVERRUN;
-		}
-		for(int i = 0; i < msg->payload.len; i++)
-		{
-			output->buf[i] = msg->payload.buf[i];
-		}
-		output->len = msg->payload.len;
-		return SERIAL_PROTOCOL_SUCCESS;
-	}
-}
-
-/*load a misc_message_t based on a serial input buffer.
-	ARGUMENTS:
-		input: the serial message itself
-		type: flag to indicate if we need to parse out the crc and address. If it is a CAN type message the address is ignored (whatever is in msg falls through)
-		mem_base: 
-			1. 	If valid, this is treated as the 'base pointer' for the memory we're writing, asuming we are getting a write request as a reciever.
-				We will then set the msg->payload.buf pointer as an offset to mem_base and copy the payload section from the input to the target. 
-				IMPORTANT: If this is valid, msg->payload MUST be NULL
-			2. 	If invalid (NULL or ->size = 0), this is ignored. The function will then copy the payload directly to the buffer msg->payload (zero aligned). This 
-				allows us to double-buffer read messages if desired. 
-				IMPORTANT: if the intent is to use a pre-setup msg->payload, you MUST set mem_base to NULL
-		msg: the misc_message from the buffer_t
-			msg->address will contain the message address, IFF it is not a CAN type message (otherwise, the address is not touched and falls through - it is assumed to be properly loaded beforehand)
-			msg->index will contain the message index argument, including the MSB read/write bit
-			msg->payload should be invalid (NULL or ->size = 0) when this function is called if mem_base is valid - it will then be assigned to an offset from mem_base, according to the input message content
-			msg->payload should be valid (points to valid memory region) when this function is called, and the intended use is to simply make a copy of the input buffer payload.
-	Note-pointer logic does not apply to 'read' type messages. If the message type is 'read', the payload pointers are simply ignored and they fall through
+    Helper function to check the message and output buffer setups.
+    Intended use in a release build: static memory allocation for msg and output, and
+    a single call to check_write_args for all msg instances to all output instances before use.
  */
-int serial_buf_to_misc_message(buffer_t * input, serial_message_type_t type, buffer_t * mem_base, misc_message_t * msg)
+int check_write_args(misc_write_message_t * msg, serial_message_type_t type, buffer_t * output)
 {
-    if(input == NULL || msg == NULL)
+    if(msg == NULL || output == NULL)
     {
         return ERROR_INVALID_ARGUMENT;
     }
-    if(input->len == 0)
+    if(msg->payload.len == 0 || msg->payload.buf == NULL || output->buf == NULL)
     {
-        return ERROR_MALFORMED_MESSAGE;
+        return ERROR_INVALID_ARGUMENT;  
     }
 
-    int input_len = input->len; //create local ref to the end of the input messsage, so we can truncate off the crc if
-    int bidx = 0;
-	if(type == TYPE_SERIAL_MESSAGE)
+    //pre-check lengths for overrun
+    if(type == TYPE_SERIAL_MESSAGE)
     {
-        if(input_len < NUM_BYTES_NON_PAYLOAD)
-        {
-            return ERROR_MALFORMED_MESSAGE;
-        }
-        //iff there is an address present, load it from the message
-        msg->address = input->buf[bidx++];
-    }
-    else if(type == TYPE_ADDR_MESSAGE)
-    {
-        if(input_len < NUM_BYTES_INDEX + NUM_BYTES_CHECKSUM)
+        if( (msg->payload.len + (NUM_BYTES_ADDRESS + NUM_BYTES_INDEX + NUM_BYTES_CHECKSUM) ) > output->size)
         {
             return ERROR_MEMORY_OVERRUN;
         }
     }
-    else if(type == TYPE_ADDR_CRC_MESSAGE)
+    else if(type == TYPE_ADDR_MESSAGE)
     {
-        if(input->len < NUM_BYTES_INDEX)
+        if(msg->payload.len + (NUM_BYTES_INDEX + NUM_BYTES_CHECKSUM) > output->size)
+        {
+            return ERROR_MEMORY_OVERRUN;
+        }
+    }
+    else if (type == TYPE_ADDR_CRC_MESSAGE)
+    {
+        if( (msg->payload.len + NUM_BYTES_INDEX) > output->size)
         {
             return ERROR_MEMORY_OVERRUN;
         }
@@ -234,114 +91,202 @@ int serial_buf_to_misc_message(buffer_t * input, serial_message_type_t type, buf
     {
         return ERROR_INVALID_ARGUMENT;
     }
+    return SERIAL_PROTOCOL_SUCCESS;
+}
 
-    if(type == TYPE_SERIAL_MESSAGE || type == TYPE_ADDR_MESSAGE)    //if we have a message type that expects a CRC, perform CRC filtering and removal from input message
+int misc_write_message_to_serial_buf(misc_write_message_t * msg, serial_message_type_t type, buffer_t * output)
+{
+    assert(check_write_args(msg,type,output) == SERIAL_PROTOCOL_SUCCESS);  //assert to save on runtime execution
+
+    //prepare the serial buffer
+    output->len = 0;
+    if(type == TYPE_SERIAL_MESSAGE)
     {
-        uint16_t input_crc = 0;
-        input_crc |= (uint16_t)(input->buf[input_len - NUM_BYTES_CHECKSUM]);
-        input_crc |= ((uint16_t)input->buf[input_len - NUM_BYTES_CHECKSUM]) << 8;
-        uint16_t crc = get_checksum16(input->buf, input_len - NUM_BYTES_CHECKSUM);
-        if(crc != input_crc)
-        {
-            return ERROR_CHECKSUM_MISMATCH;
-        }
-        input_len -= NUM_BYTES_CHECKSUM;  //truncate off the checksum via local copy (preserve original input buffer data)
+        output->buf[output->len++] = msg->address;        
     }
-
-    
-    msg->rw_index = 0;
-    msg->rw_index |= (uint16_t)(input->buf[bidx++]);
-    msg->rw_index |= ((uint16_t)(input->buf[bidx++]) << 8);
-    uint16_t index = msg->rw_index & (~READ_WRITE_BITMASK);
-
-
-    if(mem_base->buf != NULL)
+    uint16_t rw_index = (msg->index & (~READ_WRITE_BITMASK));   //MSB = 0 for write, low 15 for index
+    output->buf[output->len++] = (unsigned char)(rw_index & 0x00FF);
+    output->buf[output->len++] = (unsigned char)((rw_index & 0xFF00) >> 8);
+    for(int i = 0; i < msg->payload.len; i++)
     {
-        if(msg->payload.buf == NULL && msg->payload.size == 0) //if you have a valid mem_base, the msg payload MUST be empty and uninitialized
-        {
-            size_t offset = index * sizeof(uint32_t);
-            if(offset >= mem_base->size)
-            {
-                return ERROR_MEMORY_OVERRUN;
-            }
-            msg->payload.buf = mem_base->buf + offset;
-            msg->payload.size = mem_base->size - offset; //must be at least 1
-        }
-        else
-        {
-            return ERROR_INVALID_ARGUMENT;
-        }
+        output->buf[output->len++] = msg->payload.buf[i];
     }
-    else if(msg->payload.buf == NULL)
+    if(type == TYPE_SERIAL_MESSAGE || type == TYPE_ADDR_MESSAGE)
     {
-        return ERROR_INVALID_ARGUMENT;
-    }
-    size_t payload_size = (size_t)(input_len - bidx);
-    if(payload_size > msg->payload.size)
-    {
-        return ERROR_MEMORY_OVERRUN;
-    }
-
-    msg->payload.len = 0;
-    for(int i = 0; i < payload_size; i++)
-    {
-        msg->payload.buf[i - bidx] = input->buf[i];
-        msg->payload.len++;
+        uint16_t crc = get_crc16(output->buf, output->len);
+        output->buf[output->len++] = (unsigned char)(crc & 0x00FF);
+        output->buf[output->len++] = (unsigned char)((crc & 0xFF00) >> 8);
     }
     return SERIAL_PROTOCOL_SUCCESS;
 }
 
 /*
-    Write message packet creation function.
-    Arguments:
-        address: the address of the device to write to
-        index: the word index (32 bit words) of the structure as your starting point for the write
-        payload: the bytes to write to the device
-        payload_size: the number of bytes of payload we are writing
-        msg_buf: the buffer containing the message
-        msg_len: the length of the message (variable, pass by pointer)
-        msg_buf_size: the size of the message buffer
-    Returns:
-        The number of bytes written to the message buffer
+Check for validity of msg,type,output combination.
+Intended use in release is to check pre-allocated memory once on init, then call with impunity with
+pre-checked arguments.
 */
-int create_misc_write_message(unsigned char address, uint16_t index, buffer_t * payload, buffer_t * output)
+int check_read_args(misc_read_message_t * msg, serial_message_type_t type, buffer_t * output)
 {
-    //basic error checking (bounds overrun, null pointer checks)
-    if(payload == NULL || output == NULL)
+    if(msg == NULL || output == NULL)
     {
-        return 0;
+        return ERROR_INVALID_ARGUMENT;
     }
-    if(output->size < (payload->len + NUM_BYTES_NON_PAYLOAD)) //fixed size
+    if(output->buf == NULL)
     {
-        return 0;
-    }
-    
-    //load the address
-    int cur_byte_index = 0;
-    output->buf[cur_byte_index++] = address;
-    
-    //load the index, clear the read bit
-    index = index & 0x7FFF;
-    unsigned char * p_index_word = (unsigned char *)(&index);
-    output->buf[cur_byte_index++] = p_index_word[0];
-    output->buf[cur_byte_index++] = p_index_word[1];
-    
-    //load the payload
-    for(int i = 0; i < payload->len; i++)
-    {
-        output->buf[cur_byte_index++] = payload->buf[i];
+        return ERROR_INVALID_ARGUMENT;  
     }
 
-    //load the checksum
-    uint16_t checksum = get_crc16(output->buf, cur_byte_index);
-    unsigned char * p_checksum = (unsigned char *)(&checksum);
-    output->buf[cur_byte_index++] = p_checksum[0];
-    output->buf[cur_byte_index++] = p_checksum[1];
-
-    output->len = cur_byte_index;
-    return cur_byte_index;
+    //pre-check lengths for overrun
+    if(type == TYPE_SERIAL_MESSAGE)
+    {
+        if( ( (NUM_BYTES_ADDRESS + NUM_BYTES_INDEX + NUM_BYTES_NUMWORDS_READREQUEST + NUM_BYTES_CHECKSUM) ) > output->size)
+        {
+            return ERROR_MEMORY_OVERRUN;
+        }
+    }
+    else if(type == TYPE_ADDR_MESSAGE)
+    {
+        if( (NUM_BYTES_INDEX + NUM_BYTES_NUMWORDS_READREQUEST + NUM_BYTES_CHECKSUM) > output->size)
+        {
+            return ERROR_MEMORY_OVERRUN;
+        }
+    }
+    else if (type == TYPE_ADDR_CRC_MESSAGE)
+    {
+        if( (NUM_BYTES_INDEX + NUM_BYTES_NUMWORDS_READREQUEST) > output->size)
+        {
+            return ERROR_MEMORY_OVERRUN;
+        }
+    }
+    else
+    {
+        return ERROR_INVALID_ARGUMENT;
+    }
+    return SERIAL_PROTOCOL_SUCCESS;
 }
 
+/*
+ */
+int misc_read_message_to_serial_buf(misc_read_message_t * msg, serial_message_type_t type, buffer_t * output)
+{
+    assert(check_read_args(msg,type,output) == SERIAL_PROTOCOL_SUCCESS);
+    output->len = 0;
+    if(type == TYPE_SERIAL_MESSAGE)
+    {
+        output->buf[output->len++] = msg->address;
+    }
+    uint16_t rw_index = msg->index | READ_WRITE_BITMASK;
+    output->buf[output->len++] = (unsigned char)(rw_index & 0x00FF);
+    output->buf[output->len++] = (unsigned char)((rw_index & 0xFF00) >> 8);
+    output->buf[output->len++] = (unsigned char)(msg->num_bytes & 0x00FF);
+    output->buf[output->len++] = (unsigned char)((msg->num_bytes & 0xFF00) >> 8);
+    if(type == TYPE_SERIAL_MESSAGE || type == TYPE_ADDR_MESSAGE)
+    {
+        uint16_t crc = get_crc16(output->buf, output->len);
+        output->buf[output->len++] = (unsigned char)(crc & 0x00FF);
+        output->buf[output->len++] = (unsigned char)((crc & 0xFF00) >> 8);
+    }    
+    return SERIAL_PROTOCOL_SUCCESS;
+}
+
+/* 
+    Slave only - parse an incoming master message and act on it
+    The input buffer contents must not include the address or crc, if relevant - it is therefore agnostic to 
+    message type. It will bifurcate based on the read-write bit. Address and CRC filtering are assumed to have 
+    been done before calling this function.
+    
+    input: input_buffer_base - the serial message, stripped of any CRC and address information
+    mem_base: buffer/pointer to the memory region we are reading and writing to
+    reply_raw: in the case of a read message, this will contain an un-framed (no address or CRC) message, ready for address+crc framing, link layer framing, and transmission
+        
+        NOTE TO FUTURE JESSE ^ when implementing the caller to this function, make sure the reply_raw buffer_t makes space for the address with pointer arithmetic.
+        i.e.:
+            buffer_t shifted_reply = {
+                .buf = reply->buf + 1
+                .size = reply->size - 1
+                .len = 0
+            };
+            parse_base_serial_message(&shifted_input, mem, &shifted_reply);
+            -can use similar logic to handle the input adjustments, with local buffer_t's. that allows you 
+            to leave the original buffer_t's untouched, for a small RAM cost, while eliminating O(n) shifting
+*/
+int parse_base_serial_message(buffer_t * input_buffer_base, buffer_t * mem_base, buffer_t * reply_raw)
+{
+    if(input_buffer_base == NULL || mem_base == NULL || reply_raw == NULL)
+    {
+        return ERROR_INVALID_ARGUMENT;
+    }
+    
+    if(input_buffer_base->len <= NUM_BYTES_INDEX || input_buffer_base->size <= NUM_BYTES_INDEX)   //if write, it must contain at least one byte of payload. If read, it must contain exactly two additional bytes of read size
+    {
+        return ERROR_MALFORMED_MESSAGE;
+    }
+
+    if(input_buffer_base->len > input_buffer_base->size || mem_base->len > mem_base->size || reply_raw->len > reply_raw->size)  //is this really necessary
+    {
+        return ERROR_INVALID_ARGUMENT;
+    }
+
+    size_t bidx = 0;
+    uint16_t rw_index = 0;
+    rw_index |= (uint16_t)(input_buffer_base->buf[bidx++]);
+    rw_index |= (((uint16_t)(input_buffer_base->buf[bidx++])) << 8);
+    uint16_t rw_bit = rw_index & READ_WRITE_BITMASK;  //omit the shift and perform zero comparison for speed
+    size_t word_offset = ((size_t)(rw_index & (~READ_WRITE_BITMASK)))*sizeof(uint32_t); 
+    if(rw_bit != 0) //read
+    {
+        if(input_buffer_base->len != NUM_BYTES_INDEX + NUM_BYTES_NUMWORDS_READREQUEST)  //read messages must have precisely this content (once addr and crc are removed, if relevant)
+        {
+            return ERROR_MALFORMED_MESSAGE;
+        }
+        uint16_t num_bytes = 0;
+        num_bytes |= (uint16_t)(input_buffer_base->buf[bidx++]);
+        num_bytes |= (((uint16_t)(input_buffer_base->buf[bidx++])) << 8);
+        if(num_bytes > reply_raw->size)
+        {
+            return ERROR_MEMORY_OVERRUN;
+        }
+
+        
+        unsigned char * cpy_ptr = mem_base->buf + word_offset;
+        if(word_offset + num_bytes > mem_base->size)
+        {
+            return ERROR_MEMORY_OVERRUN;
+        }
+
+        reply_raw->len = 0;
+        for(uint16_t i = 0; i < num_bytes; i++)
+        {
+            reply_raw->buf[reply_raw->len++] = cpy_ptr[i];
+        }
+        return SERIAL_PROTOCOL_SUCCESS;
+    }
+    else    //write
+    {
+        //from our min length and min size checks, we know the input buffer must have both minimum size and
+        //minimum length of 3, and we know that if we are here, bidx is equal to 2.
+        //Therefore, it is safe to subtract bidx from len
+        unsigned char * write_ptr = input_buffer_base->buf + bidx;
+        size_t nbytes_to_write = input_buffer_base->len - bidx; //this can be 1 at minimum, and cannot underflow due to our checks above. overrun protection is guaranteed here too due to size and len checks
+        
+        if(word_offset + nbytes_to_write > mem_base->size)
+        {
+            return ERROR_MEMORY_OVERRUN;
+        }
+        unsigned char * mem_ptr = mem_base->buf + word_offset;
+        for(int i = 0; i < nbytes_to_write; i++)
+        {
+            mem_ptr[i] = write_ptr[i];  //perform the copy
+        }
+        return SERIAL_PROTOCOL_SUCCESS;
+    }
+}
+
+/* */
+int parse_read_reply(buffer_t * input)
+{
+
+}
 
 /*
     Arguments:

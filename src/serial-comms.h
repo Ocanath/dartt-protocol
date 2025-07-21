@@ -30,7 +30,6 @@
 #define NUM_BYTES_INDEX sizeof(uint16_t)
 #define NUM_BYTES_NUMWORDS_READREQUEST	sizeof(uint16_t)	//for a read struct request, we send a fixed 16bit integer argument in the payload section for the readsize request
 #define NUM_BYTES_CHECKSUM sizeof(uint16_t)
-#define NUM_BYTES_NON_PAYLOAD (NUM_BYTES_ADDRESS + NUM_BYTES_INDEX + NUM_BYTES_CHECKSUM)
 #define MINIMUM_MESSAGE_LENGTH NUM_BYTES_NON_PAYLOAD
 
 //This is a fixed address that always corresponds
@@ -48,8 +47,8 @@ enum {ERROR_MEMORY_OVERRUN = -5, ERROR_INVALID_ARGUMENT = -4, ERROR_CHECKSUM_MIS
 typedef enum 
 {
 	TYPE_SERIAL_MESSAGE = 0, 	//raw serial bytes. Must include our own address filtering and CRC appending. Examples: UART, RS485, RS232
-	TYPE_ADDR_CRC_MESSAGE = 1,	//built-in address filtering and CRC filtering. Flag the message preparation software to not expect these fields in the byte stream. Examples: CAN, UDP
-	TYPE_ADDR_MESSAGE = 2,	//built-in addressing but no CRC. Examples: SPI, I2C
+	TYPE_ADDR_CRC_MESSAGE = 1,	//built-in address filtering and CRC filtering-no address or crc fields required in payload. Examples: CAN, UDP
+	TYPE_ADDR_MESSAGE = 2,	//built-in addressing, but no build-in CRC. CRC must be added to the payload Examples: SPI, I2C
 } serial_message_type_t;	
 
 typedef enum {WRITE_MESSAGE, READ_MESSAGE} read_write_type_t;
@@ -57,21 +56,40 @@ typedef enum {WRITE_MESSAGE, READ_MESSAGE} read_write_type_t;
 typedef struct buffer_t
 {
 	unsigned char * buf;
-	size_t size;
-	int len;
+	size_t size;	//size of the buffer
+	size_t len;	//length of the current message in the buffer, referenced to the zero index
 } buffer_t;
 
-typedef struct misc_message_t
+/*
+Master write message/write request
+ */
+typedef struct misc_write_message_t
 {
-	uint8_t address;	//the address
-	uint16_t rw_index;	//MSB is read (1) / write (0). The low 15 bits are an index argument, corresponding to a 4-byte index offset from a base pointer. memory is assumed to be 32-bit aligned
-	buffer_t payload;	//the content of the messasge
+	unsigned char address;		//slave destination address
+	uint16_t index;		//32bit-aligned index offset, where we want the payload to start writing to
+	buffer_t payload;	//the content of the message, bytewise, which we will be writing
 	//the checksum is computed in the message loader function, iff the hardware doesn't support it inherently. Therefore it is considered 'user alterable' data and not part of the message structure.
-}misc_message_t;
+}misc_write_message_t;
 
-int set_rw(misc_message_t * msg, read_write_type_t read_write);
-int set_index(misc_message_t * msg, uint16_t index);
-int misc_message_to_serial_buf(misc_message_t * msg, serial_message_type_t type, buffer_t * output);
+/*
+Master read message/read request
+ */
+typedef struct misc_read_message_t
+{
+	unsigned char address;		//slave destination address
+	uint16_t index;		//32bit-aligned index offset, where we want the payload to start reading from
+	uint16_t num_bytes;	//2^16 byte read requests at a time maximum. Not recommended to use buffers this large. 
+}misc_read_message_t;
+
+/*
+Slave reply message
+ */
+typedef struct misc_reply_t
+{
+	unsigned char address;	
+	buffer_t reply;
+}misc_reply_t;
+
 
 int create_misc_write_message(unsigned char address, uint16_t index, buffer_t * payload, buffer_t * msg);
 int create_misc_read_message(unsigned char address, uint16_t index, uint16_t num_words, buffer_t * msg);

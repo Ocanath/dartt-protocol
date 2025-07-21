@@ -116,3 +116,10 @@ int result = parse_general_message(
 
 ### DEBUGGING Unit Tests in vscode
 Open the specific test file you want to run (i.e. test_serial_comms.c) in vscode. It will attempt to debug the build artifact named for the currently opened file. Hit F5 or debug - the test will run and debugging will be enabled. You may need to pre-run ceedling test:all before debugging in order to ensure the .out artifact is up to date.
+
+### Message Structure:
+```
+Write Message:
+    Full Serial: [Byte 0: address][Bytes 1-2: read/write bit (MSB), index (low 15)][Bytes 3 - (N-3): payload][Bytes (N-2)-(N-1): checksum]
+
+```
