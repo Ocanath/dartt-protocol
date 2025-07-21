@@ -210,9 +210,9 @@ int misc_read_message_to_serial_buf(misc_read_message_t * msg, serial_message_ty
             -can use similar logic to handle the input adjustments, with local buffer_t's. that allows you 
             to leave the original buffer_t's untouched, for a small RAM cost, while eliminating O(n) shifting
 */
-int parse_base_serial_message(buffer_t * input_buffer_base, buffer_t * mem_base, buffer_t * reply_raw)
+int parse_base_serial_message(buffer_t * input_buffer_base, buffer_t * mem_base, buffer_t * reply_base)
 {
-    if(input_buffer_base == NULL || mem_base == NULL || reply_raw == NULL)
+    if(input_buffer_base == NULL || mem_base == NULL || reply_base == NULL)
     {
         return ERROR_INVALID_ARGUMENT;
     }
@@ -223,7 +223,7 @@ int parse_base_serial_message(buffer_t * input_buffer_base, buffer_t * mem_base,
     }
 
     // //optional checks - basic buffer_t construction
-    // if(input_buffer_base->len > input_buffer_base->size || mem_base->len > mem_base->size || reply_raw->len > reply_raw->size)  //is this really necessary
+    // if(input_buffer_base->len > input_buffer_base->size || mem_base->len > mem_base->size || reply_base->len > reply_base->size)  //is this really necessary
     // {
     //     return ERROR_INVALID_ARGUMENT;
     // }
@@ -243,7 +243,7 @@ int parse_base_serial_message(buffer_t * input_buffer_base, buffer_t * mem_base,
         uint16_t num_bytes = 0;
         num_bytes |= (uint16_t)(input_buffer_base->buf[bidx++]);
         num_bytes |= (((uint16_t)(input_buffer_base->buf[bidx++])) << 8);
-        if(num_bytes > reply_raw->size)
+        if(num_bytes > reply_base->size)
         {
             return ERROR_MEMORY_OVERRUN;
         }
@@ -255,10 +255,10 @@ int parse_base_serial_message(buffer_t * input_buffer_base, buffer_t * mem_base,
             return ERROR_MEMORY_OVERRUN;
         }
 
-        reply_raw->len = 0;
+        reply_base->len = 0;
         for(uint16_t i = 0; i < num_bytes; i++)
         {
-            reply_raw->buf[reply_raw->len++] = cpy_ptr[i];
+            reply_base->buf[reply_base->len++] = cpy_ptr[i];
         }
         return SERIAL_PROTOCOL_SUCCESS; //caller needs to finish the reply formatting
     }
@@ -285,20 +285,15 @@ int parse_base_serial_message(buffer_t * input_buffer_base, buffer_t * mem_base,
 
 /*
     Master function to parse slave reply.
-    input: copy of a buffer_t reference to the input buffer. This will be modified within the function scope to deal with message types (crc and address)
+    input: the input buffer/message. This can be of any serial_message_type_t
     type: the message type
     dest: location to copy the reply contents to (similar to mem in slave parse)
 */
 int parse_read_reply(buffer_t * input, serial_message_type_t type, buffer_t * dest)
 {     
-    if(dest == NULL || input == NULL)
-    {
-        return ERROR_INVALID_ARGUMENT;
-    }
-    if(dest->size == 0 || input->size == 0 || dest->buf == NULL || input->buf == NULL)
-    {
-        return ERROR_INVALID_ARGUMENT;
-    }
+    assert(dest != NULL && input != NULL);
+    assert(dest->buf != NULL && input->buf != NULL);
+    assert(dest->size > 0 && input->size > 0);
 
     buffer_t input_cpy = {  
         .buf = input->buf,
