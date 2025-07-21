@@ -216,16 +216,17 @@ int parse_base_serial_message(buffer_t * input_buffer_base, buffer_t * mem_base,
     {
         return ERROR_INVALID_ARGUMENT;
     }
-    
+    //critical check 
     if(input_buffer_base->len <= NUM_BYTES_INDEX || input_buffer_base->size <= NUM_BYTES_INDEX)   //if write, it must contain at least one byte of payload. If read, it must contain exactly two additional bytes of read size
     {
         return ERROR_MALFORMED_MESSAGE;
     }
 
-    if(input_buffer_base->len > input_buffer_base->size || mem_base->len > mem_base->size || reply_raw->len > reply_raw->size)  //is this really necessary
-    {
-        return ERROR_INVALID_ARGUMENT;
-    }
+    // //optional checks - basic buffer_t construction
+    // if(input_buffer_base->len > input_buffer_base->size || mem_base->len > mem_base->size || reply_raw->len > reply_raw->size)  //is this really necessary
+    // {
+    //     return ERROR_INVALID_ARGUMENT;
+    // }
 
     size_t bidx = 0;
     uint16_t rw_index = 0;
@@ -259,7 +260,7 @@ int parse_base_serial_message(buffer_t * input_buffer_base, buffer_t * mem_base,
         {
             reply_raw->buf[reply_raw->len++] = cpy_ptr[i];
         }
-        return SERIAL_PROTOCOL_SUCCESS;
+        return SERIAL_PROTOCOL_SUCCESS; //caller needs to finish the reply formatting
     }
     else    //write
     {
@@ -278,13 +279,68 @@ int parse_base_serial_message(buffer_t * input_buffer_base, buffer_t * mem_base,
         {
             mem_ptr[i] = write_ptr[i];  //perform the copy
         }
-        return SERIAL_PROTOCOL_SUCCESS;
+        return SERIAL_PROTOCOL_SUCCESS; //no reply, so caller doesn't need to do anything else
     }
 }
 
-/* */
-int parse_read_reply(buffer_t * input)
-{
+/*
+    Master function to parse slave reply.
+    input: copy of a buffer_t reference to the input buffer. This will be modified within the function scope to deal with message types (crc and address)
+    type: the message type
+    dest: location to copy the reply contents to (similar to mem in slave parse)
+*/
+int parse_read_reply(buffer_t input, serial_message_type_t type, buffer_t * dest)
+{     
+    if(dest == NULL)
+    {
+        return ERROR_INVALID_ARGUMENT;
+    }
+    if(dest->size == 0)
+    {
+        return ERROR_INVALID_ARGUMENT;
+    }
+
+    
+    if(type == TYPE_SERIAL_MESSAGE || type == TYPE_ADDR_MESSAGE)    //crc filtering if relevant
+    {
+        if(input.len <= NUM_BYTES_CHECKSUM)
+        {
+            return ERROR_MALFORMED_MESSAGE;
+        }
+        uint16_t crc = get_crc16(input.buf, input.len - NUM_BYTES_CHECKSUM);
+        uint16_t msg_crc = 0;
+        msg_crc |= (uint16_t)(input.buf[input.len - 2]);
+        msg_crc |= (((uint16_t)(input.buf[input.len - 1])) << 8);
+        if(crc != msg_crc)
+        {
+            return ERROR_CHECKSUM_MISMATCH;
+        }
+        input.len -= NUM_BYTES_CHECKSUM;
+    }
+    if(type == TYPE_SERIAL_MESSAGE)     //address filtering if relevant
+    {
+        if(input.len <= NUM_BYTES_ADDRESS)  //input.len now must be greater or equal to 2 for a valid message. CRC may have been removed
+        {
+            return ERROR_MALFORMED_MESSAGE;
+        }
+        unsigned char addr = input.buf[0];
+        if(addr != MASTER_MISC_ADDRESS)
+        {
+            return ADDRESS_FILTERED;
+        }
+        input.buf++;
+        input.len--;
+    }
+    if(input.len > dest->size)
+    {
+        return ERROR_MEMORY_OVERRUN;
+    }
+    dest->len = 0;
+    for(int i = 0; i < input.len; i++)
+    {
+        dest->buf[dest->len++] = input.buf[i];
+    }
+    return SERIAL_PROTOCOL_SUCCESS;
 
 }
 

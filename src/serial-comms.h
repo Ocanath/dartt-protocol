@@ -47,8 +47,9 @@ enum {ERROR_MEMORY_OVERRUN = -5, ERROR_INVALID_ARGUMENT = -4, ERROR_CHECKSUM_MIS
 typedef enum 
 {
 	TYPE_SERIAL_MESSAGE = 0, 	//raw serial bytes. Must include our own address filtering and CRC appending. Examples: UART, RS485, RS232
-	TYPE_ADDR_CRC_MESSAGE = 1,	//built-in address filtering and CRC filtering-no address or crc fields required in payload. Examples: CAN, UDP
-	TYPE_ADDR_MESSAGE = 2,	//built-in addressing, but no build-in CRC. CRC must be added to the payload Examples: SPI, I2C
+	TYPE_ADDR_MESSAGE = 1,	//built-in addressing, but no build-in CRC. CRC must be added to the payload Examples: SPI, I2C
+	TYPE_ADDR_CRC_MESSAGE = 2,	//built-in address filtering and CRC filtering-no address or crc fields required in payload. Examples: CAN, UDP
+	
 } serial_message_type_t;	
 
 typedef enum {WRITE_MESSAGE, READ_MESSAGE} read_write_type_t;
