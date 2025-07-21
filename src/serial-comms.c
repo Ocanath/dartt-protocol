@@ -56,7 +56,6 @@ int index_of_field(void * p_field, void * mem, size_t mem_size)
  */
 int check_write_args(misc_write_message_t * msg, serial_message_type_t type, buffer_t * output)
 {
-    assert(type == TYPE_SERIAL_MESSAGE || type == TYPE_ADDR_MESSAGE || type == TYPE_ADDR_CRC_MESSAGE);
     if(msg == NULL || output == NULL)
     {
         return ERROR_INVALID_ARGUMENT;
@@ -97,8 +96,8 @@ int check_write_args(misc_write_message_t * msg, serial_message_type_t type, buf
 
 int misc_write_message_to_serial_buf(misc_write_message_t * msg, serial_message_type_t type, buffer_t * output)
 {
-    assert(type == TYPE_SERIAL_MESSAGE || type == TYPE_ADDR_MESSAGE || type == TYPE_ADDR_CRC_MESSAGE);
     assert(check_write_args(msg,type,output) == SERIAL_PROTOCOL_SUCCESS);  //assert to save on runtime execution
+    assert(type == TYPE_SERIAL_MESSAGE || type == TYPE_ADDR_MESSAGE || type == TYPE_ADDR_CRC_MESSAGE);
 
     //prepare the serial buffer
     output->len = 0;
@@ -129,7 +128,6 @@ pre-checked arguments.
 */
 int check_read_args(misc_read_message_t * msg, serial_message_type_t type, buffer_t * output)
 {
-    assert(type == TYPE_SERIAL_MESSAGE || type == TYPE_ADDR_MESSAGE || type == TYPE_ADDR_CRC_MESSAGE);
     if(msg == NULL || output == NULL)
     {
         return ERROR_INVALID_ARGUMENT;
@@ -172,8 +170,9 @@ int check_read_args(misc_read_message_t * msg, serial_message_type_t type, buffe
  */
 int misc_read_message_to_serial_buf(misc_read_message_t * msg, serial_message_type_t type, buffer_t * output)
 {
-    assert(type == TYPE_SERIAL_MESSAGE || type == TYPE_ADDR_MESSAGE || type == TYPE_ADDR_CRC_MESSAGE);
     assert(check_read_args(msg,type,output) == SERIAL_PROTOCOL_SUCCESS);
+    assert(type == TYPE_SERIAL_MESSAGE || type == TYPE_ADDR_MESSAGE || type == TYPE_ADDR_CRC_MESSAGE);
+
     output->len = 0;
     if(type == TYPE_SERIAL_MESSAGE)
     {
@@ -254,11 +253,12 @@ int parse_base_serial_message(buffer_t * input_buffer_base, buffer_t * mem_base,
             return ERROR_MEMORY_OVERRUN;
         }
 
-        reply_base->len = 0;
-        for(uint16_t i = 0; i < num_bytes; i++)
+        uint16_t i;
+        for(i = 0; i < num_bytes; i++)
         {
-            reply_base->buf[reply_base->len++] = cpy_ptr[i];
+            reply_base->buf[i] = cpy_ptr[i];
         }
+        reply_base->len = i;
         return SERIAL_PROTOCOL_SUCCESS; //caller needs to finish the reply formatting
     }
     else    //write
@@ -278,6 +278,7 @@ int parse_base_serial_message(buffer_t * input_buffer_base, buffer_t * mem_base,
         {
             mem_ptr[i] = write_ptr[i];  //perform the copy
         }
+        reply_base->len = 0;    //erase the reply. Success and nonzero reply len should trigger transmission of a reply frame, and we don't reply to write messages!
         return SERIAL_PROTOCOL_SUCCESS; //no reply, so caller doesn't need to do anything else
     }
 }
@@ -312,6 +313,27 @@ int validate_crc(buffer_t * input)
 }
 
 /*
+    Helper function to append a crc to an existing buffer_t
+ */
+int append_crc(buffer_t * input)
+{
+    assert(input != NULL);
+    assert(input->buf != NULL);
+    assert(input->size != 0);
+    assert(input->len <= input->size);
+
+    if(input->len + NUM_BYTES_CHECKSUM > input->size)
+    {
+        return ERROR_MEMORY_OVERRUN;
+    }
+    uint16_t crc = get_crc16(input->buf, input->len);
+    input->buf[input->len++] = (unsigned char)(crc & 0x00FF);
+    input->buf[input->len++] = (unsigned char)((crc & 0xFF00) >> 8);
+
+    return SERIAL_PROTOCOL_SUCCESS;
+}
+
+/*
     Master function to parse slave reply.
     input: the input buffer/message. This can be of any serial_message_type_t
     type: the message type
@@ -322,6 +344,8 @@ int parse_read_reply(buffer_t * input, serial_message_type_t type, buffer_t * de
     assert(dest != NULL && input != NULL);
     assert(dest->buf != NULL && input->buf != NULL);
     assert(dest->size > 0 && input->size > 0);
+    assert(dest->len <= dest->size && input->len <= input->size);
+    assert(type == TYPE_SERIAL_MESSAGE || type == TYPE_ADDR_MESSAGE || type == TYPE_ADDR_CRC_MESSAGE);
 
     buffer_t input_cpy = {  
         .buf = input->buf,
@@ -374,15 +398,63 @@ int parse_general_message(unsigned char address, buffer_t * input, serial_messag
     assert(input->buf != NULL && mem_base->buf != NULL && reply->buf != NULL);
     assert(input->size != 0 && mem_base->size != 0 && reply->size != 0);
     assert(input->len <= input->size && mem_base->len < mem_base->size && reply->len < reply->size);   
+    assert(type == TYPE_SERIAL_MESSAGE || type == TYPE_ADDR_MESSAGE || type == TYPE_ADDR_CRC_MESSAGE);
 
-    buffer_t input_cpy = {
-        .buf = input->buf,
-        .size = input->size,
-        .len = input->len
-    };
-
-    if(type == TYPE_SERIAL_MESSAGE || type == TYPE_ADDR_MESSAGE)
+    
+    if(type == TYPE_ADDR_MESSAGE)
     {
+        buffer_t input_cpy = {  //make a copy so we can truncate off the crc and address before passing to the core parser
+            .buf = input->buf,
+            .size = input->size,
+            .len = input->len
+        };
+
+        if(input_cpy.len <= (NUM_BYTES_ADDRESS + NUM_BYTES_CHECKSUM + NUM_BYTES_INDEX))    //message has to have room for a checksum, an index, and at least one additional byte
+        {
+            return ERROR_MALFORMED_MESSAGE;
+        }
+        int rc = validate_crc(&input_cpy);
+        if(rc != SERIAL_PROTOCOL_SUCCESS)
+        {
+            return rc;
+        }
+        input_cpy.len -= NUM_BYTES_CHECKSUM;
+
+        unsigned char addr = input_cpy.buf[0];
+        if(addr != MASTER_MISC_ADDRESS)
+        {
+            return ADDRESS_FILTERED;
+        }
+        input_cpy.buf++;
+        input_cpy.len--;
+        
+        buffer_t reply_cpy = {
+            .buf = reply->buf + NUM_BYTES_ADDRESS,     //make room for the address, which we will load after if necessary
+            .size = reply->size - 1,
+            .len = 0
+        };
+        int rc = parse_base_serial_message(&input_cpy, mem_base, &reply_cpy);    //will copy from 1 to len. the original reply buffer is now ready for address and crc loading
+        if(rc == SERIAL_PROTOCOL_SUCCESS && reply_cpy.len != 0)
+        {
+            //append address
+            reply->buf[0] = MASTER_MISC_ADDRESS;
+            reply->len = reply_cpy.len + NUM_BYTES_ADDRESS; //update len now that we have the address in the base message
+            return append_crc(reply);   //the checks in this function also check for address length increase/overrun
+        }
+        else if(rc != SERIAL_PROTOCOL_SUCCESS)
+        {
+            return rc;
+        }
+        return SERIAL_PROTOCOL_SUCCESS;
+    }
+    else if (type == TYPE_ADDR_MESSAGE)
+    {
+        buffer_t input_cpy = {  //make a copy so we can truncate off the crc and address before passing to the core parser
+            .buf = input->buf,
+            .size = input->size,
+            .len = input->len
+        };
+
         if(input_cpy.len <= (NUM_BYTES_CHECKSUM + NUM_BYTES_INDEX))    //message has to have room for a checksum, an index, and at least one additional byte
         {
             return ERROR_MALFORMED_MESSAGE;
@@ -393,20 +465,26 @@ int parse_general_message(unsigned char address, buffer_t * input, serial_messag
             return rc;
         }
         input_cpy.len -= NUM_BYTES_CHECKSUM;
-    }
-    if(type == TYPE_SERIAL_MESSAGE)     //address filtering if relevant
-    {
-        if(input_cpy.len <= NUM_BYTES_ADDRESS)  //input.len now must be greater or equal to 2 for a valid message. CRC may have been removed
+        reply->len = 0;
+        int rc = parse_base_serial_message(input, mem_base, reply);
+        if(rc == SERIAL_PROTOCOL_SUCCESS && reply->len != 0)
         {
-            return ERROR_MALFORMED_MESSAGE;
+            return append_crc(reply);
         }
-        unsigned char addr = input_cpy.buf[0];
-        if(addr != MASTER_MISC_ADDRESS)
+        else if (rc != SERIAL_PROTOCOL_SUCCESS)
         {
-            return ADDRESS_FILTERED;
+            return rc;
         }
-        input_cpy.buf++;
-        input_cpy.len--;
-    }
+        return SERIAL_PROTOCOL_SUCCESS;
 
+    }
+    else if (type == TYPE_ADDR_CRC_MESSAGE)
+    {
+        return parse_base_serial_message(input, mem_base, reply);   //type 3 carries the base protocol with no additional payload dressings
+    }
+    else
+    {
+        return ERROR_INVALID_ARGUMENT;  //should never end up here - assert should catch this. Can only happen in release builds untested in debug
+    }
+    
 }
