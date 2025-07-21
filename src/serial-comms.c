@@ -18,13 +18,14 @@ int index_of_field(void * p_field, void * mem, size_t mem_size)
     {
         return ERROR_INVALID_ARGUMENT;
     }
-    if(p_field < mem || p_field > (void*)(mem + mem_size))
+	// Ensure p_field is within the bounds of the comms struct
+    unsigned char * pbase = (unsigned char *)(mem);
+    unsigned char * p_field_nonvoid = (unsigned char *)p_field;
+
+    if(p_field_nonvoid < pbase || p_field_nonvoid > (void*)(pbase + mem_size))
     {
         return ERROR_INVALID_ARGUMENT;
     }
-    // Ensure p_field is within the bounds of the comms struct
-    unsigned char * pbase = (unsigned char *)(mem);
-    unsigned char * p_field_nonvoid = (unsigned char *)p_field;
     
     //Check for underrun
     if(p_field_nonvoid < pbase)
