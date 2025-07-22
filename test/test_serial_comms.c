@@ -859,7 +859,7 @@ void test_create_read_frame(void)
 
 }
 
-void test_frame_decoding(void)
+void test_frame_to_payload(void)
 {
 	comms_t block_mem = {};
 	misc_write_message_t msg = {
@@ -913,18 +913,8 @@ void test_frame_decoding(void)
 	TEST_ASSERT_EQUAL(rc, SERIAL_PROTOCOL_SUCCESS);
 	TEST_ASSERT_EQUAL(output.buf[0], pld.address);
 	TEST_ASSERT_EQUAL(output.len, pld.msg.len + NUM_BYTES_ADDRESS + NUM_BYTES_CHECKSUM);
-	
-	comms_t slave_mem = {};
+	for(int i = 1; i < output.len - 2; i++)
 	{
-		unsigned char * p_sm = (unsigned char *)(&slave_mem);
-		unsigned char * p_mm = (unsigned char *)(&block_mem);
-		for(int i = 0; i < sizeof(slave_mem); i++)
-		{
-			p_sm[i] = 0;	//init to 0
-			TEST_ASSERT_NOT_EQUAL(p_sm[i], p_mm[i]);
-		}
+		TEST_ASSERT_EQUAL(output.buf[i], pld.msg.buf[i-1]);
 	}
-
-	
-
 }
