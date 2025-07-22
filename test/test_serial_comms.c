@@ -618,6 +618,35 @@ int write_frame_to_struct(buffer_t * input, serial_message_type_t type, misc_wri
 	return SERIAL_PROTOCOL_SUCCESS;
 }
 
+void test_write_frame_to_struct(void)
+{
+	unsigned char sermsg_buf[] = {0x12,2,3,4,5,6,0,0};
+	buffer_t buf = {
+		.buf = sermsg_buf,
+		.size = sizeof(sermsg_buf),
+		.len = 6
+	};
+	append_crc(&buf);
+	unsigned char dump[32] = {};
+	misc_write_message_t writemessage = {
+		.address = 0,
+		.index = 0,
+		.payload = {
+			.buf = dump,
+			.size = sizeof(dump),
+			.len = 0
+		}
+	};
+	int rc = write_frame_to_struct(&buf, TYPE_SERIAL_MESSAGE, &writemessage);
+	TEST_ASSERT_EQUAL(SERIAL_PROTOCOL_SUCCESS, rc);
+	TEST_ASSERT_EQUAL(0x12, writemessage.address);
+	TEST_ASSERT_EQUAL(3, writemessage.payload.len);
+	TEST_ASSERT_EQUAL(4, writemessage.payload.buf[0]);
+	TEST_ASSERT_EQUAL(5, writemessage.payload.buf[1]);
+	TEST_ASSERT_EQUAL(6, writemessage.payload.buf[2]);
+	TEST_ASSERT_EQUAL(0x0302, writemessage.index);
+}
+
 /*
 Reciprocal test function to create_read_frame - primary use case is testing create_read_frame.
  */
@@ -707,8 +736,8 @@ void test_append_crc(void)
 			.len = sizeof(mem)
 		};
 		int rc = append_crc(&buf);
+		TEST_ASSERT_EQUAL(ERROR_MEMORY_OVERRUN, rc);
 	}
-
 }
 
 void test_validate_crc(void)
@@ -781,7 +810,8 @@ void test_create_write_frame(void)
 		TEST_ASSERT_EQUAL(output.buf[0], msg.address);
 		rc = validate_crc(&output);
 		TEST_ASSERT_EQUAL(SERIAL_PROTOCOL_SUCCESS, rc);
-		
+		TEST_ASSERT_EQUAL((unsigned char)(msg.index & 0x00FF), output.buf[1]);
+		TEST_ASSERT_EQUAL( (unsigned char)((msg.index & 0x0FF00)>>8), output.buf[2]);
 		
 		payload_layer_msg_t pld = {
 			.address = 0,
