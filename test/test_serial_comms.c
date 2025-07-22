@@ -821,9 +821,33 @@ void test_create_write_frame(void)
 				.len = 0
 			}
 		};
-		rc = frame_to_payload(&output, TYPE_SERIAL_MESSAGE, &pld);
+		unsigned char chkbuf[32] = {};
+		misc_write_message_t chk_w_msg = {
+			.address=  0,
+			.index = 0,
+			.payload = {
+				.buf = chkbuf,
+				.size = sizeof(chkbuf),
+				.len = 0
+			}
+		};
+		rc = write_frame_to_struct(&output, TYPE_SERIAL_MESSAGE, &chk_w_msg);
+		TEST_ASSERT_EQUAL(msg.address, chk_w_msg.address);		
+		TEST_ASSERT_EQUAL(msg.index, chk_w_msg.index);
+		TEST_ASSERT_EQUAL(msg.payload.len, chk_w_msg.payload.len);
+		for(int i = 0; i < msg.payload.len; i++)
+		{
+			TEST_ASSERT_EQUAL(msg.payload.buf[i], chk_w_msg.payload.buf[i]);
+		}
+
+
+		rc = frame_to_payload(&output, TYPE_SERIAL_MESSAGE, &pld);	
 		TEST_ASSERT_EQUAL(rc, SERIAL_PROTOCOL_SUCCESS);
+		TEST_ASSERT_EQUAL(output.buf[0], pld.address);
+		TEST_ASSERT_EQUAL(output.len, pld.msg.len + NUM_BYTES_ADDRESS + NUM_BYTES_CHECKSUM);
 		
+		
+
 		comms_t slave_mem = {};
 		{
 			unsigned char * p_sm = (unsigned char *)(&slave_mem);
