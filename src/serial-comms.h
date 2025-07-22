@@ -132,6 +132,8 @@ int create_read_frame(misc_read_message_t * msg, serial_message_type_t type, buf
 int frame_to_payload(buffer_t * ser_msg, serial_message_type_t type, payload_layer_msg_t * pld);
 int parse_base_serial_message(payload_layer_msg_t* pld_msg, buffer_t * mem_base, buffer_t * reply_base);
 int parse_general_message(payload_layer_msg_t * pld_msg, serial_message_type_t type, buffer_t * mem_base, buffer_t * reply);
+int append_crc(buffer_t * input);
+int validate_crc(buffer_t * input);
 
 #endif
 

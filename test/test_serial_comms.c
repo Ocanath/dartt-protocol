@@ -541,8 +541,284 @@ void test_check_read_args(void)
 	}
 }
 
-// /*Test-scope only - helper */
-// int write_frame_to_struct(buffer_t * input, misc_write_message_t * msg)
-// {
-// 	return SERIAL_PROTOCOL_SUCCESS;
-// }
+/*Test-scope only - helper functions to parse frames back into structs 
+Reciprocal test function to create_write_frame - primary use case is testing create_write_frame.
+*/
+int write_frame_to_struct(buffer_t * input, serial_message_type_t type, misc_write_message_t * msg)
+{
+	if(input == NULL || msg == NULL || input->buf == NULL)
+	{
+		return ERROR_INVALID_ARGUMENT;
+	}
+	if(!(type == TYPE_SERIAL_MESSAGE || type == TYPE_ADDR_MESSAGE || type == TYPE_ADDR_CRC_MESSAGE))
+	{
+		return ERROR_INVALID_ARGUMENT;
+	}
+	
+	size_t bidx = 0;
+	
+	// Parse address if present
+	if(type == TYPE_SERIAL_MESSAGE)
+	{
+		if(input->len < NUM_BYTES_ADDRESS)
+		{
+			return ERROR_MALFORMED_MESSAGE;
+		}
+		msg->address = input->buf[bidx++];
+	}
+	else
+	{
+		msg->address = 0; // Default for non-addressed types
+	}
+	
+	// Parse index (always present)
+	if(input->len < bidx + NUM_BYTES_INDEX)
+	{
+		return ERROR_MALFORMED_MESSAGE;
+	}
+	uint16_t rw_index = 0;
+	rw_index |= (uint16_t)(input->buf[bidx++]);
+	rw_index |= (((uint16_t)(input->buf[bidx++])) << 8);
+	
+	// Check if this is actually a write frame (MSB should be 0)
+	if(rw_index & READ_WRITE_BITMASK)
+	{
+		return ERROR_MALFORMED_MESSAGE; // This is a read frame, not write
+	}
+	msg->index = rw_index;
+	
+	// Calculate expected total frame size
+	size_t expected_overhead = bidx; // address + index
+	if(type == TYPE_SERIAL_MESSAGE || type == TYPE_ADDR_MESSAGE)
+	{
+		expected_overhead += NUM_BYTES_CHECKSUM;
+	}
+	
+	if(input->len < expected_overhead)
+	{
+		return ERROR_MALFORMED_MESSAGE;
+	}
+	
+	// Calculate payload length
+	size_t payload_len = input->len - expected_overhead;
+	
+	// Validate payload fits in msg structure
+	if(payload_len > msg->payload.size)
+	{
+		return ERROR_MEMORY_OVERRUN;
+	}
+	
+	// Copy payload
+	for(size_t i = 0; i < payload_len; i++)
+	{
+		msg->payload.buf[i] = input->buf[bidx + i];
+	}
+	msg->payload.len = payload_len;
+	
+	return SERIAL_PROTOCOL_SUCCESS;
+}
+
+/*
+Reciprocal test function to create_read_frame - primary use case is testing create_read_frame.
+ */
+int read_frame_to_struct(buffer_t * input, serial_message_type_t type, misc_read_message_t * msg)
+{
+	if(input == NULL || msg == NULL || input->buf == NULL)
+	{
+		return ERROR_INVALID_ARGUMENT;
+	}
+	if(!(type == TYPE_SERIAL_MESSAGE || type == TYPE_ADDR_MESSAGE || type == TYPE_ADDR_CRC_MESSAGE))
+	{
+		return ERROR_INVALID_ARGUMENT;
+	}
+	
+	size_t bidx = 0;
+	
+	// Parse address if present
+	if(type == TYPE_SERIAL_MESSAGE)
+	{
+		if(input->len < NUM_BYTES_ADDRESS)
+		{
+			return ERROR_MALFORMED_MESSAGE;
+		}
+		msg->address = input->buf[bidx++];
+	}
+	else
+	{
+		msg->address = 0; // Default for non-addressed types
+	}
+	
+	// Calculate expected frame size
+	size_t expected_size = bidx + NUM_BYTES_INDEX + NUM_BYTES_NUMWORDS_READREQUEST;
+	if(type == TYPE_SERIAL_MESSAGE || type == TYPE_ADDR_MESSAGE)
+	{
+		expected_size += NUM_BYTES_CHECKSUM;
+	}
+	
+	if(input->len != expected_size)
+	{
+		return ERROR_MALFORMED_MESSAGE;
+	}
+	
+	// Parse index
+	uint16_t rw_index = 0;
+	rw_index |= (uint16_t)(input->buf[bidx++]);
+	rw_index |= (((uint16_t)(input->buf[bidx++])) << 8);
+	
+	// Check if this is actually a read frame (MSB should be 1)
+	if(!(rw_index & READ_WRITE_BITMASK))
+	{
+		return ERROR_MALFORMED_MESSAGE; // This is a write frame, not read
+	}
+	msg->index = rw_index & (~READ_WRITE_BITMASK); // Remove read bit
+	
+	// Parse num_bytes
+	uint16_t num_bytes = 0;
+	num_bytes |= (uint16_t)(input->buf[bidx++]);
+	num_bytes |= (((uint16_t)(input->buf[bidx++])) << 8);
+	msg->num_bytes = num_bytes;
+	
+	return SERIAL_PROTOCOL_SUCCESS;
+}
+
+
+void test_append_crc(void)
+{
+	{	//happy path 1
+		unsigned char mem[] = {1,2,3,4,0,0};
+		buffer_t buf = 
+		{
+			.buf = mem,
+			.size = sizeof(mem),
+			.len = 4
+		};
+		int rc = append_crc(&buf);
+		TEST_ASSERT_EQUAL(SERIAL_PROTOCOL_SUCCESS, rc);
+		TEST_ASSERT_EQUAL(6, buf.len);	
+		rc = validate_crc(&buf);
+		TEST_ASSERT_EQUAL(SERIAL_PROTOCOL_SUCCESS, rc);
+	}
+	{	//sad path 1
+		unsigned char mem[] = {1,2,3,4, 0, 0};
+		buffer_t buf = 
+		{
+			.buf = mem,
+			.size = sizeof(mem),
+			.len = sizeof(mem)
+		};
+		int rc = append_crc(&buf);
+	}
+
+}
+
+void test_validate_crc(void)
+{
+	{	//happy path 1
+		unsigned char mem[] = {1,2,3,4,0,0};
+		buffer_t buf = 
+		{
+			.buf = mem,
+			.size = sizeof(mem),
+			.len = 4
+		};
+		int rc = append_crc(&buf);
+		TEST_ASSERT_EQUAL(SERIAL_PROTOCOL_SUCCESS, rc);
+		TEST_ASSERT_EQUAL(6, buf.len);
+		rc = validate_crc(&buf);
+		TEST_ASSERT_EQUAL(SERIAL_PROTOCOL_SUCCESS, rc);
+	}
+	{	//sad path 1
+		unsigned char mem[] = {1,2,3,4,0,0};
+		buffer_t buf = 
+		{
+			.buf = mem,
+			.size = sizeof(mem),
+			.len = 4
+		};
+		int rc = validate_crc(&buf);
+		TEST_ASSERT_EQUAL(ERROR_CHECKSUM_MISMATCH, rc);
+	}
+}
+
+void test_create_write_frame(void)
+{
+	{	//happy path
+		comms_t block_mem = {};
+		misc_write_message_t msg = {
+			.address = 0x34,
+			.index = 3,
+			.payload = {
+				.buf = (unsigned char *)(&block_mem),
+				.size = sizeof(comms_t),
+				.len = 0
+			}
+		};	//create a message
+
+		//fill the payload with nonzero garbage
+		for(int i = 0; i < msg.payload.size; i++)
+		{
+			msg.payload.buf[i] = ((unsigned char)(i % 255))+ 1;
+		}
+
+		//point the payload to a random small section of memory
+		size_t offset = 3;
+		TEST_ASSERT_GREATER_THAN(offset, msg.payload.size);
+		msg.payload.buf += offset;
+		msg.payload.size -= offset;
+		TEST_ASSERT_GREATER_THAN(offset, msg.payload.size);
+		msg.payload.len = msg.payload.size - offset;
+		TEST_ASSERT_GREATER_THAN(1, msg.payload.len);
+
+		unsigned char msg_buf[256] = {};	//more than enough memory
+		buffer_t output = {
+			.buf = msg_buf,
+			.size = sizeof(msg),
+			.len = 0
+		};
+		int rc = create_write_frame(&msg, TYPE_SERIAL_MESSAGE, &output);
+		TEST_ASSERT_EQUAL(SERIAL_PROTOCOL_SUCCESS, rc);
+		TEST_ASSERT_EQUAL(output.len, (NUM_BYTES_ADDRESS + NUM_BYTES_INDEX + msg.payload.len + NUM_BYTES_CHECKSUM) );
+		TEST_ASSERT_EQUAL(output.buf[0], msg.address);
+		rc = validate_crc(&output);
+		TEST_ASSERT_EQUAL(SERIAL_PROTOCOL_SUCCESS, rc);
+		
+		
+		payload_layer_msg_t pld = {
+			.address = 0,
+			.msg = {	//initialize to empty. Consider helper function to load so it doesn't take up so many lines
+				.buf = NULL,
+				.size = 0,
+				.len = 0
+			}
+		};
+		rc = frame_to_payload(&output, TYPE_SERIAL_MESSAGE, &pld);
+		TEST_ASSERT_EQUAL(rc, SERIAL_PROTOCOL_SUCCESS);
+		
+		comms_t slave_mem = {};
+		{
+			unsigned char * p_sm = (unsigned char *)(&slave_mem);
+			unsigned char * p_mm = (unsigned char *)(&block_mem);
+			for(int i = 0; i < sizeof(slave_mem); i++)
+			{
+				p_sm[i] = 0;	//init to 0
+				TEST_ASSERT_NOT_EQUAL(p_sm[i], p_mm[i]);
+			}
+		}
+
+	
+	}
+	{	//test - payload length = 1
+		unsigned char pld_buf[1] = {};//one byte write frame
+		pld_buf[0] = 0xFE;
+		misc_write_message_t msg = {
+			.address = 0x34,
+			.index = 3,
+			.payload = {
+				.buf = pld_buf,
+				.size = sizeof(pld_buf),
+				.len = 1
+			}
+		};	//create a message
+		
+	}
+}
