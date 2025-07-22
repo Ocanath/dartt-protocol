@@ -54,6 +54,11 @@ typedef enum
 
 typedef enum {WRITE_MESSAGE, READ_MESSAGE} read_write_type_t;
 
+typedef enum {
+	PAYLOAD_ALIAS,	//indicates that the payload section should be aliased, i.e. .buf points to part of the original frame and the len and size are loaded accordingly
+	PAYLOAD_COPY	//copy the relevant parts of the frame to the pld buffer
+} payload_mode_t;	
+
 typedef struct buffer_t
 {
 	unsigned char * buf;

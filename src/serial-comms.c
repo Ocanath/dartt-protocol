@@ -405,11 +405,10 @@ int parse_read_reply(buffer_t * input, serial_message_type_t type, buffer_t * de
 	This is a Frame Layer to Payload Layer translation function. The input is a Frame/Transport layer message
 	of any serial_message_type
 */
-int frame_to_payload(buffer_t * ser_msg, serial_message_type_t type, payload_layer_msg_t * pld)
+int frame_to_payload(buffer_t * ser_msg, serial_message_type_t type, payload_mode_t pld_mode, payload_layer_msg_t * pld)
 {
     assert(ser_msg != NULL && pld != NULL);
     assert(type == TYPE_SERIAL_MESSAGE || type == TYPE_ADDR_MESSAGE || type == TYPE_ADDR_CRC_MESSAGE);
-	assert(ser_msg != NULL);
 	assert(ser_msg->buf != NULL);
 	assert(ser_msg->size != 0);
 	assert(ser_msg->len != 0);
@@ -428,7 +427,7 @@ int frame_to_payload(buffer_t * ser_msg, serial_message_type_t type, payload_lay
             return rc;	//checksum must match
         }
 
-		if(pld->msg.buf == NULL)	//unassigned. Use pointer arithmetic
+		if(pld_mode == PAYLOAD_ALIAS)	//Use pointer arithmetic
 		{
 			pld->msg.buf = ser_msg->buf;
 			pld->msg.size = ser_msg->size;
@@ -439,13 +438,18 @@ int frame_to_payload(buffer_t * ser_msg, serial_message_type_t type, payload_lay
 			pld->msg.len -= NUM_BYTES_ADDRESS;
 			//truncate checksum off and use pointer arithmetic to load payload to addr
 		}
-		else	//
+		else if(pld_mode == PAYLOAD_COPY)	//
 		{
+			if(pld->msg.buf == NULL)
+			{
+				return ERROR_INVALID_ARGUMENT;
+			}
 			size_t newlen  = ser_msg->len - (NUM_BYTES_ADDRESS + NUM_BYTES_CHECKSUM);
 			if(newlen > pld->msg.size)
 			{
 				return ERROR_MEMORY_OVERRUN;
 			}
+			pld->address = ser_msg->buf[0];
 			unsigned char * sm_start = ser_msg->buf + NUM_BYTES_ADDRESS; //skip address
 			
 			for(int i = 0; i < newlen; i++)
@@ -453,6 +457,10 @@ int frame_to_payload(buffer_t * ser_msg, serial_message_type_t type, payload_lay
 				pld->msg.buf[i] = sm_start[i];
 			}
 			pld->msg.len = newlen;
+		}
+		else
+		{
+			return ERROR_INVALID_ARGUMENT;
 		}
         return SERIAL_PROTOCOL_SUCCESS;
     }
@@ -467,14 +475,18 @@ int frame_to_payload(buffer_t * ser_msg, serial_message_type_t type, payload_lay
         {
             return rc;
         }
-		if(pld->msg.buf == NULL)
+		if(pld_mode == PAYLOAD_ALIAS)
 		{
 			pld->msg.buf = ser_msg->buf;
 			pld->msg.size = ser_msg->size;
 			pld->msg.len = (ser_msg->len - NUM_BYTES_CHECKSUM);
 		}
-		else
+		else if (pld_mode == PAYLOAD_COPY)
 		{
+			if(pld->msg.buf == NULL)
+			{
+				return ERROR_INVALID_ARGUMENT;
+			}
 			size_t newlen  = ser_msg->len - NUM_BYTES_CHECKSUM;
 			if(newlen > pld->msg.size)
 			{
@@ -486,18 +498,26 @@ int frame_to_payload(buffer_t * ser_msg, serial_message_type_t type, payload_lay
 			}
 			pld->msg.len = newlen;
 		}
+		else
+		{
+			return ERROR_INVALID_ARGUMENT;
+		}
         return SERIAL_PROTOCOL_SUCCESS;
     }
 	else if(type == TYPE_ADDR_CRC_MESSAGE)
 	{
-		if(pld->msg.buf == NULL)	//use pointer arithmetic to have the pld->msg refer to the payload section of the frame layer message
+		if(pld_mode == PAYLOAD_ALIAS)	//use pointer arithmetic to have the pld->msg refer to the payload section of the frame layer message
 		{
 			pld->msg.buf = ser_msg->buf;
 			pld->msg.size = ser_msg->size;
 			pld->msg.len = ser_msg->len;
 		}
-		else	//make a copy
+		else if(pld_mode == PAYLOAD_COPY)	//make a copy
 		{
+			if(pld->msg.buf == NULL)
+			{
+				return ERROR_INVALID_ARGUMENT;
+			}
 			if(ser_msg->len > pld->msg.size)
 			{
 				return ERROR_MEMORY_OVERRUN;
@@ -507,6 +527,10 @@ int frame_to_payload(buffer_t * ser_msg, serial_message_type_t type, payload_lay
 				pld->msg.buf[i] = ser_msg->buf[i];
 			}
 			pld->msg.len = ser_msg->len;
+		}
+		else
+		{
+			return ERROR_INVALID_ARGUMENT;
 		}
 		return SERIAL_PROTOCOL_SUCCESS;
 	}

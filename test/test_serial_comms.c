@@ -813,14 +813,6 @@ void test_create_write_frame(void)
 		TEST_ASSERT_EQUAL((unsigned char)(msg.index & 0x00FF), output.buf[1]);
 		TEST_ASSERT_EQUAL( (unsigned char)((msg.index & 0x0FF00)>>8), output.buf[2]);
 		
-		payload_layer_msg_t pld = {
-			.address = 0,
-			.msg = {	//initialize to empty. Consider helper function to load so it doesn't take up so many lines
-				.buf = NULL,
-				.size = 0,
-				.len = 0
-			}
-		};
 		unsigned char chkbuf[32] = {};
 		misc_write_message_t chk_w_msg = {
 			.address=  0,
@@ -841,23 +833,7 @@ void test_create_write_frame(void)
 		}
 
 
-		rc = frame_to_payload(&output, TYPE_SERIAL_MESSAGE, &pld);	
-		TEST_ASSERT_EQUAL(rc, SERIAL_PROTOCOL_SUCCESS);
-		TEST_ASSERT_EQUAL(output.buf[0], pld.address);
-		TEST_ASSERT_EQUAL(output.len, pld.msg.len + NUM_BYTES_ADDRESS + NUM_BYTES_CHECKSUM);
-		
-		
 
-		comms_t slave_mem = {};
-		{
-			unsigned char * p_sm = (unsigned char *)(&slave_mem);
-			unsigned char * p_mm = (unsigned char *)(&block_mem);
-			for(int i = 0; i < sizeof(slave_mem); i++)
-			{
-				p_sm[i] = 0;	//init to 0
-				TEST_ASSERT_NOT_EQUAL(p_sm[i], p_mm[i]);
-			}
-		}
 
 	
 	}
@@ -874,5 +850,79 @@ void test_create_write_frame(void)
 			}
 		};	//create a message
 		
+	}
+}
+
+
+void test_create_read_frame(void)
+{
+
+}
+
+void test_frame_decoding(void)
+{
+	comms_t block_mem = {};
+	misc_write_message_t msg = {
+		.address = 0x34,
+		.index = 3,
+		.payload = {
+			.buf = (unsigned char *)(&block_mem),
+			.size = sizeof(comms_t),
+			.len = 0
+		}
+	};	//create a message
+	//fill the payload with nonzero garbage
+	for(int i = 0; i < msg.payload.size; i++)
+	{
+		msg.payload.buf[i] = ((unsigned char)(i % 255))+ 1;
+	}
+
+	//point the payload to a random small section of memory
+	size_t offset = 3;
+	TEST_ASSERT_GREATER_THAN(offset, msg.payload.size);
+	msg.payload.buf += offset;
+	msg.payload.size -= offset;
+	TEST_ASSERT_GREATER_THAN(offset, msg.payload.size);
+	msg.payload.len = msg.payload.size - offset;
+	TEST_ASSERT_GREATER_THAN(1, msg.payload.len);
+	
+	unsigned char msg_buf[256] = {};	//more than enough memory
+	buffer_t output = {
+		.buf = msg_buf,
+		.size = sizeof(msg),
+		.len = 0
+	};
+	int rc = create_write_frame(&msg, TYPE_SERIAL_MESSAGE, &output);
+
+	
+	
+	/*Output transmitted to slave for decoding...*/
+	
+	
+	
+	
+	payload_layer_msg_t pld = {
+		.address = 0,
+		.msg = {	//initialize to empty. Consider helper function to load so it doesn't take up so many lines
+			.buf = NULL,	//f2p initializes empty buffers to point to the payload section of a frame layer packet - same memory. If allocated, it does a O(n) copy
+			.size = 0,
+			.len = 0
+		}
+	};
+	rc = frame_to_payload(&output, TYPE_SERIAL_MESSAGE, PAYLOAD_ALIAS, &pld);	
+	TEST_ASSERT_EQUAL(rc, SERIAL_PROTOCOL_SUCCESS);
+	TEST_ASSERT_EQUAL(output.buf[0], pld.address);
+	TEST_ASSERT_EQUAL(output.len, pld.msg.len + NUM_BYTES_ADDRESS + NUM_BYTES_CHECKSUM);
+	
+	
+	comms_t slave_mem = {};
+	{
+		unsigned char * p_sm = (unsigned char *)(&slave_mem);
+		unsigned char * p_mm = (unsigned char *)(&block_mem);
+		for(int i = 0; i < sizeof(slave_mem); i++)
+		{
+			p_sm[i] = 0;	//init to 0
+			TEST_ASSERT_NOT_EQUAL(p_sm[i], p_mm[i]);
+		}
 	}
 }
