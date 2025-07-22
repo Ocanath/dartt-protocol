@@ -914,7 +914,6 @@ void test_frame_decoding(void)
 	TEST_ASSERT_EQUAL(output.buf[0], pld.address);
 	TEST_ASSERT_EQUAL(output.len, pld.msg.len + NUM_BYTES_ADDRESS + NUM_BYTES_CHECKSUM);
 	
-	
 	comms_t slave_mem = {};
 	{
 		unsigned char * p_sm = (unsigned char *)(&slave_mem);
@@ -925,4 +924,7 @@ void test_frame_decoding(void)
 			TEST_ASSERT_NOT_EQUAL(p_sm[i], p_mm[i]);
 		}
 	}
+
+	
+
 }
