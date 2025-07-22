@@ -861,6 +861,7 @@ void test_create_read_frame(void)
 
 void test_frame_to_payload(void)
 {
+	
 	comms_t block_mem = {};
 	misc_write_message_t msg = {
 		.address = 0x34,
@@ -900,7 +901,7 @@ void test_frame_to_payload(void)
 	
 	
 	
-	
+	//test 'happy path' f2p
 	payload_layer_msg_t pld = {
 		.address = 0,
 		.msg = {	//initialize to empty. Consider helper function to load so it doesn't take up so many lines
@@ -917,4 +918,28 @@ void test_frame_to_payload(void)
 	{
 		TEST_ASSERT_EQUAL(output.buf[i], pld.msg.buf[i-1]);
 	}
+	
+	//change data in the same output buffer. change checksum too - this invalidates the checksum
+	for(int i = 0; i < output.len; i++)
+	{
+		output.buf[i]++;	//new message with invalid checksum
+	}
+	pld.address = 0;
+	rc = frame_to_payload(&output, TYPE_SERIAL_MESSAGE, PAYLOAD_ALIAS, &pld);
+	TEST_ASSERT_EQUAL(rc, ERROR_CHECKSUM_MISMATCH);
+	TEST_ASSERT_EQUAL(0, pld.address);
+	
+	output.len -= NUM_BYTES_CHECKSUM;	//remove checksum
+	append_crc(&output);	//recalculate checksum
+
+	rc = frame_to_payload(&output, TYPE_SERIAL_MESSAGE, PAYLOAD_ALIAS, &pld);	//happy path with changed data. re-validate
+	TEST_ASSERT_EQUAL(rc, SERIAL_PROTOCOL_SUCCESS);
+	TEST_ASSERT_EQUAL(output.buf[0], pld.address);
+	TEST_ASSERT_EQUAL(output.len, pld.msg.len + NUM_BYTES_ADDRESS + NUM_BYTES_CHECKSUM);
+	for(int i = 1; i < output.len - 2; i++)
+	{
+		TEST_ASSERT_EQUAL(output.buf[i], pld.msg.buf[i-1]);
+	}
+
+
 }
