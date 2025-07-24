@@ -3,6 +3,7 @@
 		"unity.h": "c",
 		"serial-comms.h": "c",
 		"checksum.h": "c",
-		"stdint.h": "c"
+		"stdint.h": "c",
+		"serial-comms-struct.h": "c"
 	}
 }

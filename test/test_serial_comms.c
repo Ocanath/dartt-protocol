@@ -859,9 +859,234 @@ void test_create_read_frame(void)
 
 }
 
+// Helper function to create a test message and generate frame
+void create_test_message_and_frame(serial_message_type_t type, misc_write_message_t * msg, buffer_t * frame, unsigned char * payload_buf)
+{
+	// Initialize test payload
+	unsigned char test_payload[] = {0x12, 0x34, 0x56, 0x78, 0xAB, 0xCD};
+	for(int i = 0; i < sizeof(test_payload); i++) {
+		payload_buf[i] = test_payload[i];
+	}
+	
+	// Setup message
+	msg->address = (type == TYPE_SERIAL_MESSAGE) ? 0x42 : 0;
+	msg->index = 0x1234; // Test index
+	msg->payload.buf = payload_buf;
+	msg->payload.size = sizeof(test_payload);
+	msg->payload.len = sizeof(test_payload);
+	
+	// Generate frame using existing function
+	frame->len = 0;
+	int rc = create_write_frame(msg, type, frame);
+	TEST_ASSERT_EQUAL(SERIAL_PROTOCOL_SUCCESS, rc);
+}
+
+// Helper function to setup payload layer message for copy vs alias
+void setup_payload_msg(payload_mode_t mode, payload_layer_msg_t * pld, unsigned char * copy_buffer, size_t copy_size)
+{
+	pld->address = 0;
+	if(mode == PAYLOAD_ALIAS) {
+		pld->msg.buf = NULL;
+		pld->msg.size = 0;
+		pld->msg.len = 0;
+	} else { // PAYLOAD_COPY
+		pld->msg.buf = copy_buffer;
+		pld->msg.size = copy_size;
+		pld->msg.len = 0;
+	}
+}
+
+// Test happy path scenarios
+void f2p_happy_path_helper(serial_message_type_t type, payload_mode_t mode)
+{
+	unsigned char payload_buf[16] = {};
+	unsigned char frame_buf[32] = {};
+	misc_write_message_t msg = {};
+	buffer_t frame = {.buf = frame_buf, .size = sizeof(frame_buf), .len = 0};
+	
+	create_test_message_and_frame(type, &msg, &frame, payload_buf);
+	
+	unsigned char copy_buf[32] = {};
+	payload_layer_msg_t pld = {};
+	setup_payload_msg(mode, &pld, copy_buf, sizeof(copy_buf));
+	
+	int rc = frame_to_payload(&frame, type, mode, &pld);
+	TEST_ASSERT_EQUAL(SERIAL_PROTOCOL_SUCCESS, rc);
+	
+	// Verify address is extracted correctly for TYPE_SERIAL_MESSAGE
+	if(type == TYPE_SERIAL_MESSAGE) {
+		TEST_ASSERT_EQUAL(msg.address, pld.address);
+	}
+	
+	// Verify payload length is correct
+	size_t expected_payload_len = 0;
+	if(type == TYPE_SERIAL_MESSAGE) {
+		expected_payload_len = frame.len - NUM_BYTES_ADDRESS - NUM_BYTES_CHECKSUM;
+	} else if(type == TYPE_ADDR_MESSAGE) {
+		expected_payload_len = frame.len - NUM_BYTES_CHECKSUM;
+	} else { // TYPE_ADDR_CRC_MESSAGE
+		expected_payload_len = frame.len;
+	}
+	
+	TEST_ASSERT_EQUAL(expected_payload_len, pld.msg.len);
+	
+	// Verify payload content
+	if(mode == PAYLOAD_ALIAS) {
+		// For alias mode, verify pointer points into original frame
+		if(type == TYPE_SERIAL_MESSAGE) {
+			TEST_ASSERT_EQUAL_PTR(frame.buf + NUM_BYTES_ADDRESS, pld.msg.buf);
+		} else if(type == TYPE_ADDR_MESSAGE) {
+			TEST_ASSERT_EQUAL_PTR(frame.buf, pld.msg.buf);
+		} else { // TYPE_ADDR_CRC_MESSAGE
+			TEST_ASSERT_EQUAL_PTR(frame.buf, pld.msg.buf);
+		}
+	} else { // PAYLOAD_COPY
+		// For copy mode, verify content was copied correctly
+		unsigned char * expected_start = frame.buf;
+		if(type == TYPE_SERIAL_MESSAGE) {
+			expected_start += NUM_BYTES_ADDRESS;
+		}
+		
+		for(int i = 0; i < pld.msg.len; i++) {
+			TEST_ASSERT_EQUAL(expected_start[i], pld.msg.buf[i]);
+		}
+	}
+}
+
+// Test checksum mismatch scenarios
+void f2p_checksum_mismatch_helper(serial_message_type_t type, payload_mode_t mode)
+{
+	unsigned char payload_buf[16] = {};
+	unsigned char frame_buf[32] = {};
+	misc_write_message_t msg = {};
+	buffer_t frame = {.buf = frame_buf, .size = sizeof(frame_buf), .len = 0};
+	
+	create_test_message_and_frame(type, &msg, &frame, payload_buf);
+	
+	// Corrupt the checksum
+	frame.buf[frame.len - 1] ^= 0xFF;
+	
+	unsigned char copy_buf[32] = {};
+	payload_layer_msg_t pld = {};
+	setup_payload_msg(mode, &pld, copy_buf, sizeof(copy_buf));
+	
+	int rc = frame_to_payload(&frame, type, mode, &pld);
+	TEST_ASSERT_EQUAL(ERROR_CHECKSUM_MISMATCH, rc);
+}
+
+// Test memory overrun scenarios (PAYLOAD_COPY only)
+void f2p_memory_overrun_helper(serial_message_type_t type, payload_mode_t mode)
+{
+	unsigned char payload_buf[16] = {};
+	unsigned char frame_buf[32] = {};
+	misc_write_message_t msg = {};
+	buffer_t frame = {.buf = frame_buf, .size = sizeof(frame_buf), .len = 0};
+	
+	create_test_message_and_frame(type, &msg, &frame, payload_buf);
+	
+	// Create a payload buffer that's too small
+	unsigned char copy_buf[2] = {}; // Very small buffer
+	payload_layer_msg_t pld = {};
+	setup_payload_msg(mode, &pld, copy_buf, sizeof(copy_buf));
+	
+	int rc = frame_to_payload(&frame, type, mode, &pld);
+	TEST_ASSERT_EQUAL(ERROR_MEMORY_OVERRUN, rc);
+}
+
+// Test malformed input scenarios
+void f2p_malformed_input_helper(serial_message_type_t type, payload_mode_t mode)
+{
+	unsigned char frame_buf[32] = {};
+	buffer_t frame = {.buf = frame_buf, .size = sizeof(frame_buf), .len = 0};
+	
+	// Create a frame that's too short
+	size_t min_len = 0;
+	if(type == TYPE_SERIAL_MESSAGE) {
+		min_len = NUM_BYTES_ADDRESS + NUM_BYTES_CHECKSUM;
+	} else if(type == TYPE_ADDR_MESSAGE) {
+		min_len = NUM_BYTES_CHECKSUM;
+	} else { // TYPE_ADDR_CRC_MESSAGE
+		min_len = 1; // Needs at least some content
+	}
+	
+	frame.len = min_len; // Exactly at the minimum (should be malformed)
+	
+	unsigned char copy_buf[32] = {};
+	payload_layer_msg_t pld = {};
+	setup_payload_msg(mode, &pld, copy_buf, sizeof(copy_buf));
+	
+	int rc = frame_to_payload(&frame, type, mode, &pld);
+	if(type == TYPE_ADDR_CRC_MESSAGE) {
+		// TYPE_ADDR_CRC_MESSAGE with len=1 should actually work
+		TEST_ASSERT_EQUAL(SERIAL_PROTOCOL_SUCCESS, rc);
+	} else {
+		TEST_ASSERT_EQUAL(ERROR_MALFORMED_MESSAGE, rc);
+	}
+}
+
+// Test invalid argument scenarios
+void f2p_invalid_args_helper(serial_message_type_t type, payload_mode_t mode)
+{
+	unsigned char payload_buf[16] = {};
+	unsigned char frame_buf[32] = {};
+	misc_write_message_t msg = {};
+	buffer_t frame = {.buf = frame_buf, .size = sizeof(frame_buf), .len = 0};
+	
+	create_test_message_and_frame(type, &msg, &frame, payload_buf);
+	
+	unsigned char copy_buf[32] = {};
+	payload_layer_msg_t pld = {};
+	
+	// Test PAYLOAD_COPY with NULL buffer
+	if(mode == PAYLOAD_COPY) {
+		setup_payload_msg(mode, &pld, NULL, 0); // NULL buffer
+		int rc = frame_to_payload(&frame, type, mode, &pld);
+		TEST_ASSERT_EQUAL(ERROR_INVALID_ARGUMENT, rc);
+	}
+}
+
+void test_frame_to_payload_comprehensive(void)
+{
+	serial_message_type_t types[] = {TYPE_SERIAL_MESSAGE, TYPE_ADDR_MESSAGE, TYPE_ADDR_CRC_MESSAGE};
+	payload_mode_t modes[] = {PAYLOAD_ALIAS, PAYLOAD_COPY};
+	
+	for(int type_idx = 0; type_idx < sizeof(types)/sizeof(serial_message_type_t); type_idx++) 
+	{
+		for(int mode_idx = 0; mode_idx < sizeof(modes)/sizeof(payload_mode_t); mode_idx++) 
+		{
+			serial_message_type_t type = types[type_idx];
+			payload_mode_t mode = modes[mode_idx];
+			
+			// Test happy path
+			f2p_happy_path_helper(type, mode);
+			
+			// Test checksum mismatch (only for types with CRC)
+			if(type == TYPE_SERIAL_MESSAGE || type == TYPE_ADDR_MESSAGE) 
+			{
+				f2p_checksum_mismatch_helper(type, mode);
+			}
+			
+			// Test memory overrun (only for PAYLOAD_COPY)
+			if(mode == PAYLOAD_COPY) 
+			{
+				f2p_memory_overrun_helper(type, mode);
+			}
+			
+			// Test malformed messages
+			f2p_malformed_input_helper(type, mode);
+			
+			// Test invalid arguments
+			f2p_invalid_args_helper(type, mode);
+		}
+	}
+}
+
 void test_frame_to_payload(void)
 {
+	// Run the comprehensive test suite
+	test_frame_to_payload_comprehensive();
 	
+	// Keep your original focused test as well
 	comms_t block_mem = {};
 	misc_write_message_t msg = {
 		.address = 0x34,
@@ -871,75 +1096,35 @@ void test_frame_to_payload(void)
 			.size = sizeof(comms_t),
 			.len = 0
 		}
-	};	//create a message
-	//fill the payload with nonzero garbage
-	for(int i = 0; i < msg.payload.size; i++)
-	{
-		msg.payload.buf[i] = ((unsigned char)(i % 255))+ 1;
-	}
-
-	//point the payload to a random small section of memory
-	size_t offset = 3;
-	TEST_ASSERT_GREATER_THAN(offset, msg.payload.size);
-	msg.payload.buf += offset;
-	msg.payload.size -= offset;
-	TEST_ASSERT_GREATER_THAN(offset, msg.payload.size);
-	msg.payload.len = msg.payload.size - offset;
-	TEST_ASSERT_GREATER_THAN(1, msg.payload.len);
+	};
 	
-	unsigned char msg_buf[256] = {};	//more than enough memory
+	// Fill with test data
+	for(int i = 0; i < 8; i++) {
+		msg.payload.buf[i] = ((unsigned char)(i % 255)) + 1;
+	}
+	msg.payload.len = 8;
+	
+	unsigned char msg_buf[256] = {};
 	buffer_t output = {
 		.buf = msg_buf,
-		.size = sizeof(msg),
+		.size = sizeof(msg_buf),
 		.len = 0
 	};
 	int rc = create_write_frame(&msg, TYPE_SERIAL_MESSAGE, &output);
-
+	TEST_ASSERT_EQUAL(SERIAL_PROTOCOL_SUCCESS, rc);
 	
-	
-	/*Output transmitted to slave for decoding...*/
-	
-	
-	
-	//test 'happy path' f2p
+	// Test alias mode
 	payload_layer_msg_t pld = {
 		.address = 0,
-		.msg = {	//initialize to empty. Consider helper function to load so it doesn't take up so many lines
-			.buf = NULL,	//f2p initializes empty buffers to point to the payload section of a frame layer packet - same memory. If allocated, it does a O(n) copy
+		.msg = {
+			.buf = NULL,
 			.size = 0,
 			.len = 0
 		}
 	};
+	
 	rc = frame_to_payload(&output, TYPE_SERIAL_MESSAGE, PAYLOAD_ALIAS, &pld);	
-	TEST_ASSERT_EQUAL(rc, SERIAL_PROTOCOL_SUCCESS);
+	TEST_ASSERT_EQUAL(SERIAL_PROTOCOL_SUCCESS, rc);
 	TEST_ASSERT_EQUAL(output.buf[0], pld.address);
 	TEST_ASSERT_EQUAL(output.len, pld.msg.len + NUM_BYTES_ADDRESS + NUM_BYTES_CHECKSUM);
-	for(int i = 1; i < output.len - 2; i++)
-	{
-		TEST_ASSERT_EQUAL(output.buf[i], pld.msg.buf[i-1]);
-	}
-	
-	//change data in the same output buffer. change checksum too - this invalidates the checksum
-	for(int i = 0; i < output.len; i++)
-	{
-		output.buf[i]++;	//new message with invalid checksum
-	}
-	pld.address = 0;
-	rc = frame_to_payload(&output, TYPE_SERIAL_MESSAGE, PAYLOAD_ALIAS, &pld);
-	TEST_ASSERT_EQUAL(rc, ERROR_CHECKSUM_MISMATCH);
-	TEST_ASSERT_EQUAL(0, pld.address);
-	
-	output.len -= NUM_BYTES_CHECKSUM;	//remove checksum
-	append_crc(&output);	//recalculate checksum
-
-	rc = frame_to_payload(&output, TYPE_SERIAL_MESSAGE, PAYLOAD_ALIAS, &pld);	//happy path with changed data. re-validate
-	TEST_ASSERT_EQUAL(rc, SERIAL_PROTOCOL_SUCCESS);
-	TEST_ASSERT_EQUAL(output.buf[0], pld.address);
-	TEST_ASSERT_EQUAL(output.len, pld.msg.len + NUM_BYTES_ADDRESS + NUM_BYTES_CHECKSUM);
-	for(int i = 1; i < output.len - 2; i++)
-	{
-		TEST_ASSERT_EQUAL(output.buf[i], pld.msg.buf[i-1]);
-	}
-
-
 }

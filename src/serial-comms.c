@@ -403,7 +403,10 @@ int parse_read_reply(buffer_t * input, serial_message_type_t type, buffer_t * de
 		2. loads the address into the base protocol message (if applicable). Otherwise, it will pass through
 
 	This is a Frame Layer to Payload Layer translation function. The input is a Frame/Transport layer message
-	of any serial_message_type
+	of any serial_message_type.
+
+	IMPORTANT: This function does not have any expectations with regards to frame structure. It simply removes address if present, and crc if present.
+	That is it! Frame structure is decoded downstream of this function, which only performs CRC filtering and address removal.
 */
 int frame_to_payload(buffer_t * ser_msg, serial_message_type_t type, payload_mode_t pld_mode, payload_layer_msg_t * pld)
 {
