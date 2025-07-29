@@ -169,19 +169,3 @@ misc_address = 0xFF - motor_address
 - **Motor Master (`0x7F`)**: Used when master initiates motor-specific commands
 - **Misc Master (`0x80`)**: Used as the source address for slave replies and general communications
 
-### Helper Function
-
-The library provides a helper function to calculate complementary addresses:
-
-```c
-unsigned char get_complementary_address(unsigned char address);
-```
-
-**Examples:**
-```c
-get_complementary_address(0x42); // Returns 0xBD (motor → misc)
-get_complementary_address(0xBD); // Returns 0x42 (misc → motor)  
-get_complementary_address(0x7F); // Returns 0x80 (motor master → misc master)
-get_complementary_address(0x80); // Returns 0x7F (misc master → motor master)
-```
-
