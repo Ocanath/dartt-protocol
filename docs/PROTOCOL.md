@@ -130,3 +130,58 @@ Data: 0x42 0x8A 0x00 0x08 0x00 0xXX 0xXX
       Address
 ```
 
+## Addressing Scheme
+
+The 8-bit address space is divided into four distinct regions to support different device types and communication patterns:
+
+### Address Regions
+
+| Address Range | Purpose      | Description                    |
+|---------------|--------------|--------------------------------|
+| `0x00-0x7E`   | Motor        | Individual motor device addresses (127 addresses) |
+| `0x7F`        | Motor Master | Master address for motor communications |
+| `0x80`        | Misc Master  | Master address for misc/general communications |
+| `0x81-0xFF`   | Misc         | Individual misc device addresses (127 addresses) |
+
+### Device Address Pairing
+
+Each slave device has **two addresses**:
+- **Motor Address**: Used for high-performance, application-specific motor control
+- **Misc Address**: Used for general configuration, diagnostics, and data exchange via block memory reads and writes
+
+The addresses are mathematically related by the formula:
+```
+misc_address = 0xFF - motor_address
+```
+
+### Address Examples
+
+| Motor Address | Misc Address | Device Type |
+|---------------|--------------|-------------|
+| `0x01`        | `0xFE`       | Device 1    |
+| `0x10`        | `0xEF`       | Device 16   |
+| `0x42`        | `0xBD`       | Device 66   |
+| `0x7E`        | `0x81`       | Device 126  |
+| `0x7F`        | `0x80`       | Master      |
+
+### Master Communication
+
+- **Motor Master (`0x7F`)**: Used when master initiates motor-specific commands
+- **Misc Master (`0x80`)**: Used as the source address for slave replies and general communications
+
+### Helper Function
+
+The library provides a helper function to calculate complementary addresses:
+
+```c
+unsigned char get_complementary_address(unsigned char address);
+```
+
+**Examples:**
+```c
+get_complementary_address(0x42); // Returns 0xBD (motor → misc)
+get_complementary_address(0xBD); // Returns 0x42 (misc → motor)  
+get_complementary_address(0x7F); // Returns 0x80 (motor master → misc master)
+get_complementary_address(0x80); // Returns 0x7F (misc master → motor master)
+```
+

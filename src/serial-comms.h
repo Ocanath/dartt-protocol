@@ -132,6 +132,7 @@ typedef struct misc_reply_t
 // } protocol_context_t;
 
 int index_of_field(void * p_field, void * mem, size_t mem_size);
+unsigned char get_complementary_address(unsigned char address);
 int create_write_frame(misc_write_message_t * msg, serial_message_type_t type, buffer_t * output);
 int create_read_frame(misc_read_message_t * msg, serial_message_type_t type, buffer_t * output);
 int frame_to_payload(buffer_t * ser_msg, serial_message_type_t type, payload_mode_t pld_mode, payload_layer_msg_t * pld);

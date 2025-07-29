@@ -51,6 +51,20 @@ int index_of_field(void * p_field, void * mem, size_t mem_size)
 }
 
 /*
+    Helper function to calculate the complementary address.
+    Motor addresses (0x00-0x7E) map to misc addresses (0x81-0xFF).
+    Master addresses also map: 0x7F (motor master) ↔ 0x80 (misc master).
+    Arguments:
+        address: Input address (motor, misc, or master)
+    Returns:
+        The complementary address using the formula: 0xFF - address
+*/
+unsigned char get_complementary_address(unsigned char address)
+{
+    return 0xFF - address;
+}
+
+/*
     Helper function to check the message and output buffer setups.
     Intended use in a release build: static memory allocation for msg and output, and
     a single call to check_write_args for all msg instances to all output instances before use.
