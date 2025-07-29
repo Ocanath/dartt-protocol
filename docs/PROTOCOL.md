@@ -130,21 +130,3 @@ Data: 0x42 0x8A 0x00 0x08 0x00 0xXX 0xXX
       Address
 ```
 
-## Constants
-
-```c
-#define NUM_BYTES_ADDRESS           1
-#define NUM_BYTES_INDEX             2
-#define NUM_BYTES_NUMWORDS_READREQUEST  2
-#define NUM_BYTES_CHECKSUM          2
-#define READ_WRITE_BITMASK          0x8000
-```
-
-## Error Codes
-
-- `SERIAL_PROTOCOL_SUCCESS (0)`: Operation completed successfully
-- `ADDRESS_FILTERED (-1)`: Message filtered due to address mismatch
-- `ERROR_MALFORMED_MESSAGE (-2)`: Invalid frame format
-- `ERROR_CHECKSUM_MISMATCH (-3)`: CRC validation failed
-- `ERROR_INVALID_ARGUMENT (-4)`: Invalid function parameters
-- `ERROR_MEMORY_OVERRUN (-5)`: Buffer overflow detected
