@@ -124,6 +124,7 @@ int create_read_struct_frame(unsigned char address,
 	 unsigned char * field,
 	  size_t field_size,
 	   device_config_t * pstruct, 
+	   misc_read_message_t * read_msg_out,
 	   buffer_t * output_frame)
 {
     // Calculate the field index using index_of_field
@@ -132,28 +133,21 @@ int create_read_struct_frame(unsigned char address,
 	{
         return field_index; // Return the error code
     }
-	misc_read_message_t read_msg = {
-		.address = address,
-		.index = field_index,
-		.num_bytes = field_size
-	};
-	return create_read_frame(&read_msg, TYPE_SERIAL_MESSAGE, output_frame);
+	read_msg_out->address = address;
+	read_msg_out->index = field_index;
+	read_msg_out->num_bytes = field_size;
+	
+	return create_read_frame(read_msg_out, TYPE_SERIAL_MESSAGE, output_frame);
 }
 
-int parse_read_struct_reply(buffer_t* reply_frame, unsigned char* field, device_config_t* pstruct)
+int parse_read_struct_reply(buffer_t* reply_frame, misc_read_message_t* original_msg, device_config_t* pstruct)
 {
-    //size_t idx = index_of_field(field, pstruct, sizeof(device_config_t));
-    size_t offset = field - (unsigned char*)pstruct;
-    if (offset > sizeof(device_config_t))
-    {
-        return ERROR_MEMORY_OVERRUN;
-    }
-    buffer_t ref = {
-        .buf = (unsigned char*)(pstruct) + offset,
-        .size = sizeof(device_config_t) - offset,
+    buffer_t dest_buffer = {
+        .buf = (unsigned char*)pstruct,
+        .size = sizeof(device_config_t),
         .len = 0
     };
-    return parse_read_reply(&motor_tx, TYPE_SERIAL_MESSAGE, &ref);
+    return parse_read_reply(reply_frame, TYPE_SERIAL_MESSAGE, original_msg, &dest_buffer);
 }
 
 /*
@@ -208,10 +202,12 @@ int main(void)
     print_device_config(&motor_config);
 	printf("Create master tx frame\r\n");
 	//create a DARTT frame to read the current position - using type-punning and application defined structs
+	misc_read_message_t read_msg = {};
 	int rc = create_read_struct_frame(get_complementary_address(motor_address),
 		(unsigned char *)(&controller_config.current_position), 
 		sizeof(controller_config.current_position),
 		&controller_config,
+		&read_msg,
 		&controller_tx
 	);
 	printf("Message: ");
@@ -226,7 +222,7 @@ int main(void)
 	print_buffer(&motor_tx);
 
 	printf("Controller recieved reply\r\n");
-    rc = parse_read_struct_reply(&motor_tx, &controller_config.current_position, &controller_config);
+    rc = parse_read_struct_reply(&motor_tx, &read_msg, &controller_config);
 	printf("After: controller current position = %d\r\n", controller_config.current_position);
 	printf("Controller config:\r\n");
 	print_device_config(&controller_config);

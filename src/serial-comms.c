@@ -359,11 +359,12 @@ int append_crc(buffer_t * input)
     Master function to parse slave reply.
     input: the input buffer/message. This can be of any serial_message_type_t
     type: the message type
-    dest: location to copy the reply contents to (similar to mem in slave parse)
+    original_msg: the original read message that generated this reply (contains index and num_bytes)
+    dest: destination buffer representing the base of the memory block to write into
 */
-int parse_read_reply(buffer_t * input, serial_message_type_t type, buffer_t * dest)
+int parse_read_reply(buffer_t * input, serial_message_type_t type, misc_read_message_t * original_msg, buffer_t * dest)
 {     
-    assert(dest != NULL && input != NULL);
+    assert(dest != NULL && input != NULL && original_msg != NULL);
     assert(dest->buf != NULL && input->buf != NULL);
     assert(dest->size > 0 && input->size > 0);
     assert(dest->len <= dest->size && input->len <= input->size);
@@ -398,17 +399,34 @@ int parse_read_reply(buffer_t * input, serial_message_type_t type, buffer_t * de
         input_cpy.buf++;
         input_cpy.len--;
     }
-    if(input_cpy.len > dest->size)
+    
+    // Calculate the offset into the destination buffer based on the original read index
+    size_t byte_offset = ((size_t)original_msg->index) * sizeof(uint32_t);
+    
+    // Validate that the offset and data length don't exceed destination buffer bounds
+    if(byte_offset >= dest->size)
     {
         return ERROR_MEMORY_OVERRUN;
     }
-    dest->len = 0;
+    if(byte_offset + input_cpy.len > dest->size)
+    {
+        return ERROR_MEMORY_OVERRUN;
+    }
+    
+    // Validate that the reply length matches what we requested
+    if(input_cpy.len != original_msg->num_bytes)
+    {
+        return ERROR_MALFORMED_MESSAGE;
+    }
+    
+    // Copy the reply data to the correct offset in the destination buffer
+    unsigned char * dest_ptr = dest->buf + byte_offset;
     for(int i = 0; i < input_cpy.len; i++)
     {
-        dest->buf[dest->len++] = input_cpy.buf[i];
+        dest_ptr[i] = input_cpy.buf[i];
     }
+    
     return SERIAL_PROTOCOL_SUCCESS;
-
 }
 
 /*

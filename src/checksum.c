@@ -5,7 +5,7 @@
 /*
 Generic 2's complement hex checksum calculation.
  */
-uint16_t get_checksum16(uint16_t* arr, int size)
+uint16_t get_checksum16(uint16_t* arr, size_t size)
 {
 	int16_t checksum = 0;
 	for (int i = 0; i < size; i++)
@@ -20,7 +20,7 @@ uint16_t get_checksum16(uint16_t* arr, int size)
 
     TODO: TEST THIS SHIT! This was a vibe coded function and I have no idea what it's doing.
  */
-uint16_t get_crc16(uint8_t* arr, int size)
+uint16_t get_crc16(uint8_t* arr, size_t size)
 {
     uint16_t crc = 0xFFFF;
     for(int i = 0; i < size; i++)
