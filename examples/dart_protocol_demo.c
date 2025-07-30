@@ -157,7 +157,8 @@ int main(void)
 	printf("Example 1: controller block read");
 	
 	const unsigned char motor_address = 3;
-
+	
+	printf("Before: controller current position = %d\r\n", controller_config.current_position);
 	printf("Create master tx frame\r\n");
 	//create a DART frame to read the current position - using type-punning and application defined structs
 	int rc = create_read_struct_frame(get_complementary_address(motor_address),
@@ -166,15 +167,17 @@ int main(void)
 		&controller_config,
 		&controller_tx
 	);
+	printf("Controller sends message to motor\r\n");
 	
-	printf("...Controller sends message to motor\r\n");
+	printf("Motor recieved the message\r\n");
 	payload_layer_msg_t pld_msg ={};	//can be statically allocated, or local and initialized to zero
 	rc = frame_to_payload(&controller_tx, TYPE_SERIAL_MESSAGE, PAYLOAD_ALIAS, &pld_msg);
 	rc = parse_general_message(&pld_msg, TYPE_SERIAL_MESSAGE, &motor_config_ref, &motor_tx);
-	printf("Motor parses master message and sends reply\r\n");
+	printf("Motor parsed master message and sends reply\r\n");
 
-	printf("Controller recieves reply\r\n");
+	printf("Controller recieved reply\r\n");
 	rc = parse_read_reply(&motor_tx, TYPE_SERIAL_MESSAGE, &controller_config_ref);
+	printf("After: controller current position = %d\r\n", controller_config.current_position);
 
 	
     printf("\n=== Demo Complete ===\n");
