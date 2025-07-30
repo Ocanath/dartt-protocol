@@ -21,7 +21,7 @@
 #include "serial-comms.h"
 
 // Example device configuration struct (packed for type-punning)
-typedef struct __attribute__((packed)) device_config_t
+typedef struct device_config_t
 {
     uint32_t device_id;         // Word index 0 - Device identification  
     uint32_t max_speed;         // Word index 1 - Maximum speed limit
@@ -53,12 +53,6 @@ buffer_t motor_config_ref = {
 
 // Simulated device memory (controller) - empty
 static device_config_t controller_config = {};
-//buffer reference to controller config
-buffer_t controller_config_ref = {
-	.buf = (unsigned char *)(&controller_config),
-	.size = sizeof(device_config_t),
-	.len = 0
-};
 
 
 //simulated tx buffer from the controller
@@ -146,6 +140,22 @@ int create_read_struct_frame(unsigned char address,
 	return create_read_frame(&read_msg, TYPE_SERIAL_MESSAGE, output_frame);
 }
 
+int parse_read_struct_reply(buffer_t* reply_frame, unsigned char* field, device_config_t* pstruct)
+{
+    //size_t idx = index_of_field(field, pstruct, sizeof(device_config_t));
+    size_t offset = field - (unsigned char*)pstruct;
+    if (offset > sizeof(device_config_t))
+    {
+        return ERROR_MEMORY_OVERRUN;
+    }
+    buffer_t ref = {
+        .buf = (unsigned char*)(pstruct) + offset,
+        .size = sizeof(device_config_t) - offset,
+        .len = 0
+    };
+    return parse_read_reply(&motor_tx, TYPE_SERIAL_MESSAGE, &ref);
+}
+
 /*
     Helper function to print device_config_t with nice formatting
 */
@@ -194,6 +204,8 @@ int main(void)
 	printf("Before: controller current position = %d\r\n", controller_config.current_position);
 	printf("Controller config:\r\n");
 	print_device_config(&controller_config);
+    printf("Motor config: \r\n");
+    print_device_config(&motor_config);
 	printf("Create master tx frame\r\n");
 	//create a DART frame to read the current position - using type-punning and application defined structs
 	int rc = create_read_struct_frame(get_complementary_address(motor_address),
@@ -214,10 +226,12 @@ int main(void)
 	print_buffer(&motor_tx);
 
 	printf("Controller recieved reply\r\n");
-	rc = parse_read_reply(&motor_tx, TYPE_SERIAL_MESSAGE, &controller_config_ref);
+    rc = parse_read_struct_reply(&motor_tx, &controller_config.current_position, &controller_config);
 	printf("After: controller current position = %d\r\n", controller_config.current_position);
 	printf("Controller config:\r\n");
 	print_device_config(&controller_config);
+    printf("Motor config: \r\n");
+    print_device_config(&motor_config);
 
 	
     printf("\n=== Demo Complete ===\n");

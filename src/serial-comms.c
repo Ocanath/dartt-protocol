@@ -11,7 +11,7 @@
     Returns:
         The index of the field in the comms struct, for creating misc messages.
 */
-int index_of_field(void * p_field, void * mem, size_t mem_size)
+size_t index_of_field(void * p_field, void * mem, size_t mem_size)
 {
     //null pointer checks
     if(p_field == NULL || mem == NULL)
