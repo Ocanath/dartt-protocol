@@ -8,10 +8,8 @@ A lightweight serial communication library for embedded systems that provides a 
 Copy these files into your project:
 - `src/serial-comms.c`
 - `src/serial-comms.h`
-- `src/serial-comms-struct.h`
 - `src/checksum.c`
 - `src/checksum.h`
-- `src/serial-motor-comms.c` (if using motor-specific functionality)
 
 ### Customization
 The library is designed to be customized through the `comms_t` struct defined in `serial-comms-struct.h`. You can extend this struct to include your specific data structures and communication needs.

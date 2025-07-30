@@ -86,6 +86,40 @@ Used for protocols with built-in addressing and CRC like CAN, UDP.
 +--------+--------+--------+--------+
 ```
 
+## Read Reply Frame Formats
+
+When a peripheral responds to a read request, the frame format varies by message type:
+
+### TYPE_SERIAL_MESSAGE (Type 0) - Read Reply
+The reply contains the requested data block with a prepended address and appended CRC:
+```
++--------+--------+--------+--------+--------+--------+
+| Byte 0 |  ...   |  ...   |  ...   | CRC Lo | CRC Hi |
++--------+--------+--------+--------+--------+--------+
+|Address |    Requested Data Block    |      CRC       |
++--------+--------+--------+--------+--------+--------+
+```
+
+### TYPE_ADDR_MESSAGE (Type 1) - Read Reply  
+The reply contains the requested data block with an appended CRC:
+```
++--------+--------+--------+--------+--------+
+|  ...   |  ...   |  ...   | CRC Lo | CRC Hi |
++--------+--------+--------+--------+--------+
+|    Requested Data Block    |      CRC       |
++--------+--------+--------+--------+--------+
+```
+
+### TYPE_ADDR_CRC_MESSAGE (Type 2) - Read Reply
+The reply contains only the requested data block with no additional data:
+```
++--------+--------+--------+--------+
+|  ...   |  ...   |  ...   |  ...   |
++--------+--------+--------+--------+
+|    Requested Data Block             |
++--------+--------+--------+--------+
+```
+
 ## Field Descriptions
 
 ### Address (1 byte)
