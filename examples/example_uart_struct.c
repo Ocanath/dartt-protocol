@@ -1,7 +1,7 @@
 /*
-    DART Protocol Demonstration
+    DARTT Protocol Demonstration
     
-    This example shows how to use the DART protocol library functions
+    This example shows how to use the DARTT protocol library functions
     with type-punning for direct struct access. This demonstrates the
     intended use case on little-endian 32-bit architectures like ARM STM32.
     
@@ -193,7 +193,7 @@ void print_buffer(buffer_t * buffer)
 
 int main(void)
 {
-    printf("DART Protocol (Dual-Address Real-Time Transport) Demonstration\n");
+    printf("DARTT Protocol (Dual-Address Real-Time Transport) Demonstration\n");
     printf("=============================================================\n");
     printf("Focus: TYPE_SERIAL_MESSAGE with struct field wrapper\n\n");
     
@@ -207,7 +207,7 @@ int main(void)
     printf("Motor config: \r\n");
     print_device_config(&motor_config);
 	printf("Create master tx frame\r\n");
-	//create a DART frame to read the current position - using type-punning and application defined structs
+	//create a DARTT frame to read the current position - using type-punning and application defined structs
 	int rc = create_read_struct_frame(get_complementary_address(motor_address),
 		(unsigned char *)(&controller_config.current_position), 
 		sizeof(controller_config.current_position),

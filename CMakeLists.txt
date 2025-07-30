@@ -1,7 +1,7 @@
 cmake_minimum_required(VERSION 3.10)
 
 # Project name
-project(dart_protocol C)
+project(dartt_protocol C)
 
 # Set C standard
 set(CMAKE_C_STANDARD 11)
