@@ -142,12 +142,25 @@ int create_read_struct_frame(unsigned char address,
 
 int parse_read_struct_reply(buffer_t* reply_frame, misc_read_message_t* original_msg, device_config_t* pstruct)
 {
+    // First use frame_to_payload to strip address/CRC and get payload data
+    payload_layer_msg_t payload_msg = {
+        .address = 0,
+        .msg = {.buf = NULL, .size = 0, .len = 0}  // For PAYLOAD_ALIAS mode
+    };
+    
+    int rc = frame_to_payload(reply_frame, TYPE_SERIAL_MESSAGE, PAYLOAD_ALIAS, &payload_msg);
+    if(rc != SERIAL_PROTOCOL_SUCCESS) {
+        return rc;
+    }
+    
+    // Now use parse_read_reply on the clean payload data
     buffer_t dest_buffer = {
         .buf = (unsigned char*)pstruct,
         .size = sizeof(device_config_t),
         .len = 0
     };
-    return parse_read_reply(reply_frame, TYPE_SERIAL_MESSAGE, original_msg, &dest_buffer);
+    
+    return parse_read_reply(&payload_msg, original_msg, &dest_buffer);
 }
 
 /*

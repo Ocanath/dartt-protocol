@@ -356,49 +356,17 @@ int append_crc(buffer_t * input)
 }
 
 /*
-    Master function to parse slave reply.
-    input: the input buffer/message. This can be of any serial_message_type_t
-    type: the message type
+    Master function to parse slave reply payload (after frame_to_payload processing).
+    payload_msg: the payload layer message extracted from the reply frame
     original_msg: the original read message that generated this reply (contains index and num_bytes)
     dest: destination buffer representing the base of the memory block to write into
 */
-int parse_read_reply(buffer_t * input, serial_message_type_t type, misc_read_message_t * original_msg, buffer_t * dest)
+int parse_read_reply(payload_layer_msg_t * payload, misc_read_message_t * original_msg, buffer_t * dest)
 {     
-    assert(dest != NULL && input != NULL && original_msg != NULL);
-    assert(dest->buf != NULL && input->buf != NULL);
-    assert(dest->size > 0 && input->size > 0);
-    assert(dest->len <= dest->size && input->len <= input->size);
-    assert(type == TYPE_SERIAL_MESSAGE || type == TYPE_ADDR_MESSAGE || type == TYPE_ADDR_CRC_MESSAGE);
-
-    buffer_t input_cpy = {  
-        .buf = input->buf,
-        .size = input->size,
-        .len = input->len
-    };
-    
-    if(type == TYPE_SERIAL_MESSAGE || type == TYPE_ADDR_MESSAGE)    //crc filtering if relevant
-    {
-        int rc = validate_crc(&input_cpy);
-        if(rc != SERIAL_PROTOCOL_SUCCESS)
-        {
-            return rc;
-        }
-        input_cpy.len -= NUM_BYTES_CHECKSUM;
-    }
-    if(type == TYPE_SERIAL_MESSAGE)     //address filtering if relevant
-    {
-        if(input_cpy.len <= NUM_BYTES_ADDRESS)  //input.len now must be greater or equal to 2 for a valid message. CRC may have been removed
-        {
-            return ERROR_MALFORMED_MESSAGE;
-        }
-        unsigned char addr = input_cpy.buf[0];
-        if(addr != MASTER_MISC_ADDRESS)
-        {
-            return ADDRESS_FILTERED;
-        }
-        input_cpy.buf++;
-        input_cpy.len--;
-    }
+    assert(dest != NULL && payload != NULL && original_msg != NULL);
+    assert(dest->buf != NULL && payload->msg.buf != NULL);
+    assert(dest->size > 0 && payload->msg.size > 0);
+    assert(dest->len <= dest->size && payload->msg.len <= payload->msg.size);
     
     // Calculate the offset into the destination buffer based on the original read index
     size_t byte_offset = ((size_t)original_msg->index) * sizeof(uint32_t);
@@ -408,22 +376,22 @@ int parse_read_reply(buffer_t * input, serial_message_type_t type, misc_read_mes
     {
         return ERROR_MEMORY_OVERRUN;
     }
-    if(byte_offset + input_cpy.len > dest->size)
+    if(byte_offset + payload->msg.len > dest->size)
     {
         return ERROR_MEMORY_OVERRUN;
     }
     
     // Validate that the reply length matches what we requested
-    if(input_cpy.len != original_msg->num_bytes)
+    if(payload->msg.len != original_msg->num_bytes)
     {
         return ERROR_MALFORMED_MESSAGE;
     }
     
     // Copy the reply data to the correct offset in the destination buffer
     unsigned char * dest_ptr = dest->buf + byte_offset;
-    for(int i = 0; i < input_cpy.len; i++)
+    for(int i = 0; i < payload->msg.len; i++)
     {
-        dest_ptr[i] = input_cpy.buf[i];
+        dest_ptr[i] = payload->msg.buf[i];
     }
     
     return SERIAL_PROTOCOL_SUCCESS;

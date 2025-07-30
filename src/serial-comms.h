@@ -140,7 +140,7 @@ int parse_base_serial_message(payload_layer_msg_t* pld_msg, buffer_t * mem_base,
 int parse_general_message(payload_layer_msg_t * pld_msg, serial_message_type_t type, buffer_t * mem_base, buffer_t * reply);
 int append_crc(buffer_t * input);
 int validate_crc(buffer_t * input);
-int parse_read_reply(buffer_t * input, serial_message_type_t type, misc_read_message_t * original_msg, buffer_t * dest);
+int parse_read_reply(payload_layer_msg_t * payload_msg, misc_read_message_t * original_msg, buffer_t * dest);
 
 #endif
 
