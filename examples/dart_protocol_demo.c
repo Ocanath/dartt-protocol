@@ -146,6 +146,39 @@ int create_read_struct_frame(unsigned char address,
 	return create_read_frame(&read_msg, TYPE_SERIAL_MESSAGE, output_frame);
 }
 
+/*
+    Helper function to print device_config_t with nice formatting
+*/
+void print_device_config(device_config_t * config)
+{
+    printf("  device_id:        0x%08X\n", config->device_id);
+    printf("  max_speed:        %u\n", config->max_speed);
+    printf("  acceleration:     %u\n", config->acceleration);
+    printf("  position_target:  %u\n", config->position_target);
+    printf("  current_position: %u\n", config->current_position);
+    printf("  status_flags:     0x%08X\n", config->status_flags);
+    printf("  temperature:      %u\n", config->temperature);
+    printf("  firmware_version: 0x%08X\n", config->firmware_version);
+}
+
+/*
+    Helper function to print buffer_t with nice formatting
+*/
+void print_buffer(buffer_t * buffer)
+{
+    printf("Buffer (size=%zu, len=%zu): ", buffer->size, buffer->len);
+    if (buffer->len == 0) {
+        printf("(empty)\n");
+    } else {
+        for (size_t i = 0; i < buffer->len; i++) {
+            printf("%02X ", buffer->buf[i]);
+            if ((i + 1) % 16 == 0 && i < buffer->len - 1) {
+                printf("\n                              ");
+            }
+        }
+        printf("\n");
+    }
+}
 
 
 int main(void)
@@ -159,6 +192,8 @@ int main(void)
 	const unsigned char motor_address = 3;
 	
 	printf("Before: controller current position = %d\r\n", controller_config.current_position);
+	printf("Controller config:\r\n");
+	print_device_config(&controller_config);
 	printf("Create master tx frame\r\n");
 	//create a DART frame to read the current position - using type-punning and application defined structs
 	int rc = create_read_struct_frame(get_complementary_address(motor_address),
@@ -167,6 +202,8 @@ int main(void)
 		&controller_config,
 		&controller_tx
 	);
+	printf("Message: ");
+	print_buffer(&controller_tx);
 	printf("Controller sends message to motor\r\n");
 	
 	printf("Motor recieved the message\r\n");
@@ -174,10 +211,13 @@ int main(void)
 	rc = frame_to_payload(&controller_tx, TYPE_SERIAL_MESSAGE, PAYLOAD_ALIAS, &pld_msg);
 	rc = parse_general_message(&pld_msg, TYPE_SERIAL_MESSAGE, &motor_config_ref, &motor_tx);
 	printf("Motor parsed master message and sends reply\r\n");
+	print_buffer(&motor_tx);
 
 	printf("Controller recieved reply\r\n");
 	rc = parse_read_reply(&motor_tx, TYPE_SERIAL_MESSAGE, &controller_config_ref);
 	printf("After: controller current position = %d\r\n", controller_config.current_position);
+	printf("Controller config:\r\n");
+	print_device_config(&controller_config);
 
 	
     printf("\n=== Demo Complete ===\n");
