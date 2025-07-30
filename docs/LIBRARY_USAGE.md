@@ -31,152 +31,14 @@ The DARTT library supports two main use cases with distinct APIs:
 Controllers initiate communication, send commands, and parse replies from peripherals.
 
 #### 1. Initialize Communication
-```c
-// Set up your transport layer (UART, SPI, I2C, etc.)
-// Configure addresses for your target device
-unsigned char motor_address = 0x01;     // Motor functionality address
-unsigned char misc_address = get_complementary_address(motor_address);  // 0xFE
-```
-
 #### 2. Create Write Requests
-```c
-// Prepare payload data
-unsigned char payload_data[] = {0x12, 0x34, 0x56, 0x78};
-
-// Create write message structure
-misc_write_message_t write_msg = {
-    .address = misc_address,
-    .index = 5,              // Word index (byte offset = index * 4)
-    .payload = {
-        .buf = payload_data,
-        .size = sizeof(payload_data),
-        .len = sizeof(payload_data)
-    }
-};
-
-// Prepare output buffer
-unsigned char tx_buffer[256];
-buffer_t output_frame = {
-    .buf = tx_buffer,
-    .size = sizeof(tx_buffer),
-    .len = 0
-};
-
-// Create the frame
-int result = create_write_frame(&write_msg, TYPE_SERIAL_MESSAGE, &output_frame);
-```
-
 #### 3. Create Read Requests
-```c
-// Create read message structure
-misc_read_message_t read_msg = {
-    .address = misc_address,
-    .index = 5,              // Word index
-    .num_bytes = 4           // Number of bytes to read
-};
-
-// Prepare output buffer
-unsigned char tx_buffer[256];
-buffer_t output_frame = {
-    .buf = tx_buffer,
-    .size = sizeof(tx_buffer),
-    .len = 0
-};
-
-// Create the frame
-int result = create_read_frame(&read_msg, TYPE_SERIAL_MESSAGE, &output_frame);
-```
-
 #### 4. Send and Parse Read Replies
-```c
-// Send the frame via your transport layer
-send_data(output_frame.buf, output_frame.len);
-
-// Receive response
-unsigned char rx_buffer[256];
-buffer_t rx_frame = {
-    .buf = rx_buffer,
-    .size = sizeof(rx_buffer),
-    .len = receive_data_length()  // Set by your transport layer
-};
-
-// Parse read reply using the original read message for proper offset calculation
-unsigned char device_memory[1024];  // Your local copy of device memory
-buffer_t memory_buffer = {
-    .buf = device_memory,
-    .size = sizeof(device_memory),
-    .len = 0
-};
-
-int result = parse_read_reply(&rx_frame, TYPE_SERIAL_MESSAGE, &read_msg, &memory_buffer);
-// The read data is now placed at the correct offset in memory_buffer
-// Access it at: device_memory + (read_msg.index * 4)
-```
 
 ### Peripheral (Slave) Usage
 
 #### 1. Frame Reception and Parsing
-```c
-// Receive incoming frame
-unsigned char rx_buffer[256];
-buffer_t rx_frame = {
-    .buf = rx_buffer,
-    .size = sizeof(rx_buffer),
-    .len = receive_data_length()  // Set by your transport layer
-};
-
-// Convert frame to payload layer
-payload_layer_msg_t payload_msg = {
-    .address = 0,
-    .msg = {.buf = NULL, .size = 0, .len = 0}  // For PAYLOAD_ALIAS mode
-};
-
-int result = frame_to_payload(&rx_frame, TYPE_SERIAL_MESSAGE, PAYLOAD_ALIAS, &payload_msg);
-```
-
 #### 2. Handle General Messages (Read/Write)
-```c
-// Set up device memory buffer
-unsigned char device_memory[1024];  // Your device's memory
-buffer_t memory_buffer = {
-    .buf = device_memory,
-    .size = sizeof(device_memory),
-    .len = sizeof(device_memory)  // Current valid data length
-};
-
-// Prepare response buffer
-unsigned char response_buffer[256];
-buffer_t response = {
-    .buf = response_buffer,
-    .size = sizeof(response_buffer),
-    .len = 0
-};
-
-// Parse and handle the message
-int result = parse_general_message(&payload_msg, TYPE_SERIAL_MESSAGE, &memory_buffer, &response);
-
-// If response.len > 0, send the response back to master
-if (result == SERIAL_PROTOCOL_SUCCESS && response.len > 0) {
-    send_data(response.buf, response.len);
-}
-```
-
-#### 3. Alternative: Direct Base Message Handling
-```c
-// For more control, you can handle the payload directly
-int result = parse_base_serial_message(&payload_msg, &memory_buffer, &response);
-
-// Handle the result and format response according to message type
-if (result == SERIAL_PROTOCOL_SUCCESS && response.len > 0) {
-    // Add address and CRC for TYPE_SERIAL_MESSAGE
-    memmove(response.buf + 1, response.buf, response.len);
-    response.buf[0] = MASTER_MISC_ADDRESS;
-    response.len += 1;
-    append_crc(&response);
-    
-    send_data(response.buf, response.len);
-}
-```
 
 ## Message Types and Transport Layers
 
@@ -186,6 +48,7 @@ Choose the appropriate message type based on your transport layer:
 - **Use for**: UART, RS485, RS232
 - **Features**: Includes address and CRC in frame
 - **Best for**: Point-to-point or multi-drop serial communications
+- **Highly recommended**: Use COBS (consistent-overhead byte stuffing) on top of DARTT before sending a DARTT message across the physical layer.
 
 ### TYPE_ADDR_MESSAGE (Type 1)  
 - **Use for**: SPI, I2C
