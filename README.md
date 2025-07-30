@@ -1,4 +1,4 @@
-# Serial Communication Library
+# DARTT - Dual Address Real-Time Transport Protocol
 
 A lightweight serial communication library for embedded systems that provides a structured way to handle read/write operations over serial interfaces.
 
