@@ -59,6 +59,10 @@ int copy_buf_full(buffer_t * in, buffer_t * out)
 	{
 		return ERROR_INVALID_ARGUMENT;
 	}
+	else if(in->buf == NULL || out->buf == NULL)
+	{
+		return ERROR_INVALID_ARGUMENT;
+	}
 	if(in->size != out->size)
 	{
 		return ERROR_MEMORY_OVERRUN;

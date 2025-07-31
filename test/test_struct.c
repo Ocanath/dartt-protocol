@@ -174,7 +174,9 @@ void test_struct_block_read(void)
 	device_config_t motor_cfg_backup;
 	buffer_t motor_cfg_backup_ref;
 	create_struct_ref(&motor_cfg_backup, &motor_cfg_backup_ref);
+	copy_buf_full(&motor_cfg_backup_ref, &motor_cfg_backup_ref);
 	
+
 	//create the write message
 	misc_read_message_t read_msg = {};
 	int rc = create_read_struct_frame(get_complementary_address(motor_address),
