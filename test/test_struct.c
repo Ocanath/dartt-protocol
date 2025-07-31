@@ -268,7 +268,7 @@ void test_struct_block_read_write(void)
 		TEST_ASSERT_EQUAL(motor_config_ref.buf[i], controller_config_ref.buf[i]);
 	}
 
-
+	//make everything different
 	controller_config.acceleration++;
 	controller_config.current_position--;
 	controller_config.device_id++;
@@ -277,6 +277,8 @@ void test_struct_block_read_write(void)
 	controller_config.position_target--;
 	controller_config.status_flags++;
 	controller_config.temperature--;
+
+	//cherry pick one word and write to it
 	rc = create_struct_write_frame(
 		get_complementary_address(motor_address),
 		&controller_config.acceleration,
@@ -285,7 +287,7 @@ void test_struct_block_read_write(void)
 		&controller_tx
 	);
 	TEST_ASSERT_EQUAL(SERIAL_PROTOCOL_SUCCESS, rc);
-
+	TEST_ASSERT_NOT_EQUAL(motor_config.acceleration, controller_config.acceleration);
 	frame_to_payload(&controller_tx, TYPE_SERIAL_MESSAGE, PAYLOAD_ALIAS, &pld);
 	TEST_ASSERT_EQUAL(get_complementary_address(motor_address), pld.address);
 	TEST_ASSERT_EQUAL(SERIAL_PROTOCOL_SUCCESS, rc);
@@ -295,4 +297,80 @@ void test_struct_block_read_write(void)
 	TEST_ASSERT_EQUAL(motor_config.acceleration, controller_config.acceleration);
 
 
+
+
+	//cherry pick another word and write to it
+	rc = create_struct_write_frame(
+		get_complementary_address(motor_address),
+		&controller_config.position_target,
+		sizeof(uint32_t),
+		&controller_config,
+		&controller_tx
+	);
+	TEST_ASSERT_EQUAL(SERIAL_PROTOCOL_SUCCESS, rc);
+	TEST_ASSERT_NOT_EQUAL(motor_config.position_target, controller_config.position_target);
+	frame_to_payload(&controller_tx, TYPE_SERIAL_MESSAGE, PAYLOAD_ALIAS, &pld);
+	TEST_ASSERT_EQUAL(get_complementary_address(motor_address), pld.address);
+	TEST_ASSERT_EQUAL(SERIAL_PROTOCOL_SUCCESS, rc);
+	rc = parse_general_message(&pld, TYPE_SERIAL_MESSAGE, &motor_config_ref, &motor_tx);
+	TEST_ASSERT_EQUAL(SERIAL_PROTOCOL_SUCCESS, rc);
+	TEST_ASSERT_EQUAL(0, motor_tx.len);	//may change this? for now write confirmations are performed by reads
+	TEST_ASSERT_EQUAL(motor_config.position_target, controller_config.position_target);
+
+
+
+
+	//cherry TWO words and write them
+	rc = create_struct_write_frame(
+		get_complementary_address(motor_address),
+		&controller_config.current_position,
+		sizeof(uint32_t)*2,
+		&controller_config,
+		&controller_tx
+	);
+	TEST_ASSERT_EQUAL(SERIAL_PROTOCOL_SUCCESS, rc);
+	TEST_ASSERT_NOT_EQUAL(motor_config.current_position, controller_config.current_position);
+	TEST_ASSERT_NOT_EQUAL(motor_config.status_flags, controller_config.status_flags);
+	frame_to_payload(&controller_tx, TYPE_SERIAL_MESSAGE, PAYLOAD_ALIAS, &pld);
+	TEST_ASSERT_EQUAL(get_complementary_address(motor_address), pld.address);
+	TEST_ASSERT_EQUAL(SERIAL_PROTOCOL_SUCCESS, rc);
+	rc = parse_general_message(&pld, TYPE_SERIAL_MESSAGE, &motor_config_ref, &motor_tx);
+	TEST_ASSERT_EQUAL(SERIAL_PROTOCOL_SUCCESS, rc);
+	TEST_ASSERT_EQUAL(0, motor_tx.len);	//may change this? for now write confirmations are performed by reads
+	TEST_ASSERT_EQUAL(motor_config.current_position, controller_config.current_position);
+	TEST_ASSERT_EQUAL(motor_config.status_flags, controller_config.status_flags);
+	
+
+
+
+	//write the whole thing
+	for(int i = 0; i < controller_config_ref.size; i++)
+	{
+		controller_config_ref.buf[i] = motor_config_ref.buf[i] + 1;
+	}
+	for(int i = 0; i < controller_config_ref.size; i++)	//silly but fuck it why not
+	{
+		TEST_ASSERT_NOT_EQUAL(motor_config_ref.buf[i], controller_config_ref.buf[i]);
+	}	
+	misc_write_message_t write_msg = {
+		.address = get_complementary_address(motor_address),
+		.index = 0,
+		.payload = {
+			.buf = controller_config_ref.buf,
+			.size = controller_config_ref.size,
+			.len = controller_config_ref.size
+		}
+	};
+	rc = create_write_frame(&write_msg, TYPE_SERIAL_MESSAGE, &controller_tx);
+	TEST_ASSERT_EQUAL(SERIAL_PROTOCOL_SUCCESS, rc);
+	frame_to_payload(&controller_tx, TYPE_SERIAL_MESSAGE, PAYLOAD_ALIAS, &pld);
+	TEST_ASSERT_EQUAL(get_complementary_address(motor_address), pld.address);
+	TEST_ASSERT_EQUAL(SERIAL_PROTOCOL_SUCCESS, rc);
+	rc = parse_general_message(&pld, TYPE_SERIAL_MESSAGE, &motor_config_ref, &motor_tx);
+	TEST_ASSERT_EQUAL(SERIAL_PROTOCOL_SUCCESS, rc);
+	TEST_ASSERT_EQUAL(0, motor_tx.len);	//may change this? for now write confirmations are performed by reads
+	for(int i = 0; i < controller_config_ref.size; i++)	//silly but fuck it why not
+	{
+		TEST_ASSERT_EQUAL(motor_config_ref.buf[i], controller_config_ref.buf[i]);
+	}
 }
