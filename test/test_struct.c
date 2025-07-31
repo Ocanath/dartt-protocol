@@ -174,7 +174,7 @@ void test_struct_block_read(void)
 	device_config_t motor_cfg_backup;
 	buffer_t motor_cfg_backup_ref;
 	create_struct_ref(&motor_cfg_backup, &motor_cfg_backup_ref);
-	copy_buf_full(&motor_cfg_backup_ref, &motor_cfg_backup_ref);
+	copy_buf_full(&motor_config_ref, &motor_cfg_backup_ref);
 	
 
 	//create the write message
@@ -205,7 +205,34 @@ void test_struct_block_read(void)
 	TEST_ASSERT_EQUAL(SERIAL_PROTOCOL_SUCCESS, rc);	
 	rc = parse_read_reply(&pld_msg, &read_msg, &controller_config_ref);
 	TEST_ASSERT_EQUAL(SERIAL_PROTOCOL_SUCCESS, rc);	
+	TEST_ASSERT_EQUAL(motor_config.current_position, controller_config.current_position);
+	for(int i = 0; i < motor_config_ref.size; i++)
+	{
+		TEST_ASSERT_EQUAL(motor_cfg_backup_ref.buf[i], motor_config_ref.buf[i]);
+	}
+	
+	//modify read_msg struct changing only the size and index requests
+	read_msg.num_bytes = sizeof(device_config_t);
+	read_msg.index = 0;	
+	rc = create_read_frame(&read_msg, TYPE_SERIAL_MESSAGE, &controller_tx);
+	TEST_ASSERT_EQUAL(SERIAL_PROTOCOL_SUCCESS, rc);
 
+	rc = frame_to_payload(&controller_tx, TYPE_SERIAL_MESSAGE, PAYLOAD_ALIAS, &pld_msg);	//decode frame to payload - confirmed in previous unit test so exhaustive coverage not required here
+	TEST_ASSERT_EQUAL(SERIAL_PROTOCOL_SUCCESS, rc);	
+	rc = parse_general_message(&pld_msg, TYPE_SERIAL_MESSAGE, &motor_config_ref, &motor_tx);	//parse the decoded payload message
+	TEST_ASSERT_EQUAL(SERIAL_PROTOCOL_SUCCESS, rc);	
+	TEST_ASSERT_EQUAL(MASTER_MISC_ADDRESS, motor_tx.buf[0]);
+	TEST_ASSERT_EQUAL(SERIAL_PROTOCOL_SUCCESS, validate_crc(&motor_tx));
+	TEST_ASSERT_EQUAL(NUM_BYTES_ADDRESS + NUM_BYTES_CHECKSUM + read_msg.num_bytes, motor_tx.len);
+	rc = frame_to_payload(&motor_tx, TYPE_SERIAL_MESSAGE, PAYLOAD_ALIAS, &pld_msg);
+	TEST_ASSERT_EQUAL(SERIAL_PROTOCOL_SUCCESS, rc);	
+	rc = parse_read_reply(&pld_msg, &read_msg, &controller_config_ref);
+	TEST_ASSERT_EQUAL(SERIAL_PROTOCOL_SUCCESS, rc);	
+	for(int i = 0; i < controller_config_ref.size; i++)
+	{
+		TEST_ASSERT_EQUAL(motor_config_ref.buf[i], controller_config_ref.buf[i]);
+	}
+	
 }	
 
 /*
