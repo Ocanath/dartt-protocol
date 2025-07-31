@@ -193,7 +193,7 @@ void test_struct_block_read(void)
 	payload_layer_msg_t pld_msg ={};	//can be statically allocated, or local and initialized to zero
 	rc = frame_to_payload(&controller_tx, TYPE_SERIAL_MESSAGE, PAYLOAD_ALIAS, &pld_msg);	//decode frame to payload - confirmed in previous unit test so exhaustive coverage not required here
 	TEST_ASSERT_EQUAL(SERIAL_PROTOCOL_SUCCESS, rc);	
-	TEST_ASSERT_EQUAL(pld_msg.address, controller_tx.buf[0]);
+	TEST_ASSERT_EQUAL(get_complementary_address(motor_address), pld_msg.address);	//real application would perform address filtering
 	rc = parse_general_message(&pld_msg, TYPE_SERIAL_MESSAGE, &motor_config_ref, &motor_tx);	//parse the decoded payload message
 	TEST_ASSERT_EQUAL(SERIAL_PROTOCOL_SUCCESS, rc);	
 	TEST_ASSERT_EQUAL(MASTER_MISC_ADDRESS, motor_tx.buf[0]);
@@ -232,7 +232,7 @@ void test_struct_block_read(void)
 	{
 		TEST_ASSERT_EQUAL(motor_config_ref.buf[i], controller_config_ref.buf[i]);
 	}
-	
+
 }	
 
 /*
@@ -240,5 +240,18 @@ void test_struct_block_read(void)
 */
 void test_struct_block_read_write(void)
 {
+	memset(&controller_config, 0, sizeof(controller_config));
+	const unsigned char motor_address = 3;
+	//create the write message
+	misc_read_message_t read_msg = {
+		.address = motor_address,
+		.index = 0,
+		.num_bytes = sizeof(device_config_t)
+	};
+	int rc = create_read_frame(&read_msg, TYPE_SERIAL_MESSAGE, &controller_tx);
+	TEST_ASSERT_EQUAL(SERIAL_PROTOCOL_SUCCESS, rc);
+
+	
+
 
 }
