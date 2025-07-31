@@ -51,6 +51,26 @@ size_t index_of_field(void * p_field, void * mem, size_t mem_size)
 }
 
 /*
+	Helper function to copy a full buffer to another full buffer. Sizes must match or it will return an overrun error
+ */
+int copy_buf_full(buffer_t * in, buffer_t * out)
+{
+	if(in == NULL || out == NULL)
+	{
+		return ERROR_INVALID_ARGUMENT;
+	}
+	if(in->size != out->size)
+	{
+		return ERROR_MEMORY_OVERRUN;
+	}
+	for(int i = 0; i < in->size; i++)
+	{
+		out->buf[i] = in->buf[i];
+	}
+	return SERIAL_PROTOCOL_SUCCESS;
+}
+
+/*
     Helper function to calculate the complementary address.
     Motor addresses (0x00-0x7E) map to misc addresses (0x81-0xFF).
     Master addresses also map: 0x7F (motor master) ↔ 0x80 (misc master).

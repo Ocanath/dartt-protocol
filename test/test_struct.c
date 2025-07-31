@@ -148,11 +148,32 @@ int parse_read_struct_reply(buffer_t* reply_frame, misc_read_message_t* original
     return parse_read_reply(&payload_msg, original_msg, &dest_buffer);
 }
 
+int create_struct_ref(device_config_t * cfg, buffer_t * ref)
+{
+	if(cfg == NULL || ref == NULL){return -1;};
+	ref->buf = (unsigned char *)cfg;
+	ref->size = sizeof(device_config_t);
+	ref->len = 0;
+	return 0;
+}
 
 
+
+/*
+
+*/
 void test_struct_block_read(void)
 {
 	const unsigned char motor_address = 3;
+	
+	//erase ref
+	for(int i = 0; i < controller_config_ref.size; i++)
+	{
+		controller_config_ref.buf[i] = 0;
+	}
+	device_config_t motor_cfg_backup;
+	buffer_t motor_cfg_backup_ref;
+	create_struct_ref(&motor_cfg_backup, &motor_cfg_backup_ref);
 	
 	//create the write message
 	misc_read_message_t read_msg = {};
@@ -182,6 +203,13 @@ void test_struct_block_read(void)
 	TEST_ASSERT_EQUAL(SERIAL_PROTOCOL_SUCCESS, rc);	
 	rc = parse_read_reply(&pld_msg, &read_msg, &controller_config_ref);
 	TEST_ASSERT_EQUAL(SERIAL_PROTOCOL_SUCCESS, rc);	
-	//rc = parse_read_struct_reply(&motor_tx, &read_msg, &controller_config);
 
 }	
+
+/*
+
+*/
+void test_struct_block_read_write(void)
+{
+
+}
