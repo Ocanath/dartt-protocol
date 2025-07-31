@@ -1,24 +1,6 @@
-/*
-    DARTT Protocol Demonstration
-    
-    This example shows how to use the DARTT protocol library functions
-    with type-punning for direct struct access. This demonstrates the
-    intended use case on little-endian 32-bit architectures like ARM STM32.
-    
-    WARNING: This code uses type-punning which is technically not C standard
-    compliant, but works reliably on controlled embedded targets where:
-    1. The target architecture is known and fixed
-    2. The target is little-endian
-    3. The compiler behavior is well-understood
-    
-    This approach eliminates the need for explicit parsing/serialization.
-*/
-
-#include <stdio.h>
-#include <string.h>
-#include <stdint.h>
-#include <assert.h>
+#include "checksum.h"
 #include "serial-comms.h"
+#include "unity.h"
 
 // Example device configuration struct (packed for type-punning)
 typedef struct device_config_t
@@ -54,11 +36,10 @@ buffer_t motor_config_ref = {
 // Simulated device memory (controller) - empty
 static device_config_t controller_config = {};
 buffer_t controller_config_ref = {
-	.buf = (unsigned char *)&controller_config,
+	.buf = (unsigned char * )(&controller_config),
 	.size = sizeof(device_config_t),
 	.len = 0
 };
-
 
 //simulated tx buffer from the controller
 unsigned char controller_tx_mem[64] = {};
@@ -75,7 +56,6 @@ buffer_t motor_tx = {
 	.size = sizeof(motor_tx_mem),
 	.len = 0
 };
-
 
 
 /*
@@ -145,58 +125,36 @@ int create_read_struct_frame(unsigned char address,
 	return create_read_frame(read_msg_out, TYPE_SERIAL_MESSAGE, output_frame);
 }
 
-/*
-    Helper function to print device_config_t with nice formatting
-*/
-void print_device_config(device_config_t * config)
+int parse_read_struct_reply(buffer_t* reply_frame, misc_read_message_t* original_msg, device_config_t* pstruct)
 {
-    printf("  device_id:        0x%08X\n", config->device_id);
-    printf("  max_speed:        %u\n", config->max_speed);
-    printf("  acceleration:     %u\n", config->acceleration);
-    printf("  position_target:  %u\n", config->position_target);
-    printf("  current_position: %u\n", config->current_position);
-    printf("  status_flags:     0x%08X\n", config->status_flags);
-    printf("  temperature:      %u\n", config->temperature);
-    printf("  firmware_version: 0x%08X\n", config->firmware_version);
-}
-
-/*
-    Helper function to print buffer_t with nice formatting
-*/
-void print_buffer(buffer_t * buffer)
-{
-    printf("Buffer (size=%zu, len=%zu): ", buffer->size, buffer->len);
-    if (buffer->len == 0) {
-        printf("(empty)\n");
-    } else {
-        for (size_t i = 0; i < buffer->len; i++) {
-            printf("%02X ", buffer->buf[i]);
-            if ((i + 1) % 16 == 0 && i < buffer->len - 1) {
-                printf("\n                              ");
-            }
-        }
-        printf("\n");
-    }
-}
-
-
-int main(void)
-{
-    printf("DARTT Protocol (Dual-Address Real-Time Transport) Demonstration\n");
-    printf("=============================================================\n");
-    printf("Focus: TYPE_SERIAL_MESSAGE with struct field wrapper\n\n");
+    // First use frame_to_payload to strip address/CRC and get payload data
+    payload_layer_msg_t payload_msg = {
+        .address = 0,
+        .msg = {.buf = NULL, .size = 0, .len = 0}  // For PAYLOAD_ALIAS mode
+    };
     
-	printf("Example 1: controller block read");
-	
+    int rc = frame_to_payload(reply_frame, TYPE_SERIAL_MESSAGE, PAYLOAD_ALIAS, &payload_msg);
+    if(rc != SERIAL_PROTOCOL_SUCCESS) {
+        return rc;
+    }
+    
+    // Now use parse_read_reply on the clean payload data
+    buffer_t dest_buffer = {
+        .buf = (unsigned char*)pstruct,
+        .size = sizeof(device_config_t),
+        .len = 0
+    };
+    
+    return parse_read_reply(&payload_msg, original_msg, &dest_buffer);
+}
+
+
+
+void test_struct_block_read(void)
+{
 	const unsigned char motor_address = 3;
 	
-	printf("Before: controller current position = %d\r\n", controller_config.current_position);
-	printf("Controller config:\r\n");
-	print_device_config(&controller_config);
-    printf("Motor config: \r\n");
-    print_device_config(&motor_config);
-	printf("Create master tx frame\r\n");
-	//create a DARTT frame to read the current position - using type-punning and application defined structs
+	//create the write message
 	misc_read_message_t read_msg = {};
 	int rc = create_read_struct_frame(get_complementary_address(motor_address),
 		(unsigned char *)(&controller_config.current_position), 
@@ -205,28 +163,25 @@ int main(void)
 		&read_msg,
 		&controller_tx
 	);
-	printf("Message: ");
-	print_buffer(&controller_tx);
-	printf("Controller sends message to motor\r\n");
-	
-	printf("Motor recieved the message\r\n");
+
+	//send to peripheral...
+
+	//peripheral recieved message and begins parsing it
 	payload_layer_msg_t pld_msg ={};	//can be statically allocated, or local and initialized to zero
-	rc = frame_to_payload(&controller_tx, TYPE_SERIAL_MESSAGE, PAYLOAD_ALIAS, &pld_msg);
-	rc = parse_general_message(&pld_msg, TYPE_SERIAL_MESSAGE, &motor_config_ref, &motor_tx);
-	printf("Motor parsed master message and sends reply\r\n");
-	print_buffer(&motor_tx);
+	rc = frame_to_payload(&controller_tx, TYPE_SERIAL_MESSAGE, PAYLOAD_ALIAS, &pld_msg);	//decode frame to payload - confirmed in previous unit test so exhaustive coverage not required here
+	TEST_ASSERT_EQUAL(SERIAL_PROTOCOL_SUCCESS, rc);	
+	TEST_ASSERT_EQUAL(pld_msg.address, controller_tx.buf[0]);
+	rc = parse_general_message(&pld_msg, TYPE_SERIAL_MESSAGE, &motor_config_ref, &motor_tx);	//parse the decoded payload message
+	TEST_ASSERT_EQUAL(SERIAL_PROTOCOL_SUCCESS, rc);	
+	TEST_ASSERT_EQUAL(MASTER_MISC_ADDRESS, motor_tx.buf[0]);
+	TEST_ASSERT_EQUAL(SERIAL_PROTOCOL_SUCCESS, validate_crc(&motor_tx));
+	TEST_ASSERT_EQUAL(NUM_BYTES_ADDRESS + NUM_BYTES_CHECKSUM + read_msg.num_bytes, motor_tx.len);
 
-	printf("Controller recieved reply\r\n");
-    rc = frame_to_payload(&motor_tx, TYPE_SERIAL_MESSAGE, PAYLOAD_ALIAS, &pld_msg);
+
+	rc = frame_to_payload(&motor_tx, TYPE_SERIAL_MESSAGE, PAYLOAD_ALIAS, &pld_msg);
+	TEST_ASSERT_EQUAL(SERIAL_PROTOCOL_SUCCESS, rc);	
 	rc = parse_read_reply(&pld_msg, &read_msg, &controller_config_ref);
-	printf("After: controller current position = %d\r\n", controller_config.current_position);
-	printf("Controller config:\r\n");
-	print_device_config(&controller_config);
-    printf("Motor config: \r\n");
-    print_device_config(&motor_config);
+	TEST_ASSERT_EQUAL(SERIAL_PROTOCOL_SUCCESS, rc);	
+	//rc = parse_read_struct_reply(&motor_tx, &read_msg, &controller_config);
 
-	
-    printf("\n=== Demo Complete ===\n");
-    
-    return 0;
-}
+}	

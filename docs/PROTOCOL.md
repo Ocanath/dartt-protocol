@@ -1,18 +1,6 @@
 # DARTT - Dual Address Real-Time Transport Protcol
 
-## Summary
-
-DARTT is a lightweight serial communication protocol that provides a simple, lightweight and low-overhead method of communicating with embedded systems. It's primary intended use case is in motor controllers for robots, but is useful as a general-purpose protocol for any simple communication network with a controller-peripheral structure. 
-
-The protocol defines two primary frame types - an application defined 'motor' frame type, and a general purpose 'misc' frame type. These are generally accessed with a 'dual addressing' schema, where each peripheral responds to two different addresses - a 'motor' address and a 'misc' address. 
-
-The 'motor' frame is an application defined tight/packed frame for highest possible bandwidth containing specialized command and response patterns (such as voltage, current, position, velocity, etc). The 'misc' frames are protocol defined, and function as block memory read and write messages. 
-
-The motor frame and block memory layout are application specific, and occupy the 'application' layer. Below this layer is the 'protocol' layer - this defines the underlying structure of DARTT generic/misc read and write messages (with block index, payload, read/write bit, etc), detailed below. Below the 'protocol' layer is the 'frame' layer - this is transport protocol specific, and may contain an address and CRC (type 0), just a CRC (type 1), or neither an address nor CRC (type 2). 
-
-The DARTT library is designed to be C language standards compliant - however, in embedded systems where the controller and peripheral endian-ness and bit-width match, type punning is the recommended way to define the block memory structure. This is especially true for the peripheral, which is most commonly an embedded system with fixed CPU architecture, and therefore will have a predictable memory layout. This is also the reason that DARTT is little-endian - for the most commonly used CPU architectures (ARM and x86), little-endian is the default.
-
-## Overview
+## Frame Definitions
 
 The protocol supports three different message types to accommodate various transport layers:
 - **TYPE_SERIAL_MESSAGE**: Raw serial with address and CRC

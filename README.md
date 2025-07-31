@@ -1,6 +1,16 @@
 # DARTT - Dual Address Real-Time Transport Protocol
 
-A lightweight serial communication library for embedded systems that provides a structured way to handle read/write operations over serial interfaces.
+## Overview
+
+DARTT is a lightweight serial communication protocol that provides a simple, lightweight and low-overhead method of communicating with embedded systems. It's primary intended use case is in motor controllers for robots, but is useful as a general-purpose protocol for any simple communication network with a controller-peripheral structure. 
+
+The protocol defines two primary frame types - an application defined 'motor' frame type, and a general purpose 'misc' frame type. These are generally accessed with a 'dual addressing' schema, where each peripheral responds to two different addresses - a 'motor' address and a 'misc' address. 
+
+The 'motor' frame is an application defined tight/packed frame for highest possible bandwidth containing specialized command and response patterns (such as voltage, current, position, velocity, etc). The 'misc' frames are protocol defined, and function as block memory read and write messages. 
+
+The motor frame and block memory layout are application specific, and occupy the 'application' layer. Below this layer is the 'protocol' layer - this defines the underlying structure of DARTT generic/misc read and write messages (with block index, payload, read/write bit, etc), detailed below. Below the 'protocol' layer is the 'frame' layer - this is transport protocol specific, and may contain an address and CRC (type 0), just a CRC (type 1), or neither an address nor CRC (type 2). 
+
+The DARTT library is designed to be C language standards compliant - however, in embedded systems where the controller and peripheral endian-ness and bit-width match, type punning is the recommended way to define the block memory structure. This is especially true for the peripheral, which is most commonly an embedded system with fixed CPU architecture, and therefore will have a predictable memory layout. This is also the reason that DARTT is little-endian - for the most commonly used CPU architectures (ARM and x86), little-endian is the default.
 
 ## Integration into Your Project
 
@@ -11,29 +21,12 @@ Copy these files into your project:
 - `src/checksum.c`
 - `src/checksum.h`
 
-### Customization
-The library is designed to be customized through the `comms_t` struct defined in `serial-comms-struct.h`. You can extend this struct to include your specific data structures and communication needs.
-
-Example of extending the struct:
-```c
-typedef struct {
-    // Your custom data structures
-    uint32_t custom_data;
-    float sensor_readings[4];
-    // ... other fields
-} my_custom_data_t;
-
-typedef struct {
-    my_custom_data_t data;
-    // ... other fields from the base comms_t struct
-} comms_t;
-```
-
 ## Building and Testing
 
 ### Prerequisites
 - CMake (version 3.10 or higher)
 - C compiler with C11 support
+- ceedling 1.0.1 or higher
 
 ### Building the Project
 ```bash
@@ -44,10 +37,9 @@ make
 ```
 
 ### Running Unit Tests
-The test suite can be run from the build directory:
+The test suite can be run via ceedling
 ```bash
-cd build
-make test
+ceedling test:all
 ```
 
 ### Building Examples
