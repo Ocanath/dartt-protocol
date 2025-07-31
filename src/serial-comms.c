@@ -584,12 +584,19 @@ int parse_general_message(payload_layer_msg_t * pld_msg, serial_message_type_t t
             .len = 0
         };
         int rc = parse_base_serial_message(pld_msg, mem_base, &reply_cpy);    //will copy from 1 to len. the original reply buffer is now ready for address and crc loading
-        if(rc == SERIAL_PROTOCOL_SUCCESS && reply_cpy.len != 0)
+        if(rc == SERIAL_PROTOCOL_SUCCESS)
         {
-            //append address
-            reply->buf[0] = MASTER_MISC_ADDRESS;
-            reply->len = reply_cpy.len + NUM_BYTES_ADDRESS; //update len now that we have the address in the base message
-            return append_crc(reply);   //the checks in this function also check for address length increase/overrun
+			if(reply_cpy.len != 0)
+			{
+				//append address
+				reply->buf[0] = MASTER_MISC_ADDRESS;
+				reply->len = reply_cpy.len + NUM_BYTES_ADDRESS; //update len now that we have the address in the base message
+				return append_crc(reply);   //the checks in this function also check for address length increase/overrun
+			}
+			else
+			{
+				reply->len = reply_cpy.len;
+			}
         }
         else if(rc != SERIAL_PROTOCOL_SUCCESS)
         {

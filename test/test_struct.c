@@ -244,14 +244,55 @@ void test_struct_block_read_write(void)
 	const unsigned char motor_address = 3;
 	//create the write message
 	misc_read_message_t read_msg = {
-		.address = motor_address,
+		.address = get_complementary_address(motor_address),
 		.index = 0,
 		.num_bytes = sizeof(device_config_t)
 	};
-	int rc = create_read_frame(&read_msg, TYPE_SERIAL_MESSAGE, &controller_tx);
+	int rc = create_read_frame(&read_msg, TYPE_SERIAL_MESSAGE, &controller_tx);	//this goes straight from application to frame
 	TEST_ASSERT_EQUAL(SERIAL_PROTOCOL_SUCCESS, rc);
 
+	payload_layer_msg_t pld = {};
+	rc = frame_to_payload(&controller_tx, TYPE_SERIAL_MESSAGE, PAYLOAD_ALIAS, &pld);
+	TEST_ASSERT_EQUAL(get_complementary_address(motor_address), pld.address);
+	TEST_ASSERT_EQUAL(SERIAL_PROTOCOL_SUCCESS, rc);
+	rc = parse_general_message(&pld, TYPE_SERIAL_MESSAGE, &motor_config_ref, &motor_tx); //frame to app
+	TEST_ASSERT_EQUAL(SERIAL_PROTOCOL_SUCCESS, rc);
+
+	rc = frame_to_payload(&motor_tx, TYPE_SERIAL_MESSAGE, PAYLOAD_ALIAS, &pld);
+	TEST_ASSERT_EQUAL(SERIAL_PROTOCOL_SUCCESS, rc);
+	rc = parse_read_reply(&pld, &read_msg, &controller_config_ref);
+	TEST_ASSERT_EQUAL(SERIAL_PROTOCOL_SUCCESS, rc);
 	
+	for(int i = 0; i < controller_config_ref.size; i++)
+	{
+		TEST_ASSERT_EQUAL(motor_config_ref.buf[i], controller_config_ref.buf[i]);
+	}
+
+
+	controller_config.acceleration++;
+	controller_config.current_position--;
+	controller_config.device_id++;
+	controller_config.firmware_version--;
+	controller_config.max_speed++;
+	controller_config.position_target--;
+	controller_config.status_flags++;
+	controller_config.temperature--;
+	rc = create_struct_write_frame(
+		get_complementary_address(motor_address),
+		&controller_config.acceleration,
+		sizeof(uint32_t),
+		&controller_config,
+		&controller_tx
+	);
+	TEST_ASSERT_EQUAL(SERIAL_PROTOCOL_SUCCESS, rc);
+
+	frame_to_payload(&controller_tx, TYPE_SERIAL_MESSAGE, PAYLOAD_ALIAS, &pld);
+	TEST_ASSERT_EQUAL(get_complementary_address(motor_address), pld.address);
+	TEST_ASSERT_EQUAL(SERIAL_PROTOCOL_SUCCESS, rc);
+	rc = parse_general_message(&pld, TYPE_SERIAL_MESSAGE, &motor_config_ref, &motor_tx);
+	TEST_ASSERT_EQUAL(SERIAL_PROTOCOL_SUCCESS, rc);
+	TEST_ASSERT_EQUAL(0, motor_tx.len);	//may change this? for now write confirmations are performed by reads
+	TEST_ASSERT_EQUAL(motor_config.acceleration, controller_config.acceleration);
 
 
 }
