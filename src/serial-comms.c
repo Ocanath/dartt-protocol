@@ -3,14 +3,24 @@
 #include "serial-comms.h"
 #include "checksum.h"
 
-/*
-    Helper function to get the index of a field in a comms struct.
-    Arguments:
-        p_field: the field to get the index of
-        comms: the comms struct
-    Returns:
-        The index of the field in the comms struct, for creating misc messages.
-*/
+/**
+ * @brief Calculate the 32-bit word index of a field within a memory structure.
+ * 
+ * This function determines the offset of a specific field within a larger memory structure,
+ * expressed as a 32-bit word index. Used primarily for creating memory access messages
+ * that reference specific fields by their word offset.
+ * 
+ * @param p_field Pointer to the field whose index is to be calculated
+ * @param mem Pointer to the base of the memory structure
+ * @param mem_size Size of the memory structure in bytes
+ * 
+ * @return Word index of the field (offset / sizeof(int32_t)), or error code:
+ *         - ERROR_INVALID_ARGUMENT if pointers are NULL, field is out of bounds,
+ *           or field is not aligned to 32-bit boundaries
+ * 
+ * @note The field must be aligned to 32-bit (4-byte) boundaries.
+ * @note This function performs bounds checking to ensure the field is within the structure.
+ */
 size_t index_of_field(void * p_field, void * mem, size_t mem_size)
 {
     //null pointer checks
@@ -50,8 +60,21 @@ size_t index_of_field(void * p_field, void * mem, size_t mem_size)
     return offset / sizeof(int32_t);
 }
 
-/*
-	Helper function to copy a full buffer to another full buffer. Sizes must match or it will return an overrun error
+/**
+ * @brief Copy the entire contents of one buffer to another buffer of identical size.
+ * 
+ * This function performs a complete copy of data from an input buffer to an output buffer.
+ * Both buffers must have identical sizes, and all buffer pointers must be valid.
+ * 
+ * @param in Source buffer containing data to copy
+ * @param out Destination buffer to receive copied data
+ * 
+ * @return SERIAL_PROTOCOL_SUCCESS on success, or error code:
+ *         - ERROR_INVALID_ARGUMENT if any buffer pointer is NULL
+ *         - ERROR_MEMORY_OVERRUN if buffer sizes don't match
+ * 
+ * @note Both buffers must have identical size fields for the copy to proceed.
+ * @note The function copies exactly buffer->size bytes, regardless of the len field.
  */
 int copy_buf_full(buffer_t * in, buffer_t * out)
 {
@@ -74,24 +97,45 @@ int copy_buf_full(buffer_t * in, buffer_t * out)
 	return SERIAL_PROTOCOL_SUCCESS;
 }
 
-/*
-    Helper function to calculate the complementary address.
-    Motor addresses (0x00-0x7E) map to misc addresses (0x81-0xFF).
-    Master addresses also map: 0x7F (motor master) ↔ 0x80 (misc master).
-    Arguments:
-        address: Input address (motor, misc, or master)
-    Returns:
-        The complementary address using the formula: 0xFF - address
-*/
+/**
+ * @brief Calculate the complementary address for address space mapping.
+ * 
+ * This function implements a bidirectional address mapping between motor and misc
+ * address spaces using the formula: complementary = 0xFF - address.
+ * 
+ * Address mappings:
+ * - Motor addresses (0x00-0x7E) ↔ Misc addresses (0x81-0xFF)
+ * - Motor master (0x7F) ↔ Misc master (0x80)
+ * 
+ * @param address Input address from either address space
+ * 
+ * @return Complementary address in the opposite address space
+ * 
+ * @note This mapping is symmetric: get_complementary_address(get_complementary_address(x)) == x
+ * @note Used for routing messages between motor and misc subsystems.
+ */
 unsigned char get_complementary_address(unsigned char address)
 {
     return 0xFF - address;
 }
 
-/*
-    Helper function to check the message and output buffer setups.
-    Intended use in a release build: static memory allocation for msg and output, and
-    a single call to check_write_args for all msg instances to all output instances before use.
+/**
+ * @brief Validate write message parameters and buffer capacity before frame creation.
+ * 
+ * This function performs comprehensive validation of write message parameters
+ * and ensures the output buffer has sufficient capacity for the resulting frame.
+ * Intended for use during initialization to validate statically allocated buffers.
+ * 
+ * @param msg Write message structure containing payload and addressing information
+ * @param type Serial message type (TYPE_SERIAL_MESSAGE, TYPE_ADDR_MESSAGE, or TYPE_ADDR_CRC_MESSAGE)
+ * @param output Output buffer that will receive the generated frame
+ * 
+ * @return SERIAL_PROTOCOL_SUCCESS if validation passes, or error code:
+ *         - ERROR_INVALID_ARGUMENT if parameters are NULL, invalid type, or empty payload
+ *         - ERROR_MEMORY_OVERRUN if output buffer is too small for the resulting frame
+ * 
+ * @note Call this once during initialization on statically defined memory.
+ * @note Frame overhead varies by type: SERIAL (addr+idx+crc), ADDR (idx+crc), ADDR_CRC (idx only).
  */
 int check_write_args(misc_write_message_t * msg, serial_message_type_t type, buffer_t * output)
 {
@@ -137,6 +181,28 @@ int check_write_args(misc_write_message_t * msg, serial_message_type_t type, buf
     return SERIAL_PROTOCOL_SUCCESS;
 }
 
+/**
+ * @brief Generate a write frame from a message structure.
+ * 
+ * This function constructs a complete write frame ready for transmission,
+ * including addressing (if applicable), payload data, and CRC (if applicable).
+ * The read/write bit in the index is cleared to indicate a write operation.
+ * 
+ * This function provides a traversal from the Payload layer to the Frame layer.
+ * 
+ * @param msg Write message containing address, index, and payload data
+ * @param type Frame type determining structure (address and CRC inclusion)
+ * @param output Buffer to receive the generated frame (len will be updated)
+ * 
+ * @return SERIAL_PROTOCOL_SUCCESS on successful frame generation
+ * 
+ * @note Arguments must be pre-validated using check_write_args().
+ * @note Frame structure varies by type:
+ *       - TYPE_SERIAL_MESSAGE: [addr][idx_lo][idx_hi][payload...][crc_lo][crc_hi]
+ *       - TYPE_ADDR_MESSAGE: [idx_lo][idx_hi][payload...][crc_lo][crc_hi]
+ *       - TYPE_ADDR_CRC_MESSAGE: [idx_lo][idx_hi][payload...]
+ * @note The MSB of the index is cleared to indicate write operation.
+ */
 int create_write_frame(misc_write_message_t * msg, serial_message_type_t type, buffer_t * output)
 {
     assert(check_write_args(msg,type,output) == SERIAL_PROTOCOL_SUCCESS);  //assert to save on runtime execution
@@ -163,11 +229,24 @@ int create_write_frame(misc_write_message_t * msg, serial_message_type_t type, b
     return SERIAL_PROTOCOL_SUCCESS;
 }
 
-/*
-Check for validity of msg,type,output combination.
-Intended use in release is to check pre-allocated memory once on init, then call with impunity with
-pre-checked arguments.
-*/
+/**
+ * @brief Validate read message parameters and buffer capacity before frame creation.
+ * 
+ * This function performs comprehensive validation of read message parameters
+ * and ensures the output buffer has sufficient capacity for the resulting frame.
+ * Intended for use during initialization to validate statically allocated buffers.
+ * 
+ * @param msg Read message structure containing address, index, and byte count
+ * @param type Serial message type (TYPE_SERIAL_MESSAGE, TYPE_ADDR_MESSAGE, or TYPE_ADDR_CRC_MESSAGE)
+ * @param output Output buffer that will receive the generated frame
+ * 
+ * @return SERIAL_PROTOCOL_SUCCESS if validation passes, or error code:
+ *         - ERROR_INVALID_ARGUMENT if parameters are NULL or invalid type
+ *         - ERROR_MEMORY_OVERRUN if output buffer is too small for the resulting frame
+ * 
+ * @note Call this once during initialization, then use create_read_frame() with confidence.
+ * @note Read frames have fixed size based on type: address + index + num_bytes + CRC (if applicable).
+ */
 int check_read_args(misc_read_message_t * msg, serial_message_type_t type, buffer_t * output)
 {
     if(msg == NULL || output == NULL)
@@ -212,7 +291,27 @@ int check_read_args(misc_read_message_t * msg, serial_message_type_t type, buffe
     return SERIAL_PROTOCOL_SUCCESS;
 }
 
-/*
+/**
+ * @brief Generate a read frame from a message structure.
+ * 
+ * This function constructs a complete read frame ready for transmission,
+ * including addressing (if applicable), index with read bit set, byte count,
+ * and CRC (if applicable).
+ * 
+ * This function provides a traversal from the Payload layer to the Frame layer.
+ * 
+ * @param msg Read message containing address, index, and number of bytes to read
+ * @param type Frame type determining structure (address and CRC inclusion)
+ * @param output Buffer to receive the generated frame (len will be updated)
+ * 
+ * @return SERIAL_PROTOCOL_SUCCESS on successful frame generation
+ * 
+ * @note Arguments must be pre-validated using check_read_args().
+ * @note Frame structure varies by type:
+ *       - TYPE_SERIAL_MESSAGE: [addr][idx_lo|0x80][idx_hi][bytes_lo][bytes_hi][crc_lo][crc_hi]
+ *       - TYPE_ADDR_MESSAGE: [idx_lo|0x80][idx_hi][bytes_lo][bytes_hi][crc_lo][crc_hi]
+ *       - TYPE_ADDR_CRC_MESSAGE: [idx_lo|0x80][idx_hi][bytes_lo][bytes_hi]
+ * @note The MSB of the index is set to indicate read operation.
  */
 int create_read_frame(misc_read_message_t * msg, serial_message_type_t type, buffer_t * output)
 {
@@ -238,27 +337,31 @@ int create_read_frame(misc_read_message_t * msg, serial_message_type_t type, buf
     return SERIAL_PROTOCOL_SUCCESS;
 }
 
-/* 
-    Slave only - parse an incoming master message and act on it
-    The input buffer contents must not include the address or crc, if relevant - it is therefore agnostic to 
-    message type. It will bifurcate based on the read-write bit. Address and CRC filtering are assumed to have 
-    been done before calling this function.
-    
-    input: input_buffer_base - the serial message, stripped of any CRC and address information
-    mem_base: buffer/pointer to the memory region we are reading and writing to
-    reply_raw: in the case of a read message, this will contain an un-framed (no address or CRC) message, ready for address+crc framing, link layer framing, and transmission
-        
-        NOTE TO FUTURE JESSE ^ when implementing the caller to this function, make sure the reply_raw buffer_t makes space for the address with pointer arithmetic.
-        i.e.:
-            buffer_t shifted_reply = {
-                .buf = reply->buf + 1
-                .size = reply->size - 1
-                .len = 0
-            };
-            parse_base_serial_message(&shifted_input, mem, &shifted_reply);
-            -can use similar logic to handle the input adjustments, with local buffer_t's. that allows you 
-            to leave the original buffer_t's untouched, for a small RAM cost, while eliminating O(n) shifting
-*/
+/**
+ * @brief Parse and execute a payload-layer message (slave-side message handler).
+ * 
+ * This function processes incoming messages that have been stripped of address and CRC
+ * information by upstream processing. It determines whether the message is a read or write
+ * operation based on the read/write bit and executes the appropriate action on the target
+ * memory space.
+ * 
+ * This function provides traversal from Payload to Application (via block memory) for perhiperals
+ * 
+ * @param pld_msg Payload layer message (address and CRC already removed)
+ * @param mem_base Target memory space for read/write operations
+ * @param reply_base Buffer for read reply data (raw payload, no framing)
+ * 
+ * @return SERIAL_PROTOCOL_SUCCESS on successful operation, or error code:
+ *         - ERROR_MALFORMED_MESSAGE if message structure is invalid
+ *         - ERROR_MEMORY_OVERRUN if operation would exceed buffer bounds
+ * 
+ * @note Input message format: [idx_lo][idx_hi][payload...] for writes
+ *                             [idx_lo|0x80][idx_hi][num_bytes_lo][num_bytes_hi] for reads
+ * @note For read operations, reply_base will contain the requested data
+ * @note For write operations, reply_base->len is set to 0 (no reply)
+ * @note Caller should reserve space for address framing using pointer arithmetic
+ * @note This function is message-type agnostic - framing is handled upstream
+ */
 int parse_base_serial_message(payload_layer_msg_t* pld_msg, buffer_t * mem_base, buffer_t * reply_base)
 {
     assert(pld_msg != NULL && mem_base != NULL && reply_base != NULL);
@@ -329,9 +432,24 @@ int parse_base_serial_message(payload_layer_msg_t* pld_msg, buffer_t * mem_base,
     }
 }
 
-/*
-    Helper function to validate the crc in a buffer_t, which is always the last two bytes of the message
-    if present.
+/**
+ * @brief Validate the CRC checksum of a message buffer.
+ * 
+ * This function verifies that the CRC-16 checksum appended to the end of a message
+ * matches the calculated checksum of the message content. The CRC is always stored
+ * as the last two bytes of the buffer in little-endian format.
+ * 
+ * This function operates within the frame layer only
+ * 
+ * @param input Buffer containing message data with appended CRC
+ * 
+ * @return SERIAL_PROTOCOL_SUCCESS if CRC is valid, or error code:
+ *         - ERROR_INVALID_ARGUMENT if buffer is too short to contain CRC
+ *         - ERROR_CHECKSUM_MISMATCH if calculated CRC doesn't match stored CRC
+ * 
+ * @note CRC is calculated over all bytes except the last two (the CRC itself)
+ * @note CRC bytes are stored in little-endian format: [crc_low][crc_high]
+ * @note Buffer must be at least NUM_BYTES_CHECKSUM + 1 bytes long
  */
 int validate_crc(buffer_t * input)
 {
@@ -358,8 +476,24 @@ int validate_crc(buffer_t * input)
     }
 }
 
-/*
-    Helper function to append a crc to an existing buffer_t
+/**
+ * @brief Append a CRC-16 checksum to the end of a message buffer.
+ * 
+ * This function calculates the CRC-16 checksum of the current buffer contents
+ * and appends it to the end of the buffer in little-endian format. The buffer's
+ * length field is updated to include the appended CRC bytes.
+ * 
+ * This function operates within the frame layer only
+ * 
+ * @param input Buffer containing message data (len will be increased by 2)
+ * 
+ * @return SERIAL_PROTOCOL_SUCCESS on success, or error code:
+ *         - ERROR_MEMORY_OVERRUN if buffer doesn't have space for CRC bytes
+ * 
+ * @note CRC is calculated over the current buffer contents (0 to len-1)
+ * @note CRC bytes are appended in little-endian format: [crc_low][crc_high]
+ * @note Buffer must have at least NUM_BYTES_CHECKSUM free bytes remaining
+ * @note The len field is automatically updated to include the CRC bytes
  */
 int append_crc(buffer_t * input)
 {
@@ -379,12 +513,28 @@ int append_crc(buffer_t * input)
     return SERIAL_PROTOCOL_SUCCESS;
 }
 
-/*
-    Master function to parse slave reply payload (after frame_to_payload processing).
-    payload_msg: the payload layer message extracted from the reply frame
-    original_msg: the original read message that generated this reply (contains index and num_bytes)
-    dest: destination buffer representing the base of the memory block to write into
-*/
+/**
+ * @brief Parse a slave's read reply and copy data to the appropriate memory location (master-side).
+ * 
+ * This function processes a read reply from a slave device, validating the reply length
+ * against the original request and copying the data to the correct offset within the
+ * destination memory buffer. The offset is calculated from the original read message's index.
+ * 
+ * This function provides a traversal from payload layer to application layer, for controller devices
+ * 
+ * @param payload Payload layer message containing the slave's reply data
+ * @param original_msg Original read message that generated this reply
+ * @param dest Destination memory buffer to receive the reply data
+ * 
+ * @return SERIAL_PROTOCOL_SUCCESS on successful parsing, or error code:
+ *         - ERROR_MEMORY_OVERRUN if calculated offset exceeds destination bounds
+ *         - ERROR_MALFORMED_MESSAGE if reply length doesn't match requested length
+ * 
+ * @note The destination offset is calculated as: original_msg->index * sizeof(uint32_t)
+ * @note Reply length must exactly match original_msg->num_bytes
+ * @note This function is called after frame_to_payload() has extracted the raw payload
+ * @note Used by master devices to reconstruct remote memory after read operations
+ */
 int parse_read_reply(payload_layer_msg_t * payload, misc_read_message_t * original_msg, buffer_t * dest)
 {     
     assert(dest != NULL && payload != NULL && original_msg != NULL);
@@ -421,17 +571,37 @@ int parse_read_reply(payload_layer_msg_t * payload, misc_read_message_t * origin
     return SERIAL_PROTOCOL_SUCCESS;
 }
 
-/*
-	This function takes as input a serial message of any type, and strips away the address
-		1. validates the checksum (if applicable)
-		2. loads the address into the base protocol message (if applicable). Otherwise, it will pass through
-
-	This is a Frame Layer to Payload Layer translation function. The input is a Frame/Transport layer message
-	of any serial_message_type.
-
-	IMPORTANT: This function does not have any expectations with regards to frame structure. It simply removes address if present, and crc if present.
-	That is it! Frame structure is decoded downstream of this function, which only performs CRC filtering and address removal.
-*/
+/**
+ * @brief Convert a frame-layer message to payload-layer format by removing framing overhead.
+ * 
+ * This function performs frame-to-payload translation by stripping addressing and CRC
+ * information from incoming messages while validating checksums where applicable.
+ * It supports both alias mode (pointer arithmetic) and copy mode for payload extraction.
+ * 
+ * This function is for frame layer to payload layer traversal - it applies to any message type, 
+ * including motor writes/replies, misc write, misc read, and misc read reply messages. Essentially
+ * it strips away any address and/or checksum information present and delivers the payload,
+ * either through pointer arithmetic/aliasing (fast) or copying (flexible).
+ * 
+ * @param ser_msg Input frame-layer message buffer
+ * @param type Message type determining frame structure
+ * @param pld_mode PAYLOAD_ALIAS (use pointers) or PAYLOAD_COPY (copy data)
+ * @param pld Output payload-layer message structure
+ * 
+ * @return SERIAL_PROTOCOL_SUCCESS on successful conversion, or error code:
+ *         - ERROR_MALFORMED_MESSAGE if frame is too short or malformed
+ *         - ERROR_CHECKSUM_MISMATCH if CRC validation fails
+ *         - ERROR_INVALID_ARGUMENT if pld_mode is invalid or copy buffer is NULL
+ *         - ERROR_MEMORY_OVERRUN if payload doesn't fit in copy buffer
+ * 
+ * @note Frame processing by type:
+ *       - TYPE_SERIAL_MESSAGE: Validates CRC, extracts address, removes both from payload
+ *       - TYPE_ADDR_MESSAGE: Validates CRC, removes CRC from payload (no address)
+ *       - TYPE_ADDR_CRC_MESSAGE: No validation, payload = entire frame
+ * @note PAYLOAD_ALIAS mode uses pointer arithmetic (zero-copy, but payload tied to frame)
+ * @note PAYLOAD_COPY mode copies payload data (safe for frame buffer reuse)
+ * @note This function only handles framing - payload structure is decoded downstream
+ */
 int frame_to_payload(buffer_t * ser_msg, serial_message_type_t type, payload_mode_t pld_mode, payload_layer_msg_t * pld)
 {
     assert(ser_msg != NULL && pld != NULL);
@@ -563,11 +733,33 @@ int frame_to_payload(buffer_t * ser_msg, serial_message_type_t type, payload_mod
 	}
 }
 
-/*
-    Implement the general message memory write-reply behavior on a payload-layer message.
-	Loads a reply frame with the associated frame layer format (type) based on the input frame layer type.
-	Usage: call within a parent function that calls frame_to_payload, bifurcates based on address range, and calls this if it's in the misc range.
-*/
+/**
+ * @brief Process a payload-layer message and generate an appropriately formatted reply frame.
+ * 
+ * This function implements the complete message processing pipeline for misc address space
+ * messages, including payload parsing, memory operations, and reply frame generation.
+ * It handles frame formatting based on the input message type.
+ * 
+ * This function provides traversal from payload to application for peripherals (block memory access) as well as payload to frame (read replies), simultaneously
+ * The intended use is for peripheral devices, after converting and incoming frame to the payload layer using frame_to_payload.
+ * 
+ * @param pld_msg Payload-layer message to process
+ * @param type Original frame type (determines reply frame format)
+ * @param mem_base Target memory space for operations
+ * @param reply Buffer to receive formatted reply frame
+ * 
+ * @return SERIAL_PROTOCOL_SUCCESS on successful processing, or error code from:
+ *         parse_base_serial_message() or append_crc()
+ * 
+ * @note Reply formatting by type:
+ *       - TYPE_SERIAL_MESSAGE: [MASTER_MISC_ADDRESS][payload][crc] (if read reply exists)
+ *       - TYPE_ADDR_MESSAGE: [payload][crc] (if read reply exists)
+ *       - TYPE_ADDR_CRC_MESSAGE: [payload] (if read reply exists)
+ * @note Write operations produce no reply (reply->len = 0)
+ * @note Read operations generate reply data formatted according to frame type
+ * @note This function coordinates payload processing with frame formatting
+ * @note Typically called after frame_to_payload() and address range validation
+ */
 int parse_general_message(payload_layer_msg_t * pld_msg, serial_message_type_t type, buffer_t * mem_base, buffer_t * reply)
 {
     assert(pld_msg != NULL && mem_base != NULL && reply != NULL);
