@@ -32,7 +32,7 @@ size_t index_of_field(void * p_field, void * mem, size_t mem_size)
     unsigned char * pbase = (unsigned char *)(mem);
     unsigned char * p_field_nonvoid = (unsigned char *)p_field;
 
-    if(p_field_nonvoid < pbase || p_field_nonvoid > (void*)(pbase + mem_size))
+    if(p_field_nonvoid < pbase || p_field_nonvoid > (pbase + mem_size))
     {
         return ERROR_INVALID_ARGUMENT;
     }
@@ -731,6 +731,7 @@ int dartt_frame_to_payload(buffer_t * ser_msg, serial_message_type_t type, paylo
 		}
 		return SERIAL_PROTOCOL_SUCCESS;
 	}
+	return ERROR_INVALID_ARGUMENT;
 }
 
 /**
