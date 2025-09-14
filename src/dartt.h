@@ -133,15 +133,15 @@ typedef struct misc_reply_t
 
 size_t index_of_field(void * p_field, void * mem, size_t mem_size);
 int copy_buf_full(buffer_t * in, buffer_t * out);
-unsigned char get_complementary_address(unsigned char address);
-int create_write_frame(misc_write_message_t * msg, serial_message_type_t type, buffer_t * output);
-int create_read_frame(misc_read_message_t * msg, serial_message_type_t type, buffer_t * output);
-int frame_to_payload(buffer_t * ser_msg, serial_message_type_t type, payload_mode_t pld_mode, payload_layer_msg_t * pld);
-int parse_base_serial_message(payload_layer_msg_t* pld_msg, buffer_t * mem_base, buffer_t * reply_base);
-int parse_general_message(payload_layer_msg_t * pld_msg, serial_message_type_t type, buffer_t * mem_base, buffer_t * reply);
+unsigned char dartt_get_complementary_address(unsigned char address);
+int dartt_create_write_frame(misc_write_message_t * msg, serial_message_type_t type, buffer_t * output);
+int dartt_create_read_frame(misc_read_message_t * msg, serial_message_type_t type, buffer_t * output);
+int dartt_frame_to_payload(buffer_t * ser_msg, serial_message_type_t type, payload_mode_t pld_mode, payload_layer_msg_t * pld);
+int dartt_parse_base_serial_message(payload_layer_msg_t* pld_msg, buffer_t * mem_base, buffer_t * reply_base);
+int dartt_parse_general_message(payload_layer_msg_t * pld_msg, serial_message_type_t type, buffer_t * mem_base, buffer_t * reply);
 int append_crc(buffer_t * input);
 int validate_crc(buffer_t * input);
-int parse_read_reply(payload_layer_msg_t * payload_msg, misc_read_message_t * original_msg, buffer_t * dest);
+int dartt_parse_read_reply(payload_layer_msg_t * payload_msg, misc_read_message_t * original_msg, buffer_t * dest);
 
 #endif
 

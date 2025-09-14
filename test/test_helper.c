@@ -34,34 +34,34 @@ void test_index_of_field(void)
 	TEST_ASSERT_EQUAL(0, index_of_field(&comms.motor_command_mode, (void*)&comms, sizeof(comms_t)));
 }
 
-void test_get_complementary_address(void)
+void test_dartt_get_complementary_address(void)
 {
 	// Test motor address to misc address mapping
-	TEST_ASSERT_EQUAL(0xFE, get_complementary_address(0x01));
-	TEST_ASSERT_EQUAL(0xEF, get_complementary_address(0x10));
-	TEST_ASSERT_EQUAL(0xBD, get_complementary_address(0x42));
-	TEST_ASSERT_EQUAL(0x81, get_complementary_address(0x7E));
+	TEST_ASSERT_EQUAL(0xFE, dartt_get_complementary_address(0x01));
+	TEST_ASSERT_EQUAL(0xEF, dartt_get_complementary_address(0x10));
+	TEST_ASSERT_EQUAL(0xBD, dartt_get_complementary_address(0x42));
+	TEST_ASSERT_EQUAL(0x81, dartt_get_complementary_address(0x7E));
 	
 	// Test misc address to motor address mapping (reverse)
-	TEST_ASSERT_EQUAL(0x01, get_complementary_address(0xFE));
-	TEST_ASSERT_EQUAL(0x10, get_complementary_address(0xEF));
-	TEST_ASSERT_EQUAL(0x42, get_complementary_address(0xBD));
-	TEST_ASSERT_EQUAL(0x7E, get_complementary_address(0x81));
+	TEST_ASSERT_EQUAL(0x01, dartt_get_complementary_address(0xFE));
+	TEST_ASSERT_EQUAL(0x10, dartt_get_complementary_address(0xEF));
+	TEST_ASSERT_EQUAL(0x42, dartt_get_complementary_address(0xBD));
+	TEST_ASSERT_EQUAL(0x7E, dartt_get_complementary_address(0x81));
 	
 	// Test master address pairing
-	TEST_ASSERT_EQUAL(0x80, get_complementary_address(0x7F)); // Motor master -> Misc master
-	TEST_ASSERT_EQUAL(0x7F, get_complementary_address(0x80)); // Misc master -> Motor master
+	TEST_ASSERT_EQUAL(0x80, dartt_get_complementary_address(0x7F)); // Motor master -> Misc master
+	TEST_ASSERT_EQUAL(0x7F, dartt_get_complementary_address(0x80)); // Misc master -> Motor master
 	
 	// Test edge cases (the wraparound behavior we discussed)
-	TEST_ASSERT_EQUAL(0xFF, get_complementary_address(0x00)); // Edge case: 0xFF - 0x00 = 0xFF
-	TEST_ASSERT_EQUAL(0x00, get_complementary_address(0xFF)); // Edge case: 0xFF - 0xFF = 0x00
+	TEST_ASSERT_EQUAL(0xFF, dartt_get_complementary_address(0x00)); // Edge case: 0xFF - 0x00 = 0xFF
+	TEST_ASSERT_EQUAL(0x00, dartt_get_complementary_address(0xFF)); // Edge case: 0xFF - 0xFF = 0x00
 	
 	// Test symmetry property: f(f(x)) = x
 	unsigned char test_addresses[] = {0x00, 0x01, 0x10, 0x42, 0x7E, 0x7F, 0x80, 0x81, 0xBD, 0xEF, 0xFE, 0xFF};
 	for(int i = 0; i < sizeof(test_addresses); i++) {
 		unsigned char addr = test_addresses[i];
-		unsigned char complement = get_complementary_address(addr);
-		unsigned char double_complement = get_complementary_address(complement);
+		unsigned char complement = dartt_get_complementary_address(addr);
+		unsigned char double_complement = dartt_get_complementary_address(complement);
 		TEST_ASSERT_EQUAL(addr, double_complement);
 	}
 }

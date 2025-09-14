@@ -6,8 +6,8 @@
 	TODO:
 		Create reciprocal create functions (for testing only) - validate create functions
 		Create edge case conditions for parse_base. Test a read message which is one byte too small, etc.
-		Add test of frame_to_payload of a type 0 serial message consisting of only address and crc
-		Add test of frame_to_payload for a motor command and a serial command
+		Add test of dartt_frame_to_payload of a type 0 serial message consisting of only address and crc
+		Add test of dartt_frame_to_payload for a motor command and a serial command
 
 */
 
@@ -555,7 +555,7 @@ void test_check_read_args(void)
 }
 
 /*Test-scope only - helper functions to parse frames back into structs 
-Reciprocal test function to create_write_frame - primary use case is testing create_write_frame.
+Reciprocal test function to dartt_create_write_frame - primary use case is testing dartt_create_write_frame.
 */
 int write_frame_to_struct(buffer_t * input, serial_message_type_t type, misc_write_message_t * msg)
 {
@@ -661,7 +661,7 @@ void test_write_frame_to_struct(void)
 }
 
 /*
-Reciprocal test function to create_read_frame - primary use case is testing create_read_frame.
+Reciprocal test function to dartt_create_read_frame - primary use case is testing dartt_create_read_frame.
  */
 int read_frame_to_struct(buffer_t * input, serial_message_type_t type, misc_read_message_t * msg)
 {
@@ -782,7 +782,7 @@ void test_validate_crc(void)
 	}
 }
 
-void test_create_write_frame(void)
+void test_dartt_create_write_frame(void)
 {
 	{	//happy path
 		comms_t block_mem = {};
@@ -817,7 +817,7 @@ void test_create_write_frame(void)
 			.size = sizeof(msg),
 			.len = 0
 		};
-		int rc = create_write_frame(&msg, TYPE_SERIAL_MESSAGE, &output);
+		int rc = dartt_create_write_frame(&msg, TYPE_SERIAL_MESSAGE, &output);
 		TEST_ASSERT_EQUAL(SERIAL_PROTOCOL_SUCCESS, rc);
 		TEST_ASSERT_EQUAL(output.len, (NUM_BYTES_ADDRESS + NUM_BYTES_INDEX + msg.payload.len + NUM_BYTES_CHECKSUM) );
 		TEST_ASSERT_EQUAL(output.buf[0], msg.address);
@@ -867,7 +867,7 @@ void test_create_write_frame(void)
 }
 
 
-void test_create_read_frame(void)
+void test_dartt_create_read_frame(void)
 {
 
 }
@@ -890,7 +890,7 @@ void create_test_message_and_frame(serial_message_type_t type, misc_write_messag
 	
 	// Generate frame using existing function
 	frame->len = 0;
-	int rc = create_write_frame(msg, type, frame);
+	int rc = dartt_create_write_frame(msg, type, frame);
 	TEST_ASSERT_EQUAL(SERIAL_PROTOCOL_SUCCESS, rc);
 }
 
@@ -923,7 +923,7 @@ void f2p_happy_path_helper(serial_message_type_t type, payload_mode_t mode)
 	payload_layer_msg_t pld = {};
 	setup_payload_msg(mode, &pld, copy_buf, sizeof(copy_buf));
 	
-	int rc = frame_to_payload(&frame, type, mode, &pld);
+	int rc = dartt_frame_to_payload(&frame, type, mode, &pld);
 	TEST_ASSERT_EQUAL(SERIAL_PROTOCOL_SUCCESS, rc);
 	
 	// Verify address is extracted correctly for TYPE_SERIAL_MESSAGE
@@ -983,7 +983,7 @@ void f2p_checksum_mismatch_helper(serial_message_type_t type, payload_mode_t mod
 	payload_layer_msg_t pld = {};
 	setup_payload_msg(mode, &pld, copy_buf, sizeof(copy_buf));
 	
-	int rc = frame_to_payload(&frame, type, mode, &pld);
+	int rc = dartt_frame_to_payload(&frame, type, mode, &pld);
 	TEST_ASSERT_EQUAL(ERROR_CHECKSUM_MISMATCH, rc);
 }
 
@@ -1002,7 +1002,7 @@ void f2p_memory_overrun_helper(serial_message_type_t type, payload_mode_t mode)
 	payload_layer_msg_t pld = {};
 	setup_payload_msg(mode, &pld, copy_buf, sizeof(copy_buf));
 	
-	int rc = frame_to_payload(&frame, type, mode, &pld);
+	int rc = dartt_frame_to_payload(&frame, type, mode, &pld);
 	TEST_ASSERT_EQUAL(ERROR_MEMORY_OVERRUN, rc);
 }
 
@@ -1028,7 +1028,7 @@ void f2p_malformed_input_helper(serial_message_type_t type, payload_mode_t mode)
 	payload_layer_msg_t pld = {};
 	setup_payload_msg(mode, &pld, copy_buf, sizeof(copy_buf));
 	
-	int rc = frame_to_payload(&frame, type, mode, &pld);
+	int rc = dartt_frame_to_payload(&frame, type, mode, &pld);
 	if(type == TYPE_ADDR_CRC_MESSAGE) {
 		// TYPE_ADDR_CRC_MESSAGE with len=1 should actually work
 		TEST_ASSERT_EQUAL(SERIAL_PROTOCOL_SUCCESS, rc);
@@ -1053,12 +1053,12 @@ void f2p_invalid_args_helper(serial_message_type_t type, payload_mode_t mode)
 	// Test PAYLOAD_COPY with NULL buffer
 	if(mode == PAYLOAD_COPY) {
 		setup_payload_msg(mode, &pld, NULL, 0); // NULL buffer
-		int rc = frame_to_payload(&frame, type, mode, &pld);
+		int rc = dartt_frame_to_payload(&frame, type, mode, &pld);
 		TEST_ASSERT_EQUAL(ERROR_INVALID_ARGUMENT, rc);
 	}
 }
 
-void test_frame_to_payload_comprehensive(void)
+void test_dartt_frame_to_payload_comprehensive(void)
 {
 	serial_message_type_t types[] = {TYPE_SERIAL_MESSAGE, TYPE_ADDR_MESSAGE, TYPE_ADDR_CRC_MESSAGE};
 	payload_mode_t modes[] = {PAYLOAD_ALIAS, PAYLOAD_COPY};
@@ -1094,10 +1094,10 @@ void test_frame_to_payload_comprehensive(void)
 	}
 }
 
-void test_frame_to_payload(void)
+void test_dartt_frame_to_payload(void)
 {
 	// Run the comprehensive test suite
-	test_frame_to_payload_comprehensive();
+	test_dartt_frame_to_payload_comprehensive();
 	
 	// Keep your original focused test as well
 	comms_t block_mem = {};
@@ -1123,7 +1123,7 @@ void test_frame_to_payload(void)
 		.size = sizeof(msg_buf),
 		.len = 0
 	};
-	int rc = create_write_frame(&msg, TYPE_SERIAL_MESSAGE, &output);
+	int rc = dartt_create_write_frame(&msg, TYPE_SERIAL_MESSAGE, &output);
 	TEST_ASSERT_EQUAL(SERIAL_PROTOCOL_SUCCESS, rc);
 	
 	// Test alias mode
@@ -1136,7 +1136,7 @@ void test_frame_to_payload(void)
 		}
 	};
 	
-	rc = frame_to_payload(&output, TYPE_SERIAL_MESSAGE, PAYLOAD_ALIAS, &pld);	
+	rc = dartt_frame_to_payload(&output, TYPE_SERIAL_MESSAGE, PAYLOAD_ALIAS, &pld);	
 	TEST_ASSERT_EQUAL(SERIAL_PROTOCOL_SUCCESS, rc);
 	TEST_ASSERT_EQUAL(output.buf[0], pld.address);
 	TEST_ASSERT_EQUAL(output.len, pld.msg.len + NUM_BYTES_ADDRESS + NUM_BYTES_CHECKSUM);

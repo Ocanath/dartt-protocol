@@ -111,10 +111,10 @@ int copy_buf_full(buffer_t * in, buffer_t * out)
  * 
  * @return Complementary address in the opposite address space
  * 
- * @note This mapping is symmetric: get_complementary_address(get_complementary_address(x)) == x
+ * @note This mapping is symmetric: dartt_get_complementary_address(dartt_get_complementary_address(x)) == x
  * @note Used for routing messages between motor and misc subsystems.
  */
-unsigned char get_complementary_address(unsigned char address)
+unsigned char dartt_get_complementary_address(unsigned char address)
 {
     return 0xFF - address;
 }
@@ -203,7 +203,7 @@ int check_write_args(misc_write_message_t * msg, serial_message_type_t type, buf
  *       - TYPE_ADDR_CRC_MESSAGE: [idx_lo][idx_hi][payload...]
  * @note The MSB of the index is cleared to indicate write operation.
  */
-int create_write_frame(misc_write_message_t * msg, serial_message_type_t type, buffer_t * output)
+int dartt_create_write_frame(misc_write_message_t * msg, serial_message_type_t type, buffer_t * output)
 {
     assert(check_write_args(msg,type,output) == SERIAL_PROTOCOL_SUCCESS);  //assert to save on runtime execution
     
@@ -244,7 +244,7 @@ int create_write_frame(misc_write_message_t * msg, serial_message_type_t type, b
  *         - ERROR_INVALID_ARGUMENT if parameters are NULL or invalid type
  *         - ERROR_MEMORY_OVERRUN if output buffer is too small for the resulting frame
  * 
- * @note Call this once during initialization, then use create_read_frame() with confidence.
+ * @note Call this once during initialization, then use dartt_create_read_frame() with confidence.
  * @note Read frames have fixed size based on type: address + index + num_bytes + CRC (if applicable).
  */
 int check_read_args(misc_read_message_t * msg, serial_message_type_t type, buffer_t * output)
@@ -313,7 +313,7 @@ int check_read_args(misc_read_message_t * msg, serial_message_type_t type, buffe
  *       - TYPE_ADDR_CRC_MESSAGE: [idx_lo|0x80][idx_hi][bytes_lo][bytes_hi]
  * @note The MSB of the index is set to indicate read operation.
  */
-int create_read_frame(misc_read_message_t * msg, serial_message_type_t type, buffer_t * output)
+int dartt_create_read_frame(misc_read_message_t * msg, serial_message_type_t type, buffer_t * output)
 {
     assert(check_read_args(msg,type,output) == SERIAL_PROTOCOL_SUCCESS);
     assert(type == TYPE_SERIAL_MESSAGE || type == TYPE_ADDR_MESSAGE || type == TYPE_ADDR_CRC_MESSAGE);
@@ -362,7 +362,7 @@ int create_read_frame(misc_read_message_t * msg, serial_message_type_t type, buf
  * @note Caller should reserve space for address framing using pointer arithmetic
  * @note This function is message-type agnostic - framing is handled upstream
  */
-int parse_base_serial_message(payload_layer_msg_t* pld_msg, buffer_t * mem_base, buffer_t * reply_base)
+int dartt_parse_base_serial_message(payload_layer_msg_t* pld_msg, buffer_t * mem_base, buffer_t * reply_base)
 {
     assert(pld_msg != NULL && mem_base != NULL && reply_base != NULL);
     assert(pld_msg->msg.buf != NULL && mem_base->buf != NULL && reply_base->buf != NULL);
@@ -532,10 +532,10 @@ int append_crc(buffer_t * input)
  * 
  * @note The destination offset is calculated as: original_msg->index * sizeof(uint32_t)
  * @note Reply length must exactly match original_msg->num_bytes
- * @note This function is called after frame_to_payload() has extracted the raw payload
+ * @note This function is called after dartt_frame_to_payload() has extracted the raw payload
  * @note Used by master devices to reconstruct remote memory after read operations
  */
-int parse_read_reply(payload_layer_msg_t * payload, misc_read_message_t * original_msg, buffer_t * dest)
+int dartt_parse_read_reply(payload_layer_msg_t * payload, misc_read_message_t * original_msg, buffer_t * dest)
 {     
     assert(dest != NULL && payload != NULL && original_msg != NULL);
     assert(dest->buf != NULL && payload->msg.buf != NULL);
@@ -602,7 +602,7 @@ int parse_read_reply(payload_layer_msg_t * payload, misc_read_message_t * origin
  * @note PAYLOAD_COPY mode copies payload data (safe for frame buffer reuse)
  * @note This function only handles framing - payload structure is decoded downstream
  */
-int frame_to_payload(buffer_t * ser_msg, serial_message_type_t type, payload_mode_t pld_mode, payload_layer_msg_t * pld)
+int dartt_frame_to_payload(buffer_t * ser_msg, serial_message_type_t type, payload_mode_t pld_mode, payload_layer_msg_t * pld)
 {
     assert(ser_msg != NULL && pld != NULL);
     assert(type == TYPE_SERIAL_MESSAGE || type == TYPE_ADDR_MESSAGE || type == TYPE_ADDR_CRC_MESSAGE);
@@ -741,7 +741,7 @@ int frame_to_payload(buffer_t * ser_msg, serial_message_type_t type, payload_mod
  * It handles frame formatting based on the input message type.
  * 
  * This function provides traversal from payload to application for peripherals (block memory access) as well as payload to frame (read replies), simultaneously
- * The intended use is for peripheral devices, after converting and incoming frame to the payload layer using frame_to_payload.
+ * The intended use is for peripheral devices, after converting and incoming frame to the payload layer using dartt_frame_to_payload.
  * 
  * @param pld_msg Payload-layer message to process
  * @param type Original frame type (determines reply frame format)
@@ -749,7 +749,7 @@ int frame_to_payload(buffer_t * ser_msg, serial_message_type_t type, payload_mod
  * @param reply Buffer to receive formatted reply frame
  * 
  * @return SERIAL_PROTOCOL_SUCCESS on successful processing, or error code from:
- *         parse_base_serial_message() or append_crc()
+ *         dartt_parse_base_serial_message() or append_crc()
  * 
  * @note Reply formatting by type:
  *       - TYPE_SERIAL_MESSAGE: [MASTER_MISC_ADDRESS][payload][crc] (if read reply exists)
@@ -758,9 +758,9 @@ int frame_to_payload(buffer_t * ser_msg, serial_message_type_t type, payload_mod
  * @note Write operations produce no reply (reply->len = 0)
  * @note Read operations generate reply data formatted according to frame type
  * @note This function coordinates payload processing with frame formatting
- * @note Typically called after frame_to_payload() and address range validation
+ * @note Typically called after dartt_frame_to_payload() and address range validation
  */
-int parse_general_message(payload_layer_msg_t * pld_msg, serial_message_type_t type, buffer_t * mem_base, buffer_t * reply)
+int dartt_parse_general_message(payload_layer_msg_t * pld_msg, serial_message_type_t type, buffer_t * mem_base, buffer_t * reply)
 {
     assert(pld_msg != NULL && mem_base != NULL && reply != NULL);
     assert(pld_msg->msg.buf != NULL && mem_base->buf != NULL && reply->buf != NULL);
@@ -775,7 +775,7 @@ int parse_general_message(payload_layer_msg_t * pld_msg, serial_message_type_t t
             .size = reply->size - 1,
             .len = 0
         };
-        int rc = parse_base_serial_message(pld_msg, mem_base, &reply_cpy);    //will copy from 1 to len. the original reply buffer is now ready for address and crc loading
+        int rc = dartt_parse_base_serial_message(pld_msg, mem_base, &reply_cpy);    //will copy from 1 to len. the original reply buffer is now ready for address and crc loading
         if(rc == SERIAL_PROTOCOL_SUCCESS)
         {
 			if(reply_cpy.len != 0)
@@ -799,7 +799,7 @@ int parse_general_message(payload_layer_msg_t * pld_msg, serial_message_type_t t
     else if (type == TYPE_ADDR_MESSAGE)
     {
         reply->len = 0;
-        int rc = parse_base_serial_message(pld_msg, mem_base, reply);
+        int rc = dartt_parse_base_serial_message(pld_msg, mem_base, reply);
         if(rc == SERIAL_PROTOCOL_SUCCESS && reply->len != 0)
         {
             return append_crc(reply);
@@ -813,7 +813,7 @@ int parse_general_message(payload_layer_msg_t * pld_msg, serial_message_type_t t
     }
     else if (type == TYPE_ADDR_CRC_MESSAGE)
     {
-        return parse_base_serial_message(pld_msg, mem_base, reply);   //type 3 carries the base protocol with no additional payload dressings
+        return dartt_parse_base_serial_message(pld_msg, mem_base, reply);   //type 3 carries the base protocol with no additional payload dressings
     }
     else
     {

@@ -5,6 +5,7 @@
 		"checksum.h": "c",
 		"stdint.h": "c",
 		"serial-comms-struct.h": "c",
-		"stdio.h": "c"
+		"stdio.h": "c",
+		"stddef.h": "c"
 	}
 }

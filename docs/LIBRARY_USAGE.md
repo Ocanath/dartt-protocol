@@ -117,9 +117,9 @@ if (result != SERIAL_PROTOCOL_SUCCESS) {
 
 ### Address Validation
 ```c
-// Address validation is handled automatically by frame_to_payload()
+// Address validation is handled automatically by dartt_frame_to_payload()
 // It will return ADDRESS_FILTERED if the frame is not for this device
-int result = frame_to_payload(&rx_frame, TYPE_SERIAL_MESSAGE, PAYLOAD_ALIAS, &payload_msg);
+int result = dartt_frame_to_payload(&rx_frame, TYPE_SERIAL_MESSAGE, PAYLOAD_ALIAS, &payload_msg);
 if (result == ADDRESS_FILTERED) {
     // Frame not for this device - ignore
     return result;
@@ -129,7 +129,7 @@ if (result == ADDRESS_FILTERED) {
 ### Bounds Checking
 ```c
 // The library automatically validates memory bounds
-int result = parse_base_serial_message(&payload_msg, &memory_buffer, &response);
+int result = dartt_parse_base_serial_message(&payload_msg, &memory_buffer, &response);
 if (result == ERROR_MEMORY_OVERRUN) {
     // Handle out-of-bounds access
     return result;
@@ -161,25 +161,25 @@ if (result == ERROR_MEMORY_OVERRUN) {
 See `examples/example_uart_struct.c` for a complete working example demonstrating:
 - Device configuration using typedef structs with type punning
 - Using `index_of_field()` helper for automatic field indexing
-- Master-slave communication flow with `frame_to_payload()` and `parse_general_message()`
+- Master-slave communication flow with `dartt_frame_to_payload()` and `dartt_parse_general_message()`
 - Buffer management with `buffer_t` structures
 - Complete round-trip communication example
 
 Key functions demonstrated:
 - `create_read_struct_frame()` - Helper using `index_of_field()` and stores original read message
-- `frame_to_payload()` - Frame layer to payload layer conversion
-- `parse_general_message()` - High-level message parsing
+- `dartt_frame_to_payload()` - Frame layer to payload layer conversion
+- `dartt_parse_general_message()` - High-level message parsing
 - `parse_read_struct_reply()` - Reply parsing using original read message for proper offset calculation
 
 ## Common Pitfalls
 
 1. **Buffer Structure**: Always initialize `buffer_t` with `.buf`, `.size`, and `.len` fields
 2. **Message Types**: Use correct `serial_message_type_t` for your transport layer
-3. **Address Confusion**: Use `get_complementary_address()` to get misc address from motor address
+3. **Address Confusion**: Use `dartt_get_complementary_address()` to get misc address from motor address
 4. **Word Alignment**: Index values represent 32-bit word offsets, multiply by 4 for byte offsets
 5. **Memory Management**: Use `PAYLOAD_ALIAS` for efficiency, `PAYLOAD_COPY` for safety
 6. **Error Checking**: Always check return values against `SERIAL_PROTOCOL_SUCCESS`
-7. **Read Reply Parsing**: Always pass the original `misc_read_message_t` to `parse_read_reply()` - it handles offset calculation automatically
+7. **Read Reply Parsing**: Always pass the original `misc_read_message_t` to `dartt_parse_read_reply()` - it handles offset calculation automatically
 
 ## Integration Notes
 

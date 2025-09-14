@@ -102,7 +102,7 @@ int create_struct_write_frame(unsigned char address,
     };
     
     // Create the frame (TYPE_SERIAL_MESSAGE only)
-    return create_write_frame(&write_msg, TYPE_SERIAL_MESSAGE, output_frame);
+    return dartt_create_write_frame(&write_msg, TYPE_SERIAL_MESSAGE, output_frame);
 }
 
 int create_read_struct_frame(unsigned char address,
@@ -122,30 +122,30 @@ int create_read_struct_frame(unsigned char address,
 	read_msg_out->index = field_index;
 	read_msg_out->num_bytes = field_size;
 	
-	return create_read_frame(read_msg_out, TYPE_SERIAL_MESSAGE, output_frame);
+	return dartt_create_read_frame(read_msg_out, TYPE_SERIAL_MESSAGE, output_frame);
 }
 
 int parse_read_struct_reply(buffer_t* reply_frame, misc_read_message_t* original_msg, device_config_t* pstruct)
 {
-    // First use frame_to_payload to strip address/CRC and get payload data
+    // First use dartt_frame_to_payload to strip address/CRC and get payload data
     payload_layer_msg_t payload_msg = {
         .address = 0,
         .msg = {.buf = NULL, .size = 0, .len = 0}  // For PAYLOAD_ALIAS mode
     };
     
-    int rc = frame_to_payload(reply_frame, TYPE_SERIAL_MESSAGE, PAYLOAD_ALIAS, &payload_msg);
+    int rc = dartt_frame_to_payload(reply_frame, TYPE_SERIAL_MESSAGE, PAYLOAD_ALIAS, &payload_msg);
     if(rc != SERIAL_PROTOCOL_SUCCESS) {
         return rc;
     }
     
-    // Now use parse_read_reply on the clean payload data
+    // Now use dartt_parse_read_reply on the clean payload data
     buffer_t dest_buffer = {
         .buf = (unsigned char*)pstruct,
         .size = sizeof(device_config_t),
         .len = 0
     };
     
-    return parse_read_reply(&payload_msg, original_msg, &dest_buffer);
+    return dartt_parse_read_reply(&payload_msg, original_msg, &dest_buffer);
 }
 
 int create_struct_ref(device_config_t * cfg, buffer_t * ref)
@@ -179,7 +179,7 @@ void test_struct_block_read(void)
 
 	//create the write message
 	misc_read_message_t read_msg = {};
-	int rc = create_read_struct_frame(get_complementary_address(motor_address),
+	int rc = create_read_struct_frame(dartt_get_complementary_address(motor_address),
 		(unsigned char *)(&controller_config.current_position), 
 		sizeof(controller_config.current_position),
 		&controller_config,
@@ -191,19 +191,19 @@ void test_struct_block_read(void)
 
 	//peripheral recieved message and begins parsing it
 	payload_layer_msg_t pld_msg ={};	//can be statically allocated, or local and initialized to zero
-	rc = frame_to_payload(&controller_tx, TYPE_SERIAL_MESSAGE, PAYLOAD_ALIAS, &pld_msg);	//decode frame to payload - confirmed in previous unit test so exhaustive coverage not required here
+	rc = dartt_frame_to_payload(&controller_tx, TYPE_SERIAL_MESSAGE, PAYLOAD_ALIAS, &pld_msg);	//decode frame to payload - confirmed in previous unit test so exhaustive coverage not required here
 	TEST_ASSERT_EQUAL(SERIAL_PROTOCOL_SUCCESS, rc);	
-	TEST_ASSERT_EQUAL(get_complementary_address(motor_address), pld_msg.address);	//real application would perform address filtering
-	rc = parse_general_message(&pld_msg, TYPE_SERIAL_MESSAGE, &motor_config_ref, &motor_tx);	//parse the decoded payload message
+	TEST_ASSERT_EQUAL(dartt_get_complementary_address(motor_address), pld_msg.address);	//real application would perform address filtering
+	rc = dartt_parse_general_message(&pld_msg, TYPE_SERIAL_MESSAGE, &motor_config_ref, &motor_tx);	//parse the decoded payload message
 	TEST_ASSERT_EQUAL(SERIAL_PROTOCOL_SUCCESS, rc);	
 	TEST_ASSERT_EQUAL(MASTER_MISC_ADDRESS, motor_tx.buf[0]);
 	TEST_ASSERT_EQUAL(SERIAL_PROTOCOL_SUCCESS, validate_crc(&motor_tx));
 	TEST_ASSERT_EQUAL(NUM_BYTES_ADDRESS + NUM_BYTES_CHECKSUM + read_msg.num_bytes, motor_tx.len);
 
 
-	rc = frame_to_payload(&motor_tx, TYPE_SERIAL_MESSAGE, PAYLOAD_ALIAS, &pld_msg);
+	rc = dartt_frame_to_payload(&motor_tx, TYPE_SERIAL_MESSAGE, PAYLOAD_ALIAS, &pld_msg);
 	TEST_ASSERT_EQUAL(SERIAL_PROTOCOL_SUCCESS, rc);	
-	rc = parse_read_reply(&pld_msg, &read_msg, &controller_config_ref);
+	rc = dartt_parse_read_reply(&pld_msg, &read_msg, &controller_config_ref);
 	TEST_ASSERT_EQUAL(SERIAL_PROTOCOL_SUCCESS, rc);	
 	TEST_ASSERT_EQUAL(motor_config.current_position, controller_config.current_position);
 	for(int i = 0; i < motor_config_ref.size; i++)
@@ -214,19 +214,19 @@ void test_struct_block_read(void)
 	//modify read_msg struct changing only the size and index requests
 	read_msg.num_bytes = sizeof(device_config_t);
 	read_msg.index = 0;	
-	rc = create_read_frame(&read_msg, TYPE_SERIAL_MESSAGE, &controller_tx);
+	rc = dartt_create_read_frame(&read_msg, TYPE_SERIAL_MESSAGE, &controller_tx);
 	TEST_ASSERT_EQUAL(SERIAL_PROTOCOL_SUCCESS, rc);
 
-	rc = frame_to_payload(&controller_tx, TYPE_SERIAL_MESSAGE, PAYLOAD_ALIAS, &pld_msg);	//decode frame to payload - confirmed in previous unit test so exhaustive coverage not required here
+	rc = dartt_frame_to_payload(&controller_tx, TYPE_SERIAL_MESSAGE, PAYLOAD_ALIAS, &pld_msg);	//decode frame to payload - confirmed in previous unit test so exhaustive coverage not required here
 	TEST_ASSERT_EQUAL(SERIAL_PROTOCOL_SUCCESS, rc);	
-	rc = parse_general_message(&pld_msg, TYPE_SERIAL_MESSAGE, &motor_config_ref, &motor_tx);	//parse the decoded payload message
+	rc = dartt_parse_general_message(&pld_msg, TYPE_SERIAL_MESSAGE, &motor_config_ref, &motor_tx);	//parse the decoded payload message
 	TEST_ASSERT_EQUAL(SERIAL_PROTOCOL_SUCCESS, rc);	
 	TEST_ASSERT_EQUAL(MASTER_MISC_ADDRESS, motor_tx.buf[0]);
 	TEST_ASSERT_EQUAL(SERIAL_PROTOCOL_SUCCESS, validate_crc(&motor_tx));
 	TEST_ASSERT_EQUAL(NUM_BYTES_ADDRESS + NUM_BYTES_CHECKSUM + read_msg.num_bytes, motor_tx.len);
-	rc = frame_to_payload(&motor_tx, TYPE_SERIAL_MESSAGE, PAYLOAD_ALIAS, &pld_msg);
+	rc = dartt_frame_to_payload(&motor_tx, TYPE_SERIAL_MESSAGE, PAYLOAD_ALIAS, &pld_msg);
 	TEST_ASSERT_EQUAL(SERIAL_PROTOCOL_SUCCESS, rc);	
-	rc = parse_read_reply(&pld_msg, &read_msg, &controller_config_ref);
+	rc = dartt_parse_read_reply(&pld_msg, &read_msg, &controller_config_ref);
 	TEST_ASSERT_EQUAL(SERIAL_PROTOCOL_SUCCESS, rc);	
 	for(int i = 0; i < controller_config_ref.size; i++)
 	{
@@ -244,23 +244,23 @@ void test_struct_block_read_write(void)
 	const unsigned char motor_address = 3;
 	//create the write message
 	misc_read_message_t read_msg = {
-		.address = get_complementary_address(motor_address),
+		.address = dartt_get_complementary_address(motor_address),
 		.index = 0,
 		.num_bytes = sizeof(device_config_t)
 	};
-	int rc = create_read_frame(&read_msg, TYPE_SERIAL_MESSAGE, &controller_tx);	//this goes straight from application to frame
+	int rc = dartt_create_read_frame(&read_msg, TYPE_SERIAL_MESSAGE, &controller_tx);	//this goes straight from application to frame
 	TEST_ASSERT_EQUAL(SERIAL_PROTOCOL_SUCCESS, rc);
 
 	payload_layer_msg_t pld = {};
-	rc = frame_to_payload(&controller_tx, TYPE_SERIAL_MESSAGE, PAYLOAD_ALIAS, &pld);
-	TEST_ASSERT_EQUAL(get_complementary_address(motor_address), pld.address);
+	rc = dartt_frame_to_payload(&controller_tx, TYPE_SERIAL_MESSAGE, PAYLOAD_ALIAS, &pld);
+	TEST_ASSERT_EQUAL(dartt_get_complementary_address(motor_address), pld.address);
 	TEST_ASSERT_EQUAL(SERIAL_PROTOCOL_SUCCESS, rc);
-	rc = parse_general_message(&pld, TYPE_SERIAL_MESSAGE, &motor_config_ref, &motor_tx); //frame to app
+	rc = dartt_parse_general_message(&pld, TYPE_SERIAL_MESSAGE, &motor_config_ref, &motor_tx); //frame to app
 	TEST_ASSERT_EQUAL(SERIAL_PROTOCOL_SUCCESS, rc);
 
-	rc = frame_to_payload(&motor_tx, TYPE_SERIAL_MESSAGE, PAYLOAD_ALIAS, &pld);
+	rc = dartt_frame_to_payload(&motor_tx, TYPE_SERIAL_MESSAGE, PAYLOAD_ALIAS, &pld);
 	TEST_ASSERT_EQUAL(SERIAL_PROTOCOL_SUCCESS, rc);
-	rc = parse_read_reply(&pld, &read_msg, &controller_config_ref);
+	rc = dartt_parse_read_reply(&pld, &read_msg, &controller_config_ref);
 	TEST_ASSERT_EQUAL(SERIAL_PROTOCOL_SUCCESS, rc);
 	
 	for(int i = 0; i < controller_config_ref.size; i++)
@@ -280,7 +280,7 @@ void test_struct_block_read_write(void)
 
 	//cherry pick one word and write to it
 	rc = create_struct_write_frame(
-		get_complementary_address(motor_address),
+		dartt_get_complementary_address(motor_address),
 		&controller_config.acceleration,
 		sizeof(uint32_t),
 		&controller_config,
@@ -288,10 +288,10 @@ void test_struct_block_read_write(void)
 	);
 	TEST_ASSERT_EQUAL(SERIAL_PROTOCOL_SUCCESS, rc);
 	TEST_ASSERT_NOT_EQUAL(motor_config.acceleration, controller_config.acceleration);
-	frame_to_payload(&controller_tx, TYPE_SERIAL_MESSAGE, PAYLOAD_ALIAS, &pld);
-	TEST_ASSERT_EQUAL(get_complementary_address(motor_address), pld.address);
+	dartt_frame_to_payload(&controller_tx, TYPE_SERIAL_MESSAGE, PAYLOAD_ALIAS, &pld);
+	TEST_ASSERT_EQUAL(dartt_get_complementary_address(motor_address), pld.address);
 	TEST_ASSERT_EQUAL(SERIAL_PROTOCOL_SUCCESS, rc);
-	rc = parse_general_message(&pld, TYPE_SERIAL_MESSAGE, &motor_config_ref, &motor_tx);
+	rc = dartt_parse_general_message(&pld, TYPE_SERIAL_MESSAGE, &motor_config_ref, &motor_tx);
 	TEST_ASSERT_EQUAL(SERIAL_PROTOCOL_SUCCESS, rc);
 	TEST_ASSERT_EQUAL(0, motor_tx.len);	//may change this? for now write confirmations are performed by reads
 	TEST_ASSERT_EQUAL(motor_config.acceleration, controller_config.acceleration);
@@ -301,7 +301,7 @@ void test_struct_block_read_write(void)
 
 	//cherry pick another word and write to it
 	rc = create_struct_write_frame(
-		get_complementary_address(motor_address),
+		dartt_get_complementary_address(motor_address),
 		&controller_config.position_target,
 		sizeof(uint32_t),
 		&controller_config,
@@ -309,10 +309,10 @@ void test_struct_block_read_write(void)
 	);
 	TEST_ASSERT_EQUAL(SERIAL_PROTOCOL_SUCCESS, rc);
 	TEST_ASSERT_NOT_EQUAL(motor_config.position_target, controller_config.position_target);
-	frame_to_payload(&controller_tx, TYPE_SERIAL_MESSAGE, PAYLOAD_ALIAS, &pld);
-	TEST_ASSERT_EQUAL(get_complementary_address(motor_address), pld.address);
+	dartt_frame_to_payload(&controller_tx, TYPE_SERIAL_MESSAGE, PAYLOAD_ALIAS, &pld);
+	TEST_ASSERT_EQUAL(dartt_get_complementary_address(motor_address), pld.address);
 	TEST_ASSERT_EQUAL(SERIAL_PROTOCOL_SUCCESS, rc);
-	rc = parse_general_message(&pld, TYPE_SERIAL_MESSAGE, &motor_config_ref, &motor_tx);
+	rc = dartt_parse_general_message(&pld, TYPE_SERIAL_MESSAGE, &motor_config_ref, &motor_tx);
 	TEST_ASSERT_EQUAL(SERIAL_PROTOCOL_SUCCESS, rc);
 	TEST_ASSERT_EQUAL(0, motor_tx.len);	//may change this? for now write confirmations are performed by reads
 	TEST_ASSERT_EQUAL(motor_config.position_target, controller_config.position_target);
@@ -322,7 +322,7 @@ void test_struct_block_read_write(void)
 
 	//cherry TWO words and write them
 	rc = create_struct_write_frame(
-		get_complementary_address(motor_address),
+		dartt_get_complementary_address(motor_address),
 		&controller_config.current_position,
 		sizeof(uint32_t)*2,
 		&controller_config,
@@ -331,10 +331,10 @@ void test_struct_block_read_write(void)
 	TEST_ASSERT_EQUAL(SERIAL_PROTOCOL_SUCCESS, rc);
 	TEST_ASSERT_NOT_EQUAL(motor_config.current_position, controller_config.current_position);
 	TEST_ASSERT_NOT_EQUAL(motor_config.status_flags, controller_config.status_flags);
-	frame_to_payload(&controller_tx, TYPE_SERIAL_MESSAGE, PAYLOAD_ALIAS, &pld);
-	TEST_ASSERT_EQUAL(get_complementary_address(motor_address), pld.address);
+	dartt_frame_to_payload(&controller_tx, TYPE_SERIAL_MESSAGE, PAYLOAD_ALIAS, &pld);
+	TEST_ASSERT_EQUAL(dartt_get_complementary_address(motor_address), pld.address);
 	TEST_ASSERT_EQUAL(SERIAL_PROTOCOL_SUCCESS, rc);
-	rc = parse_general_message(&pld, TYPE_SERIAL_MESSAGE, &motor_config_ref, &motor_tx);
+	rc = dartt_parse_general_message(&pld, TYPE_SERIAL_MESSAGE, &motor_config_ref, &motor_tx);
 	TEST_ASSERT_EQUAL(SERIAL_PROTOCOL_SUCCESS, rc);
 	TEST_ASSERT_EQUAL(0, motor_tx.len);	//may change this? for now write confirmations are performed by reads
 	TEST_ASSERT_EQUAL(motor_config.current_position, controller_config.current_position);
@@ -353,7 +353,7 @@ void test_struct_block_read_write(void)
 		TEST_ASSERT_NOT_EQUAL(motor_config_ref.buf[i], controller_config_ref.buf[i]);
 	}	
 	misc_write_message_t write_msg = {
-		.address = get_complementary_address(motor_address),
+		.address = dartt_get_complementary_address(motor_address),
 		.index = 0,
 		.payload = {
 			.buf = controller_config_ref.buf,
@@ -361,12 +361,12 @@ void test_struct_block_read_write(void)
 			.len = controller_config_ref.size
 		}
 	};
-	rc = create_write_frame(&write_msg, TYPE_SERIAL_MESSAGE, &controller_tx);
+	rc = dartt_create_write_frame(&write_msg, TYPE_SERIAL_MESSAGE, &controller_tx);
 	TEST_ASSERT_EQUAL(SERIAL_PROTOCOL_SUCCESS, rc);
-	frame_to_payload(&controller_tx, TYPE_SERIAL_MESSAGE, PAYLOAD_ALIAS, &pld);
-	TEST_ASSERT_EQUAL(get_complementary_address(motor_address), pld.address);
+	dartt_frame_to_payload(&controller_tx, TYPE_SERIAL_MESSAGE, PAYLOAD_ALIAS, &pld);
+	TEST_ASSERT_EQUAL(dartt_get_complementary_address(motor_address), pld.address);
 	TEST_ASSERT_EQUAL(SERIAL_PROTOCOL_SUCCESS, rc);
-	rc = parse_general_message(&pld, TYPE_SERIAL_MESSAGE, &motor_config_ref, &motor_tx);
+	rc = dartt_parse_general_message(&pld, TYPE_SERIAL_MESSAGE, &motor_config_ref, &motor_tx);
 	TEST_ASSERT_EQUAL(SERIAL_PROTOCOL_SUCCESS, rc);
 	TEST_ASSERT_EQUAL(0, motor_tx.len);	//may change this? for now write confirmations are performed by reads
 	for(int i = 0; i < controller_config_ref.size; i++)	//silly but fuck it why not

@@ -92,7 +92,7 @@ int msg_len = create_misc_write_message(
 ```c
 unsigned char reply_buf[256];
 int reply_len;
-int result = parse_general_message(
+int result = dartt_parse_general_message(
     my_address,        // This device's address
     received_msg,      // Received message buffer
     msg_len,          // Received message length

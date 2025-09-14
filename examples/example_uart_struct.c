@@ -122,7 +122,7 @@ int create_struct_write_frame(unsigned char address,
     };
     
     // Create the frame (TYPE_SERIAL_MESSAGE only)
-    return create_write_frame(&write_msg, TYPE_SERIAL_MESSAGE, output_frame);
+    return dartt_create_write_frame(&write_msg, TYPE_SERIAL_MESSAGE, output_frame);
 }
 
 int create_read_struct_frame(unsigned char address,
@@ -142,7 +142,7 @@ int create_read_struct_frame(unsigned char address,
 	read_msg_out->index = field_index;
 	read_msg_out->num_bytes = field_size;
 	
-	return create_read_frame(read_msg_out, TYPE_SERIAL_MESSAGE, output_frame);
+	return dartt_create_read_frame(read_msg_out, TYPE_SERIAL_MESSAGE, output_frame);
 }
 
 /*
@@ -198,7 +198,7 @@ int main(void)
 	printf("Create master tx frame\r\n");
 	//create a DARTT frame to read the current position - using type-punning and application defined structs
 	misc_read_message_t read_msg = {};
-	int rc = create_read_struct_frame(get_complementary_address(motor_address),
+	int rc = create_read_struct_frame(dartt_get_complementary_address(motor_address),
 		(unsigned char *)(&controller_config.current_position), 
 		sizeof(controller_config.current_position),
 		&controller_config,
@@ -211,14 +211,14 @@ int main(void)
 	
 	printf("Motor recieved the message\r\n");
 	payload_layer_msg_t pld_msg ={};	//can be statically allocated, or local and initialized to zero
-	rc = frame_to_payload(&controller_tx, TYPE_SERIAL_MESSAGE, PAYLOAD_ALIAS, &pld_msg);
-	rc = parse_general_message(&pld_msg, TYPE_SERIAL_MESSAGE, &motor_config_ref, &motor_tx);
+	rc = dartt_frame_to_payload(&controller_tx, TYPE_SERIAL_MESSAGE, PAYLOAD_ALIAS, &pld_msg);
+	rc = dartt_parse_general_message(&pld_msg, TYPE_SERIAL_MESSAGE, &motor_config_ref, &motor_tx);
 	printf("Motor parsed master message and sends reply\r\n");
 	print_buffer(&motor_tx);
 
 	printf("Controller recieved reply\r\n");
-    rc = frame_to_payload(&motor_tx, TYPE_SERIAL_MESSAGE, PAYLOAD_ALIAS, &pld_msg);
-	rc = parse_read_reply(&pld_msg, &read_msg, &controller_config_ref);
+    rc = dartt_frame_to_payload(&motor_tx, TYPE_SERIAL_MESSAGE, PAYLOAD_ALIAS, &pld_msg);
+	rc = dartt_parse_read_reply(&pld_msg, &read_msg, &controller_config_ref);
 	printf("After: controller current position = %d\r\n", controller_config.current_position);
 	printf("Controller config:\r\n");
 	print_device_config(&controller_config);
