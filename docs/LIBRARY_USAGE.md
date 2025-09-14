@@ -14,12 +14,12 @@ The DARTT library consists of two main components:
 ## Including the Library
 
 ```c
-#include "serial-comms.h"  // Core protocol functions
+#include "dartt.h"  // Core protocol functions
 #include "checksum.h"      // CRC calculation utilities
 ```
 
 Note: The library has two main components that need to be linked:
-- `dartt_protocol` - Contains serial-comms.c and serial-motor-comms.c
+- `dartt_protocol` - Contains dartt.c and serial-motor-comms.c
 - `dartt_checksum` - Contains checksum.c
 
 ## Usage Patterns
@@ -93,7 +93,7 @@ void serialize_motor_data(motor_data_t* data, unsigned char* buffer) {
 
 ## Error Handling
 
-The library defines several error codes in `serial-comms.h`:
+The library defines several error codes in `dartt.h`:
 
 ```c
 // Error codes

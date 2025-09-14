@@ -18,7 +18,7 @@
 #include <string.h>
 #include <stdint.h>
 #include <assert.h>
-#include "serial-comms.h"
+#include "dartt.h"
 
 // Example device configuration struct (packed for type-punning)
 typedef struct device_config_t

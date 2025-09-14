@@ -16,8 +16,8 @@ The DARTT library is designed to be C language standards compliant - however, in
 
 ### Required Files
 Copy these files into your project:
-- `src/serial-comms.c`
-- `src/serial-comms.h`
+- `src/dartt.c`
+- `src/dartt.h`
 - `src/checksum.c`
 - `src/checksum.h`
 
@@ -58,7 +58,7 @@ The examples demonstrate:
 
 ### Basic Initialization
 ```c
-#include "serial-comms.h"
+#include "dartt.h"
 
 comms_t comms = {0};  // Initialize your comms structure
 ```

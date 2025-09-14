@@ -1,7 +1,7 @@
 {
 	"files.associations": {
 		"unity.h": "c",
-		"serial-comms.h": "c",
+		"dartt.h": "c",
 		"checksum.h": "c",
 		"stdint.h": "c",
 		"serial-comms-struct.h": "c",

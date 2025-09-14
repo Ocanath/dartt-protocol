@@ -1,5 +1,5 @@
 #include "checksum.h"
-#include "serial-comms.h"
+#include "dartt.h"
 #include "unity.h"
 
 //example structure for block mem testing. Further testing in test_struct
