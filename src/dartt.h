@@ -3,6 +3,10 @@
 #include <stdint.h>
 #include <stddef.h>
 
+#ifdef __cplusplus
+extern "C" {
+#endif
+
 /*
 	TODO: put the information in this comment into the README
 	
@@ -142,6 +146,11 @@ int dartt_parse_general_message(payload_layer_msg_t * pld_msg, serial_message_ty
 int append_crc(buffer_t * input);
 int validate_crc(buffer_t * input);
 int dartt_parse_read_reply(payload_layer_msg_t * payload_msg, misc_read_message_t * original_msg, buffer_t * dest);
+
+#ifdef __cplusplus
+}
+#endif
+
 
 #endif
 
