@@ -766,7 +766,7 @@ int dartt_parse_general_message(payload_layer_msg_t * pld_msg, serial_message_ty
     assert(pld_msg != NULL && mem_base != NULL && reply != NULL);
     assert(pld_msg->msg.buf != NULL && mem_base->buf != NULL && reply->buf != NULL);
     assert(pld_msg->msg.size != 0 && mem_base->size != 0 && reply->size != 0);
-    assert(pld_msg->msg.len <= pld_msg->msg.size && mem_base->len < mem_base->size && reply->len < reply->size);   
+    assert(pld_msg->msg.len <= pld_msg->msg.size && mem_base->len <= mem_base->size && reply->len <= reply->size);   
     assert(type == TYPE_SERIAL_MESSAGE || type == TYPE_ADDR_MESSAGE || type == TYPE_ADDR_CRC_MESSAGE);
 	
     if(type == TYPE_SERIAL_MESSAGE)
