@@ -843,6 +843,7 @@ int dartt_parse_general_message(payload_layer_msg_t * pld_msg, serial_message_ty
 int dartt_sync(unsigned char misc_address,
 		buffer_t * ctl,
 		buffer_t * periph,
+		buffer_t * base,
 		serial_message_type_t msg_type,
 		buffer_t * tx_buf,
 		buffer_t * rx_buf,
@@ -860,8 +861,8 @@ int dartt_sync(unsigned char misc_address,
 	{
 		return ERROR_INVALID_ARGUMENT;	//make sure you're 32 bit aligned in all refs
 	}
-
-	for(int field_bidx = 0; field_bidx < ctl->size; field_bidx += sizeof(int32_t))
+	int field_bidx;
+	for(field_bidx = 0; field_bidx < ctl->size; field_bidx += sizeof(int32_t))
 	{
 		uint8_t match = 1;
 		for(int i = 0; i < sizeof(int32_t); i++)
@@ -875,7 +876,8 @@ int dartt_sync(unsigned char misc_address,
 		}
 		if(match == 0)
 		{
-			uint16_t field_index = field_bidx/sizeof(int32_t);
+			// uint16_t field_index = field_bidx/sizeof(int32_t);
+			uint16_t field_index = index_of_field( (void*)(&ctl->buf[field_bidx]), (void*)(&base->buf[0]), base->size );
 			//write then read the word in question
 			misc_write_message_t write_msg =
 			{
