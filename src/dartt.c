@@ -861,8 +861,8 @@ int dartt_sync(unsigned char misc_address,
 	{
 		return ERROR_INVALID_ARGUMENT;	//make sure you're 32 bit aligned in all refs
 	}
-	int field_bidx;
-	for(field_bidx = 0; field_bidx < ctl->size; field_bidx += sizeof(int32_t))
+
+	for(int field_bidx = 0; field_bidx < ctl->size; field_bidx += sizeof(int32_t))
 	{
 		uint8_t match = 1;
 		for(int i = 0; i < sizeof(int32_t); i++)
