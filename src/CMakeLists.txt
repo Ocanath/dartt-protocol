@@ -3,6 +3,7 @@ cmake_minimum_required(VERSION 3.10)
 # Create dartt_protocol library
 add_library(dartt_protocol
     dartt.c
+	dartt_sync.c
 )
 
 # Create dartt_checksum library
