@@ -102,6 +102,17 @@ int dartt_sync(buffer_t * ctl, buffer_t * periph, dartt_sync_t * psync)	//callba
 				return rc;
 			}
 
+            for(int i = 0; i < write_msg.payload.len; i++)
+            {
+                if(write_msg.payload.buf[i] != pld_msg.msg.buf[i])
+                {
+                    return ERROR_SYNC_MISMATCH;
+                }
+            }
+            for(int i = 0; i < write_msg.payload.len; i++)
+            {
+                periph->buf[field_bidx + i] = ctl->buf[field_bidx+i];   //copy the mismatched word after confirming the peripheral matches
+            }
 
 		}
 	}

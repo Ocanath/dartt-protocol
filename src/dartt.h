@@ -42,7 +42,7 @@ extern "C" {
 
 #define READ_WRITE_BITMASK	0x8000	//msg is the read write bit. 1 for read, 0 for write.
 
-enum {ERROR_MEMORY_OVERRUN = -5, ERROR_INVALID_ARGUMENT = -4, ERROR_CHECKSUM_MISMATCH = -3, ERROR_MALFORMED_MESSAGE = -2, ADDRESS_FILTERED = -1, SERIAL_PROTOCOL_SUCCESS = 0};
+enum {ERROR_SYNC_MISMATCH = -6, ERROR_MEMORY_OVERRUN = -5, ERROR_INVALID_ARGUMENT = -4, ERROR_CHECKSUM_MISMATCH = -3, ERROR_MALFORMED_MESSAGE = -2, ADDRESS_FILTERED = -1, SERIAL_PROTOCOL_SUCCESS = 0};
 
 /*
  * Flags to capture byte field definitions for different physical and link layer protocols,
