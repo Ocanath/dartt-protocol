@@ -96,6 +96,7 @@ void test_dartt_sync_full(void)
     //periph copy
     test_struct_t periph = {};
     buffer_t periph_alias = {};
+    init_struct_buffer(&periph, &periph_alias);
     
     
     //sync params
@@ -110,6 +111,22 @@ void test_dartt_sync_full(void)
     ctl_sync.blocking_rx_callback = &rx_blocking;
     ctl_sync.blocking_tx_callback = &tx_blocking;
     ctl_sync.timeout_ms = 10;
+
+    //setup test structs
+    for(int i = 0; i < ctl_master_alias.size; i++)
+    {
+        ctl_master_alias.buf[i] = (i % 254) + 1;
+        periph_master_alias.buf[i] = ctl_master_alias.buf[i];
+    }
+    TEST_ASSERT_EQUAL(ctl_master_alias.size, periph_master_alias.size);
+    TEST_ASSERT_EQUAL(ctl_master_alias.size, periph_alias.size);
+    for(int i = 0; i < ctl_master_alias.size; i++)
+    {
+        TEST_ASSERT_NOT_EQUAL(ctl_master_alias.buf[i], periph_alias.buf[i]);
+        TEST_ASSERT_EQUAL(ctl_master_alias.buf[i], periph_master_alias.buf[i]);
+    }
+
+    
 
     rc = dartt_sync(&ctl_master_alias, &periph_master_alias, &ctl_sync);
 
