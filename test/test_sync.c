@@ -42,13 +42,75 @@ typedef struct test_struct_t
     motor_params_t mp[2];
 }test_struct_t;
 
+uint8_t tx_mem[64] = {};
+uint8_t rx_mem[64] = {};
 
 
-void test_dartt_sync(void)
+int init_struct_buffer(test_struct_t * s, buffer_t * buf)
+{
+    buf->buf = (unsigned char *)s;
+    buf->size = sizeof(test_struct_t);
+    buf->len = 0;
+}
+
+int dartt_init_buffer(buffer_t * b, uint8_t * arr, size_t size)
+{
+    if(b == NULL || arr == NULL)
+    {
+        return ERROR_INVALID_ARGUMENT;
+    }
+    b->buf = (unsigned char *)arr;
+    b->size = size;
+    b->len = 0;
+    return SERIAL_PROTOCOL_SUCCESS;
+}
+
+int rx_blocking(unsigned char addr, buffer_t * rx, uint32_t timeout)
+{
+    //
+    return SERIAL_PROTOCOL_SUCCESS;
+}
+
+int tx_blocking(unsigned char addr, buffer_t * tx, uint32_t timeout)
+{
+    printf("transmitted: a = 0x%X, rx=0x");
+    for(int i = 0; i < tx->len; i++)
+    {
+        printf("%0.2X", tx->buf[i]);
+    }
+    printf("\n");
+    return SERIAL_PROTOCOL_SUCCESS;
+}
+
+void test_dartt_sync_full(void)
 {
     TEST_ASSERT_EQUAL(0, sizeof(test_struct_t)%sizeof(int32_t));//ensure struct is 32bit word aligned
-    test_struct_t ctl_master;
-    test_struct_t periph_master;
-    test_struct_t periph;
-       
+    //master structs and aliases
+    test_struct_t ctl_master = {};
+    buffer_t ctl_master_alias;
+    init_struct_buffer(&ctl_master, &ctl_master_alias);
+    test_struct_t periph_master = {};
+    buffer_t periph_master_alias;
+    init_struct_buffer(&periph_master, &periph_master_alias);
+    
+    //periph copy
+    test_struct_t periph = {};
+    buffer_t periph_alias = {};
+    
+    
+    //sync params
+    dartt_sync_t ctl_sync = {};
+    ctl_sync.address = 3;
+    init_struct_buffer(&ctl_master, &ctl_sync.base);
+    ctl_sync.msg_type = TYPE_SERIAL_MESSAGE;
+    int rc = dartt_init_buffer(&ctl_sync.tx_buf, tx_mem, sizeof(tx_mem));
+    TEST_ASSERT_EQUAL(0,rc);
+    rc = dartt_init_buffer(&ctl_sync.rx_buf, rx_mem, sizeof(rx_mem));
+    TEST_ASSERT_EQUAL(0,rc);
+    ctl_sync.blocking_rx_callback = &rx_blocking;
+    ctl_sync.blocking_tx_callback = &tx_blocking;
+    ctl_sync.timeout_ms = 10;
+
+    rc = dartt_sync(&ctl_master_alias, &periph_master_alias, &ctl_sync);
+
 }
