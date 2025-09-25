@@ -126,8 +126,23 @@ void test_dartt_sync_full(void)
         TEST_ASSERT_EQUAL(ctl_master_alias.buf[i], periph_master_alias.buf[i]);
     }
 
-    
+    ctl_master.m1_set += 10;
+    ctl_master.mp[0].fds.align_offset++;
+    ctl_master.mp[1].pi_vq.ki.radix++;
+    ctl_master.mp[1].pi_vq.ki.i32 -= 145;
+    TEST_ASSERT_NOT_EQUAL(ctl_master.m1_set, periph_master.m1_set);
+    TEST_ASSERT_NOT_EQUAL(ctl_master.mp[0].fds.align_offset, periph_master.mp[0].fds.align_offset);
+    TEST_ASSERT_NOT_EQUAL(ctl_master.mp[1].pi_vq.ki.radix, periph_master.mp[1].pi_vq.ki.radix);
+    TEST_ASSERT_NOT_EQUAL(ctl_master.mp[1].pi_vq.ki.i32, periph_master.mp[1].pi_vq.ki.i32);
+
+
+
 
     rc = dartt_sync(&ctl_master_alias, &periph_master_alias, &ctl_sync);
+    TEST_ASSERT_EQUAL(SERIAL_PROTOCOL_SUCCESS, rc);
+    for(int i = 0; i < ctl_master_alias.size; i++)
+    {
+        TEST_ASSERT_EQUAL(ctl_master_alias.buf[i], periph_master_alias.buf[i]);
+    }
 
 }
