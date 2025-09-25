@@ -6,6 +6,7 @@
 		"stdint.h": "c",
 		"serial-comms-struct.h": "c",
 		"stdio.h": "c",
-		"stddef.h": "c"
+		"stddef.h": "c",
+		"dartt_sync.h": "c"
 	}
 }
