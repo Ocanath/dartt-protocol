@@ -21,7 +21,7 @@
  * @note The field must be aligned to 32-bit (4-byte) boundaries.
  * @note This function performs bounds checking to ensure the field is within the structure.
  */
-size_t index_of_field(void * p_field, void * mem, size_t mem_size)
+int index_of_field(void * p_field, void * mem, size_t mem_size)
 {
     //null pointer checks
     if(p_field == NULL || mem == NULL)

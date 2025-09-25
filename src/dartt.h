@@ -135,7 +135,7 @@ typedef struct misc_reply_t
 // 	buffer_t * mem_base;
 // } protocol_context_t;
 
-size_t index_of_field(void * p_field, void * mem, size_t mem_size);
+int index_of_field(void * p_field, void * mem, size_t mem_size);
 int copy_buf_full(buffer_t * in, buffer_t * out);
 unsigned char dartt_get_complementary_address(unsigned char address);
 int dartt_create_write_frame(misc_write_message_t * msg, serial_message_type_t type, buffer_t * output);

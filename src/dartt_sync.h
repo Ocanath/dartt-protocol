@@ -12,7 +12,7 @@ extern "C" {
 typedef struct dartt_sync_t
 {
         unsigned char address;
-		buffer_t * base;
+		buffer_t base;
 		serial_message_type_t msg_type;
 		buffer_t tx_buf;
 		buffer_t rx_buf;

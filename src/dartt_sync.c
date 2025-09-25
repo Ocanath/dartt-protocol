@@ -23,7 +23,7 @@ int dartt_sync(buffer_t * ctl, buffer_t * periph, dartt_sync_t * psync)	//callba
 	{
 		return ERROR_MEMORY_OVERRUN;
 	}
-	if(ctl->size % sizeof(int32_t) == 0)
+	if(ctl->size % sizeof(int32_t) != 0)
 	{
 		return ERROR_INVALID_ARGUMENT;	//make sure you're 32 bit aligned in all refs
 	}
@@ -43,7 +43,11 @@ int dartt_sync(buffer_t * ctl, buffer_t * periph, dartt_sync_t * psync)	//callba
 		if(match == 0)
 		{
 			// uint16_t field_index = field_bidx/sizeof(int32_t);
-			uint16_t field_index = index_of_field( (void*)(&ctl->buf[field_bidx]), (void*)(&psync->base->buf[0]), psync->base->size );
+            int field_index = index_of_field( (void*)(&ctl->buf[field_bidx]), (void*)(&psync->base.buf[0]), psync->base.size );
+            if(field_index < 0)
+            {
+                return field_index; //negative values are error codes, return if you get negative value
+            }
             unsigned char misc_address = dartt_get_complementary_address(psync->address);
 			//write then read the word in question
 			misc_write_message_t write_msg =

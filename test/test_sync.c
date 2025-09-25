@@ -43,6 +43,7 @@ typedef struct test_struct_t
 }test_struct_t;
 
 uint8_t tx_mem[64] = {};
+buffer_t * p_sync_tx_buf;
 uint8_t rx_mem[64] = {};
 
 
@@ -65,9 +66,21 @@ int dartt_init_buffer(buffer_t * b, uint8_t * arr, size_t size)
     return SERIAL_PROTOCOL_SUCCESS;
 }
 
+//periph copy
+test_struct_t periph = {};
+buffer_t periph_alias = 
+{
+    .buf = (unsigned char * )(&periph),
+    .size = sizeof(test_struct_t),
+    .len = 0
+};
+
 int rx_blocking(unsigned char addr, buffer_t * rx, uint32_t timeout)
 {
-    //
+    //model peripheral with reply behavior and modifications to periph via alias
+    payload_layer_msg_t rxpld_msg = {};
+    dartt_frame_to_payload(p_sync_tx_buf, TYPE_SERIAL_MESSAGE, PAYLOAD_ALIAS, &rxpld_msg);
+    dartt_parse_general_message(&rxpld_msg, TYPE_SERIAL_MESSAGE, &periph_alias, rx);
     return SERIAL_PROTOCOL_SUCCESS;
 }
 
@@ -79,6 +92,18 @@ int tx_blocking(unsigned char addr, buffer_t * tx, uint32_t timeout)
         printf("%0.2X", tx->buf[i]);
     }
     printf("\n");
+    
+    
+    unsigned char tx_cpy[sizeof(tx_mem)] = {};
+    buffer_t tx_cpy_alias = {.buf = tx_cpy, .size = sizeof(tx_cpy), .len=tx->len};
+    for(int i = 0; i < tx->size; i++)
+    {
+        tx_cpy_alias.buf[i] = tx->buf[i];
+    }
+    payload_layer_msg_t rxpld_msg = {};
+    dartt_frame_to_payload(&tx_cpy_alias, TYPE_SERIAL_MESSAGE, PAYLOAD_ALIAS, &rxpld_msg);
+    dartt_parse_general_message(&rxpld_msg, TYPE_SERIAL_MESSAGE, &periph_alias, &tx_cpy_alias);    //pipe reply to tx, it's fine if we corrupt it with this call. It should pretty much just set the len to 0
+    printf("tx len = %d\n", tx->len);
     return SERIAL_PROTOCOL_SUCCESS;
 }
 
@@ -93,10 +118,6 @@ void test_dartt_sync_full(void)
     buffer_t periph_master_alias;
     init_struct_buffer(&periph_master, &periph_master_alias);
     
-    //periph copy
-    test_struct_t periph = {};
-    buffer_t periph_alias = {};
-    init_struct_buffer(&periph, &periph_alias);
     
     
     //sync params
@@ -111,6 +132,8 @@ void test_dartt_sync_full(void)
     ctl_sync.blocking_rx_callback = &rx_blocking;
     ctl_sync.blocking_tx_callback = &tx_blocking;
     ctl_sync.timeout_ms = 10;
+
+    p_sync_tx_buf = &ctl_sync.tx_buf;   //for unit testing only - set up ref for us to make fake peripheral device in the callbacks
 
     //setup test structs
     for(int i = 0; i < ctl_master_alias.size; i++)
