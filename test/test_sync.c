@@ -67,10 +67,10 @@ int dartt_init_buffer(buffer_t * b, uint8_t * arr, size_t size)
 }
 
 //periph copy
-test_struct_t periph = {};
+test_struct_t gl_periph = {};
 buffer_t periph_alias = 
 {
-    .buf = (unsigned char * )(&periph),
+    .buf = (unsigned char * )(&gl_periph),
     .size = sizeof(test_struct_t),
     .len = 0
 };
@@ -166,8 +166,15 @@ void test_dartt_sync_full(void)
     for(int i = 0; i < ctl_master_alias.size; i++)
     {
         TEST_ASSERT_EQUAL(ctl_master_alias.buf[i], periph_master_alias.buf[i]);
-        TEST_ASSERT_EQUAL(periph_master_alias.buf[i], periph_alias.buf[i]);
-    }
+    }   //these should match perfectly when sync runs - the behavior is that the when the master and shadow copy are out of sync, the peripheral is loaded and the shadow updated with a read from the peripheral
 
+
+    /**/
+    TEST_ASSERT_EQUAL(ctl_master.m1_set, gl_periph.m1_set);
+    TEST_ASSERT_EQUAL(ctl_master.mp[0].fds.align_offset,gl_periph.mp[0].fds.align_offset);
+    TEST_ASSERT_EQUAL(ctl_master.mp[1].pi_vq.ki.radix,gl_periph.mp[1].pi_vq.ki.radix);
+    TEST_ASSERT_EQUAL(ctl_master.mp[1].pi_vq.ki.i32,gl_periph.mp[1].pi_vq.ki.i32);
+
+    TEST_ASSERT_NOT_EQUAL(ctl_master.m2_set, gl_periph.m2_set);     //technically all but the 4 values changed should not match, but we'll just throw one in for basic demonstration
 
 }
