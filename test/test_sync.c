@@ -288,4 +288,31 @@ void test_dartt_write(void)
     TEST_ASSERT_EQUAL(0, periph_master.mp[0].pi_vq.ki.radix);
 
 
+    TEST_ASSERT_NOT_EQUAL(ctl_master.mp[1].pi_vq.kp.i32, gl_periph.mp[1].pi_vq.kp.i32);
+    TEST_ASSERT_NOT_EQUAL(ctl_master.mp[1].pi_vq.kp.radix, gl_periph.mp[1].pi_vq.kp.radix);
+    TEST_ASSERT_NOT_EQUAL(ctl_master.mp[1].pi_vq.kp.i32, gl_periph.mp[1].pi_vq.kp.i32);
+    TEST_ASSERT_NOT_EQUAL(ctl_master.mp[1].pi_vq.kp.radix, gl_periph.mp[1].pi_vq.kp.radix);
+    motor_commands.buf = (unsigned char *)(&ctl_master.mp[1].pi_vq.kp.i32);
+    motor_commands.size = 4*sizeof(uint32_t);
+    motor_commands.len = motor_commands.size;
+    rc = dartt_ctl_write(&motor_commands, &ctl_sync);
+    TEST_ASSERT_EQUAL(ctl_master.mp[1].pi_vq.kp.i32, gl_periph.mp[1].pi_vq.kp.i32);
+    TEST_ASSERT_EQUAL(ctl_master.mp[1].pi_vq.kp.radix, gl_periph.mp[1].pi_vq.kp.radix);
+    TEST_ASSERT_EQUAL(ctl_master.mp[1].pi_vq.kp.i32, gl_periph.mp[1].pi_vq.kp.i32);
+    TEST_ASSERT_EQUAL(ctl_master.mp[1].pi_vq.kp.radix, gl_periph.mp[1].pi_vq.kp.radix);
+    
+    periph_master.mp[1].pi_vq.kp.i32 = 0;
+    periph_master.mp[1].pi_vq.kp.radix = 0;
+    periph_master.mp[1].pi_vq.ki.i32 = 0;
+    periph_master.mp[1].pi_vq.ki.radix = 0;
+    TEST_ASSERT_NOT_EQUAL(ctl_master.mp[1].pi_vq.kp.i32, periph_master.mp[1].pi_vq.kp.i32);
+    TEST_ASSERT_NOT_EQUAL(ctl_master.mp[1].pi_vq.kp.radix, periph_master.mp[1].pi_vq.kp.radix);
+    TEST_ASSERT_NOT_EQUAL(ctl_master.mp[1].pi_vq.kp.i32, periph_master.mp[1].pi_vq.kp.i32);
+    TEST_ASSERT_NOT_EQUAL(ctl_master.mp[1].pi_vq.kp.radix, periph_master.mp[1].pi_vq.kp.radix);    
+    rc = dartt_ctl_read(&motor_commands, &periph_master_alias, &ctl_sync);
+    TEST_ASSERT_EQUAL(ctl_master.mp[1].pi_vq.kp.i32, periph_master.mp[1].pi_vq.kp.i32);
+    TEST_ASSERT_EQUAL(ctl_master.mp[1].pi_vq.kp.radix, periph_master.mp[1].pi_vq.kp.radix);
+    TEST_ASSERT_EQUAL(ctl_master.mp[1].pi_vq.kp.i32, periph_master.mp[1].pi_vq.kp.i32);
+    TEST_ASSERT_EQUAL(ctl_master.mp[1].pi_vq.kp.radix, periph_master.mp[1].pi_vq.kp.radix);    
+
 }
