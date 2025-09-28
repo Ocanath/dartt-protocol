@@ -24,7 +24,7 @@ typedef struct dartt_sync_t
 
 
 int dartt_sync(buffer_t * ctl, buffer_t * periph, dartt_sync_t * psync);
-
+int dartt_ctl_write(buffer_t * ctl, dartt_sync_t * psync);
 
 #ifdef __cplusplus
 }
