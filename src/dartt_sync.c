@@ -234,11 +234,7 @@ int dartt_ctl_write(buffer_t * ctl, dartt_sync_t * psync)
         return rc;
     }
     //blocking write callback
-    rc = (*(psync->blocking_tx_callback))(misc_address, &psync->tx_buf, psync->timeout_ms);
-    if(rc != DARTT_PROTOCOL_SUCCESS)
-    {
-        return rc;
-    }
+    return (*(psync->blocking_tx_callback))(misc_address, &psync->tx_buf, psync->timeout_ms);
 }
 
 
