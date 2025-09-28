@@ -141,14 +141,14 @@ void test_dartt_sync_full(void)
     }
     TEST_ASSERT_EQUAL(ctl_master_alias.size, periph_master_alias.size);
     TEST_ASSERT_EQUAL(ctl_master_alias.size, periph_alias.size);
+    for(int i = 0; i < periph_alias.size; i++)
+    {
+        periph_alias.buf[i] = 0;
+    }
     for(int i = 0; i < ctl_master_alias.size; i++)
     {
         TEST_ASSERT_NOT_EQUAL(ctl_master_alias.buf[i], periph_alias.buf[i]);
         TEST_ASSERT_EQUAL(ctl_master_alias.buf[i], periph_master_alias.buf[i]);
-    }
-    for(int i = 0; i < periph_alias.size; i++)
-    {
-        periph_alias.buf[i] = 0;
     }
 
     ctl_master.m1_set = 10;

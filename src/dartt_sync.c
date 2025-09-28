@@ -41,7 +41,7 @@ int dartt_sync(buffer_t * ctl, buffer_t * periph, dartt_sync_t * psync)	//callba
     }
 
     int start_bidx = -1;
-    // int stop_bidx = -1;
+    int stop_bidx = -1;
 	for(int field_bidx = 0; field_bidx < ctl->size; field_bidx += sizeof(int32_t))
 	{
 		uint8_t match = 1;
@@ -50,7 +50,6 @@ int dartt_sync(buffer_t * ctl, buffer_t * periph, dartt_sync_t * psync)	//callba
 			int bidx = field_bidx + i;
 			if(ctl->buf[bidx] != periph->buf[bidx])
 			{
-                start_bidx = field_bidx;
 				match = 0;
 				break;  
                 /*
@@ -64,10 +63,31 @@ int dartt_sync(buffer_t * ctl, buffer_t * periph, dartt_sync_t * psync)	//callba
                 */
 			}
 		}
-		if(match == 0)
+        if(match == 0 && start_bidx < 0)    //if you get a match and you haven't started, initialize start to a good value
+        {
+            start_bidx = field_bidx;
+        }
+        if(start_bidx >= 0)
+        {
+            if(match == 1)
+            {
+                stop_bidx = field_bidx;
+            }
+            else
+            {
+                int next_field = field_bidx + sizeof(int32_t);
+                if(next_field >= ctl->size || ((next_field - start_bidx) + NUM_BYTES_NON_PAYLOAD) > psync->tx_buf.size)                       
+                {
+                    stop_bidx = next_field;
+                    field_bidx = next_field;
+                }
+            }
+        }
+
+		if(stop_bidx >= 0)
 		{
 			// uint16_t field_index = field_bidx/sizeof(int32_t);
-            int field_index = index_of_field( (void*)(&ctl->buf[field_bidx]), (void*)(&psync->base.buf[0]), psync->base.size );
+            int field_index = index_of_field( (void*)(&ctl->buf[start_bidx]), (void*)(&psync->base.buf[0]), psync->base.size );
             if(field_index < 0)
             {
                 return field_index; //negative values are error codes, return if you get negative value
@@ -79,9 +99,9 @@ int dartt_sync(buffer_t * ctl, buffer_t * periph, dartt_sync_t * psync)	//callba
 					.address = misc_address,
 					.index = field_index,
 					.payload = {
-							.buf = &ctl->buf[field_bidx],
-							.size = sizeof(int32_t),
-							.len = sizeof(int32_t)
+							.buf = &ctl->buf[start_bidx],
+							.size = (stop_bidx - start_bidx),
+							.len = (stop_bidx - start_bidx)
 					}
 			};
 			int rc = dartt_create_write_frame(&write_msg, psync->msg_type, &psync->tx_buf);
@@ -136,9 +156,10 @@ int dartt_sync(buffer_t * ctl, buffer_t * periph, dartt_sync_t * psync)	//callba
             }
             for(int i = 0; i < write_msg.payload.len; i++)
             {
-                periph->buf[field_bidx + i] = ctl->buf[field_bidx+i];   //copy the mismatched word after confirming the peripheral matches
+                periph->buf[start_bidx + i] = ctl->buf[start_bidx+i];   //copy the mismatched word after confirming the peripheral matches
             }
-
+            start_bidx = -1;
+            stop_bidx = -1;
 		}
 	}
 

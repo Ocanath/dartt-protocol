@@ -34,6 +34,7 @@ extern "C" {
 #define NUM_BYTES_INDEX sizeof(uint16_t)
 #define NUM_BYTES_NUMWORDS_READREQUEST	sizeof(uint16_t)	//for a read struct request, we send a fixed 16bit integer argument in the payload section for the readsize request
 #define NUM_BYTES_CHECKSUM sizeof(uint16_t)
+#define NUM_BYTES_NON_PAYLOAD (NUM_BYTES_ADDRESS + NUM_BYTES_INDEX + NUM_BYTES_CHECKSUM)
 #define MINIMUM_MESSAGE_LENGTH NUM_BYTES_NON_PAYLOAD
 
 //This is a fixed address that always corresponds
