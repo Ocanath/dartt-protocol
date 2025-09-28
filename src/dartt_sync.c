@@ -45,43 +45,36 @@ int dartt_sync(buffer_t * ctl, buffer_t * periph, dartt_sync_t * psync)	//callba
     
 	for(int field_bidx = 0; field_bidx < ctl->size; field_bidx += sizeof(int32_t))
 	{
-        
-
 		uint8_t match = 1;
 		for(int i = 0; i < sizeof(int32_t); i++)
 		{
 			int bidx = field_bidx + i;
 			if(ctl->buf[bidx] != periph->buf[bidx])
 			{
-                start_bidx = field_bidx;
 				match = 0;
-				break;  
-                /*
-                TODO: Rather than breaking, log the current field_bidx as 'start'
-                Then, continue incrementing field_bidx by 4 until the following conditions are met:
-                    1. you exceed the size of the write buffer (at which point you must write your current contents)
-                    2. you encounter a matching full 32bit word
-                    3. you exceed the size of the control buffer
-                Then, and ONLY then, do you perform the physical, blocking write/read exchange.
-                You have to flag the presence of a mismatch with the 'start_bidx' - if this is not, say, -1 (initialized) you have to write something.
-                */
+				break;
 			}
 		}
 
+        // Start a new batch if we found a mismatch and don't have one started
+        if(match == 0 && start_bidx < 0)
+        {
+            start_bidx = field_bidx;
+        }
 
-        //
+        // Check if we need to end the current batch
         if(start_bidx >= 0)
         {
-            if(match == 1 || field_bidx+sizeof(int32_t) >= ctl->size || (field_bidx - start_bidx)*sizeof(uint32_t)+NUM_BYTES_NON_PAYLOAD > psync->tx_buf.size)
+            // End batch if: found a match, reached end of buffer, or would exceed tx buffer size
+            int next_field = field_bidx + sizeof(int32_t);
+            int batch_size = next_field - start_bidx;
+
+            if(match == 1 || next_field >= ctl->size || batch_size + NUM_BYTES_NON_PAYLOAD > psync->tx_buf.size)
             {
-                stop_bidx = field_bidx+sizeof(uint32_t);
+                stop_bidx = (match == 1) ? field_bidx : next_field;
             }
         }
 
-
-
-
-        
 		if(stop_bidx >= 0)
 		{
 			// uint16_t field_index = field_bidx/sizeof(int32_t);
