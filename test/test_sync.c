@@ -159,25 +159,37 @@ void test_dartt_sync_full(void)
     TEST_ASSERT_NOT_EQUAL(ctl_master.mp[0].fds.align_offset, periph_master.mp[0].fds.align_offset);
     TEST_ASSERT_NOT_EQUAL(ctl_master.mp[1].pi_vq.ki.radix, periph_master.mp[1].pi_vq.ki.radix);
     TEST_ASSERT_NOT_EQUAL(ctl_master.mp[1].pi_vq.ki.i32, periph_master.mp[1].pi_vq.ki.i32);
-
-
-
-
+    TEST_ASSERT_EQUAL(sizeof(test_struct_t), ctl_master_alias.size);
     rc = dartt_sync(&ctl_master_alias, &periph_master_alias, &ctl_sync);
+    TEST_ASSERT_EQUAL(sizeof(test_struct_t), ctl_master_alias.size);
     TEST_ASSERT_EQUAL(DARTT_PROTOCOL_SUCCESS, rc);
     for(int i = 0; i < ctl_master_alias.size; i++)
     {
         TEST_ASSERT_EQUAL(ctl_master_alias.buf[i], periph_master_alias.buf[i]);
     }   //these should match perfectly when sync runs - the behavior is that the when the master and shadow copy are out of sync, the peripheral is loaded and the shadow updated with a read from the peripheral
-
-
     /**/
     TEST_ASSERT_EQUAL(ctl_master.m1_set, gl_periph.m1_set);
     TEST_ASSERT_EQUAL(ctl_master.mp[0].fds.align_offset,gl_periph.mp[0].fds.align_offset);
     TEST_ASSERT_EQUAL(ctl_master.mp[1].pi_vq.ki.radix,gl_periph.mp[1].pi_vq.ki.radix);
     TEST_ASSERT_EQUAL(ctl_master.mp[1].pi_vq.ki.i32,gl_periph.mp[1].pi_vq.ki.i32);
-
     TEST_ASSERT_NOT_EQUAL(ctl_master.m2_set, gl_periph.m2_set);     //technically all but the 4 values changed should not match, but we'll just throw one in for basic demonstration
+    for(int i = 0; i < periph_alias.size; i++)  //verify all in the true peripheral copy are initialized to zero except those touched by the sync call above
+    {
+        if(ctl_master_alias.buf[i] != periph_alias.buf[i])
+        {
+            TEST_ASSERT_EQUAL(0, periph_alias.buf[i]);
+        }
+    }
+
+    //check the last word in the structure
+    ctl_master.mp[1].fds.align_offset = 1234;
+    TEST_ASSERT_NOT_EQUAL(ctl_master.mp[1].fds.align_offset, periph_master.mp[1].fds.align_offset);
+    TEST_ASSERT_EQUAL(0, gl_periph.mp[1].fds.align_offset);//double check init to 0
+    TEST_ASSERT_NOT_EQUAL(periph_master.mp[1].fds.align_offset, gl_periph.mp[1].fds.align_offset);
+    rc = dartt_sync(&ctl_master_alias, &periph_master_alias, &ctl_sync);
+    TEST_ASSERT_EQUAL(0, rc);
+    TEST_ASSERT_EQUAL(ctl_master.mp[1].fds.align_offset, periph_master.mp[1].fds.align_offset);
+    TEST_ASSERT_EQUAL(ctl_master.mp[1].fds.align_offset, gl_periph.mp[1].fds.align_offset);
 
 
     //change the aliases to only target a small specific region, which should limit sync
@@ -201,14 +213,6 @@ void test_dartt_sync_full(void)
     TEST_ASSERT_EQUAL(ctl_master.mp[0].pi_vq.x, gl_periph.mp[0].pi_vq.x);
     TEST_ASSERT_EQUAL(ctl_master.mp[0].pi_vq.out_rshift, gl_periph.mp[0].pi_vq.out_rshift);
     
-    ctl_master.mp[1].fds.align_offset = 1234;
-    TEST_ASSERT_NOT_EQUAL(ctl_master.mp[1].fds.align_offset, periph_master.mp[1].fds.align_offset);
-    TEST_ASSERT_EQUAL(0, gl_periph.mp[1].fds.align_offset);//double check init to 0
-    TEST_ASSERT_NOT_EQUAL(periph_master.mp[1].fds.align_offset, gl_periph.mp[1].fds.align_offset);
-    rc = dartt_sync(&ctl_master_alias, &periph_master_alias, &ctl_sync);
-    TEST_ASSERT_EQUAL(0, rc);
-    TEST_ASSERT_EQUAL(ctl_master.mp[1].fds.align_offset, periph_master.mp[1].fds.align_offset);
-    TEST_ASSERT_EQUAL(ctl_master.mp[1].fds.align_offset, gl_periph.mp[1].fds.align_offset);
 }
 
 
