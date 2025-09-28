@@ -146,8 +146,7 @@ int dartt_sync(buffer_t * ctl, buffer_t * periph, dartt_sync_t * psync)	//callba
  * 
  * @param ctl Pointer to the memory within the master control structure that you want to write. Essentially just an alias into 
  * the master control structure
- * @param psync Pointer to the dartt_sync_t control structure, where you must register callbacks, set timeout, alias transmit and recieve buffers, 
- * and define the buffer alias to the master control structure.
+ * @param psync Sync structure defining the control memory base, blocking read/write callbacks and memory structures 
  */
 int dartt_ctl_write(buffer_t * ctl, dartt_sync_t * psync)
 {
@@ -185,4 +184,73 @@ int dartt_ctl_write(buffer_t * ctl, dartt_sync_t * psync)
     {
         return rc;
     }
+}
+
+
+/**
+ * @brief This function creates a master dartt write/read sequence to load a dartt payload into the dest buffer.
+ * Dest should be properly aliased to destination memory (via buf and size) and the length of the desired data should be loaded into dest->len
+ * 
+ * 
+ * @param ctl The region of memory which should be read from the true peripheral device, and dumped into the shadow copy/destination buffer periph
+ * @param periph The destination of the read (control shadow copy of the peripheral)
+ * @param psync Sync structure defining the control memory base, blocking read/write callbacks and memory structures 
+ * @return int 
+*/
+int dartt_ctl_read(buffer_t * ctl, buffer_t * periph, dartt_sync_t * psync)
+{
+    assert(periph != NULL && psync != NULL && ctl != NULL);
+    //ensure ctl refers to a region within base
+    assert(ctl->buf != NULL && psync->base.buf != NULL && psync->blocking_tx_callback != NULL && psync->tx_buf.buf != NULL);
+    assert(ctl->buf >= psync->base.buf && ctl->buf < (psync->base.buf + psync->base.size));
+    assert(ctl->buf + ctl->len <= psync->base.buf + psync->base.size);
+    assert(ctl->buf + ctl->size <= psync->base.buf + psync->base.size);
+    assert(periph->buf != NULL);
+    assert(periph->len != 0);
+
+    unsigned char misc_address = dartt_get_complementary_address(psync->address);
+    
+    int field_index = index_of_field( (void*)(&ctl->buf[0]), (void*)(&psync->base.buf[0]), psync->base.size );
+    if(field_index < 0)
+    {
+        return field_index; //negative values are error codes, return if you get negative value
+    }
+    misc_read_message_t read_msg =
+    {
+            .address = misc_address,
+            .index = field_index,
+            .num_bytes = ctl->len
+    };
+    int rc = dartt_create_read_frame(&read_msg, psync->msg_type, &psync->tx_buf);
+    if(rc != DARTT_PROTOCOL_SUCCESS)
+    {
+        return rc;
+    }
+    rc = (*(psync->blocking_tx_callback))(misc_address, &psync->tx_buf, psync->timeout_ms);
+    if(rc != DARTT_PROTOCOL_SUCCESS)
+    {
+        return rc;
+    }
+
+    rc = (*(psync->blocking_rx_callback))(misc_address, &psync->rx_buf, psync->timeout_ms);
+    if(rc != DARTT_PROTOCOL_SUCCESS)
+    {
+        return rc;
+    }
+
+    payload_layer_msg_t pld_msg = {};
+    rc = dartt_frame_to_payload(&psync->rx_buf, psync->msg_type, PAYLOAD_ALIAS, &pld_msg);
+    if(rc != DARTT_PROTOCOL_SUCCESS)
+    {
+        return rc;
+    }
+    if(pld_msg.msg.len > periph->size)
+    {
+        return ERROR_MEMORY_OVERRUN;
+    }
+    for(int i = 0; i < pld_msg.msg.len; i++)
+    {
+        periph->buf[i] = pld_msg.msg.buf[i];
+    }
+    return DARTT_PROTOCOL_SUCCESS;
 }

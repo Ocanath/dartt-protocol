@@ -75,7 +75,7 @@ buffer_t periph_alias =
     .len = 0
 };
 
-int rx_blocking(unsigned char addr, buffer_t * rx, uint32_t timeout)
+int synctest_rx_blocking(unsigned char addr, buffer_t * rx, uint32_t timeout)
 {
     //model peripheral with reply behavior and modifications to periph via alias
     payload_layer_msg_t rxpld_msg = {};
@@ -84,7 +84,7 @@ int rx_blocking(unsigned char addr, buffer_t * rx, uint32_t timeout)
     return DARTT_PROTOCOL_SUCCESS;
 }
 
-int tx_blocking(unsigned char addr, buffer_t * tx, uint32_t timeout)
+int synctest_tx_blocking(unsigned char addr, buffer_t * tx, uint32_t timeout)
 {
     printf("transmitted: a = 0x%X, rx=0x");
     for(int i = 0; i < tx->len; i++)
@@ -129,8 +129,8 @@ void test_dartt_sync_full(void)
     TEST_ASSERT_EQUAL(0,rc);
     rc = dartt_init_buffer(&ctl_sync.rx_buf, rx_mem, sizeof(rx_mem));
     TEST_ASSERT_EQUAL(0,rc);
-    ctl_sync.blocking_rx_callback = &rx_blocking;
-    ctl_sync.blocking_tx_callback = &tx_blocking;
+    ctl_sync.blocking_rx_callback = &synctest_rx_blocking;
+    ctl_sync.blocking_tx_callback = &synctest_tx_blocking;
     ctl_sync.timeout_ms = 10;
 
     p_sync_tx_buf = &ctl_sync.tx_buf;   //for unit testing only - set up ref for us to make fake peripheral device in the callbacks
@@ -201,3 +201,5 @@ void test_dartt_sync_full(void)
     
 
 }
+
+
