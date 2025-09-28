@@ -153,9 +153,17 @@ int dartt_ctl_write(buffer_t * ctl, dartt_sync_t * psync)
 {
     assert(ctl != NULL && psync != NULL);
     assert(ctl->buf != NULL && psync->base.buf != NULL && psync->blocking_tx_callback != NULL && psync->tx_buf.buf != NULL);
-    assert(ctl->buf >= psync->base.buf && ctl->buf < (psync->base.buf + psync->base.size));
-    assert(ctl->buf + ctl->len <= psync->base.buf + psync->base.size);
-    assert(ctl->buf + ctl->size <= psync->base.buf + psync->base.size);
+
+    // Runtime checks for buffer bounds - these could be caused by developer error in ctl configuration
+    if (ctl->buf < psync->base.buf || ctl->buf >= (psync->base.buf + psync->base.size)) {
+        return ERROR_INVALID_ARGUMENT;
+    }
+    if (ctl->buf + ctl->len > psync->base.buf + psync->base.size) {
+        return ERROR_MEMORY_OVERRUN;
+    }
+    if (ctl->buf + ctl->size > psync->base.buf + psync->base.size) {
+        return ERROR_MEMORY_OVERRUN;
+    }
 
     int field_index = index_of_field( (void*)(&ctl->buf[0]), (void*)(&psync->base.buf[0]), psync->base.size );
     if(field_index < 0)
@@ -201,12 +209,19 @@ int dartt_ctl_write(buffer_t * ctl, dartt_sync_t * psync)
 int dartt_ctl_read(buffer_t * ctl, buffer_t * periph, dartt_sync_t * psync)
 {
     assert(periph != NULL && psync != NULL && ctl != NULL);
-    //ensure ctl refers to a region within base
     assert(ctl->buf != NULL && psync->base.buf != NULL && psync->blocking_tx_callback != NULL && psync->tx_buf.buf != NULL);
-    assert(ctl->buf >= psync->base.buf && ctl->buf < (psync->base.buf + psync->base.size));
-    assert(ctl->buf + ctl->len <= psync->base.buf + psync->base.size);
-    assert(ctl->buf + ctl->size <= psync->base.buf + psync->base.size);
     assert(periph->buf != NULL);
+
+    // Runtime checks for buffer bounds - these could be caused by developer error in ctl configuration
+    if (ctl->buf < psync->base.buf || ctl->buf >= (psync->base.buf + psync->base.size)) {
+        return ERROR_INVALID_ARGUMENT;
+    }
+    if (ctl->buf + ctl->len > psync->base.buf + psync->base.size) {
+        return ERROR_MEMORY_OVERRUN;
+    }
+    if (ctl->buf + ctl->size > psync->base.buf + psync->base.size) {
+        return ERROR_MEMORY_OVERRUN;
+    }
 
     unsigned char misc_address = dartt_get_complementary_address(psync->address);
     
@@ -250,7 +265,7 @@ int dartt_ctl_read(buffer_t * ctl, buffer_t * periph, dartt_sync_t * psync)
     }
     for(int i = 0; i < pld_msg.msg.len; i++)
     {
-        periph->buf[i] = pld_msg.msg.buf[i];
+        periph->buf[i+field_index*sizeof(uint32_t)] = pld_msg.msg.buf[i];
     }
     return DARTT_PROTOCOL_SUCCESS;
 }

@@ -272,5 +272,20 @@ void test_dartt_write(void)
     TEST_ASSERT_EQUAL(ctl_master.m2_set, periph_master.m2_set);
 
 
+    motor_commands.buf = (unsigned char *)(&ctl_master.mp[0].pi_vq.kp.i32);
+    motor_commands.size = 4*sizeof(uint32_t);
+    motor_commands.len = motor_commands.size;
+
+    TEST_ASSERT_NOT_EQUAL(0, periph_master.mp[0].pi_vq.kp.i32);
+    TEST_ASSERT_NOT_EQUAL(0, periph_master.mp[0].pi_vq.kp.radix);
+    TEST_ASSERT_NOT_EQUAL(0, periph_master.mp[0].pi_vq.ki.i32);
+    TEST_ASSERT_NOT_EQUAL(0, periph_master.mp[0].pi_vq.ki.radix);
+    rc = dartt_ctl_read(&motor_commands, &periph_master_alias, &ctl_sync);
+    TEST_ASSERT_EQUAL(0, rc);
+    TEST_ASSERT_EQUAL(0, periph_master.mp[0].pi_vq.kp.i32);
+    TEST_ASSERT_EQUAL(0, periph_master.mp[0].pi_vq.kp.radix);
+    TEST_ASSERT_EQUAL(0, periph_master.mp[0].pi_vq.ki.i32);
+    TEST_ASSERT_EQUAL(0, periph_master.mp[0].pi_vq.ki.radix);
+
 
 }
