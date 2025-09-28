@@ -83,7 +83,8 @@ int dartt_sync(buffer_t * ctl, buffer_t * periph, dartt_sync_t * psync)	//callba
 			{
 				return rc;
 			}
-			//blocking write callback
+
+            //blocking write callback
 			rc = (*(psync->blocking_tx_callback))(misc_address, &psync->tx_buf, psync->timeout_ms);
 			if(rc != DARTT_PROTOCOL_SUCCESS)
 			{
@@ -168,9 +169,9 @@ int dartt_ctl_write(buffer_t * ctl, dartt_sync_t * psync)
             .address = misc_address,
             .index = field_index,
             .payload = {
-                    .buf = &ctl->buf[0],
-                    .size = sizeof(int32_t),
-                    .len = sizeof(int32_t)
+                    .buf = ctl->buf,
+                    .size = ctl->size,
+                    .len = ctl->len
             }
     };
     int rc = dartt_create_write_frame(&write_msg, psync->msg_type, &psync->tx_buf);
@@ -206,7 +207,6 @@ int dartt_ctl_read(buffer_t * ctl, buffer_t * periph, dartt_sync_t * psync)
     assert(ctl->buf + ctl->len <= psync->base.buf + psync->base.size);
     assert(ctl->buf + ctl->size <= psync->base.buf + psync->base.size);
     assert(periph->buf != NULL);
-    assert(periph->len != 0);
 
     unsigned char misc_address = dartt_get_complementary_address(psync->address);
     

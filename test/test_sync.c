@@ -84,6 +84,8 @@ int synctest_rx_blocking(unsigned char addr, buffer_t * rx, uint32_t timeout)
     return DARTT_PROTOCOL_SUCCESS;
 }
 
+
+uint8_t gl_tx_sent_flag = 0;    //flag to indicate to test software if tx is called. Zero before caller
 int synctest_tx_blocking(unsigned char addr, buffer_t * tx, uint32_t timeout)
 {
     printf("transmitted: a = 0x%X, rx=0x");
@@ -104,6 +106,7 @@ int synctest_tx_blocking(unsigned char addr, buffer_t * tx, uint32_t timeout)
     dartt_frame_to_payload(&tx_cpy_alias, TYPE_SERIAL_MESSAGE, PAYLOAD_ALIAS, &rxpld_msg);
     dartt_parse_general_message(&rxpld_msg, TYPE_SERIAL_MESSAGE, &periph_alias, &tx_cpy_alias);    //pipe reply to tx, it's fine if we corrupt it with this call. It should pretty much just set the len to 0
     printf("tx len = %d\n", tx->len);
+    gl_tx_sent_flag = 1;
     return DARTT_PROTOCOL_SUCCESS;
 }
 
@@ -117,9 +120,6 @@ void test_dartt_sync_full(void)
     test_struct_t periph_master = {};
     buffer_t periph_master_alias;
     init_struct_buffer(&periph_master, &periph_master_alias);
-    
-    
-    
     //sync params
     dartt_sync_t ctl_sync = {};
     ctl_sync.address = 3;
@@ -132,9 +132,7 @@ void test_dartt_sync_full(void)
     ctl_sync.blocking_rx_callback = &synctest_rx_blocking;
     ctl_sync.blocking_tx_callback = &synctest_tx_blocking;
     ctl_sync.timeout_ms = 10;
-
     p_sync_tx_buf = &ctl_sync.tx_buf;   //for unit testing only - set up ref for us to make fake peripheral device in the callbacks
-
     //setup test structs
     for(int i = 0; i < ctl_master_alias.size; i++)
     {
@@ -147,6 +145,10 @@ void test_dartt_sync_full(void)
     {
         TEST_ASSERT_NOT_EQUAL(ctl_master_alias.buf[i], periph_alias.buf[i]);
         TEST_ASSERT_EQUAL(ctl_master_alias.buf[i], periph_master_alias.buf[i]);
+    }
+    for(int i = 0; i < periph_alias.size; i++)
+    {
+        periph_alias.buf[i] = 0;
     }
 
     ctl_master.m1_set = 10;
@@ -203,3 +205,72 @@ void test_dartt_sync_full(void)
 }
 
 
+void test_dartt_write(void)
+{
+    TEST_ASSERT_EQUAL(0, sizeof(test_struct_t)%sizeof(int32_t));//ensure struct is 32bit word aligned
+    //master structs and aliases
+    test_struct_t ctl_master = {};
+    buffer_t ctl_master_alias;
+    init_struct_buffer(&ctl_master, &ctl_master_alias);
+    test_struct_t periph_master = {};
+    buffer_t periph_master_alias;
+    init_struct_buffer(&periph_master, &periph_master_alias);
+    //sync params
+    dartt_sync_t ctl_sync = {};
+    ctl_sync.address = 3;
+    init_struct_buffer(&ctl_master, &ctl_sync.base);
+    ctl_sync.msg_type = TYPE_SERIAL_MESSAGE;
+    int rc = dartt_init_buffer(&ctl_sync.tx_buf, tx_mem, sizeof(tx_mem));
+    TEST_ASSERT_EQUAL(0,rc);
+    rc = dartt_init_buffer(&ctl_sync.rx_buf, rx_mem, sizeof(rx_mem));
+    TEST_ASSERT_EQUAL(0,rc);
+    ctl_sync.blocking_rx_callback = &synctest_rx_blocking;
+    ctl_sync.blocking_tx_callback = &synctest_tx_blocking;
+    ctl_sync.timeout_ms = 10;
+    p_sync_tx_buf = &ctl_sync.tx_buf;   //for unit testing only - set up ref for us to make fake peripheral device in the callbacks
+    //setup test structs
+    for(int i = 0; i < ctl_master_alias.size; i++)
+    {
+        ctl_master_alias.buf[i] = (i % 254) + 1;
+        periph_master_alias.buf[i] = ctl_master_alias.buf[i];
+    }
+    TEST_ASSERT_EQUAL(ctl_master_alias.size, periph_master_alias.size);
+    TEST_ASSERT_EQUAL(ctl_master_alias.size, periph_alias.size);
+    for(int i = 0; i < periph_alias.size; i++)
+    {
+        periph_alias.buf[i] = 0;
+    }
+    for(int i = 0; i < ctl_master_alias.size; i++)
+    {
+        TEST_ASSERT_NOT_EQUAL(ctl_master_alias.buf[i], periph_alias.buf[i]);
+        TEST_ASSERT_EQUAL(ctl_master_alias.buf[i], periph_master_alias.buf[i]);
+    }
+
+    buffer_t motor_commands = {
+        .buf = &ctl_master.m1_set,
+        .size = 2*sizeof(int32_t),  //(&ctl_master.m2_set+sizeof(int32_t)) - &ctl_master.m1_set
+        .len = 2*sizeof(int32_t)
+    };
+    ctl_master.m1_set = 1234;
+    ctl_master.m2_set = 5689;
+    gl_tx_sent_flag = 0;
+    TEST_ASSERT_EQUAL(0, gl_periph.m1_set);
+    TEST_ASSERT_EQUAL(0, gl_periph.m2_set);
+    rc = dartt_ctl_write(&motor_commands, &ctl_sync);
+    TEST_ASSERT_EQUAL(0, rc);
+    TEST_ASSERT_EQUAL(1, gl_tx_sent_flag);
+    gl_tx_sent_flag = 0;
+    TEST_ASSERT_EQUAL(ctl_master.m1_set, gl_periph.m1_set);
+    TEST_ASSERT_EQUAL(ctl_master.m2_set, gl_periph.m2_set);
+    
+
+    TEST_ASSERT_NOT_EQUAL(ctl_master.m1_set, periph_master.m1_set);
+    TEST_ASSERT_NOT_EQUAL(ctl_master.m2_set, periph_master.m2_set);
+    rc = dartt_ctl_read(&motor_commands, &periph_master_alias, &ctl_sync);
+    TEST_ASSERT_EQUAL(0, rc);
+    TEST_ASSERT_EQUAL(ctl_master.m1_set, periph_master.m1_set);
+    TEST_ASSERT_EQUAL(ctl_master.m2_set, periph_master.m2_set);
+
+
+
+}
