@@ -17,7 +17,7 @@ int dartt_sync(buffer_t * ctl, buffer_t * periph, dartt_sync_t * psync)	//callba
     assert(psync != NULL && ctl != NULL && periph != NULL);
     assert(psync->blocking_rx_callback != NULL && psync->blocking_tx_callback != NULL && psync->base.buf != NULL && psync->base.size != 0);
     assert(ctl != periph);
-
+    
     if(ctl->size != periph->size)
 	{
 		return ERROR_MEMORY_OVERRUN;
@@ -42,7 +42,6 @@ int dartt_sync(buffer_t * ctl, buffer_t * periph, dartt_sync_t * psync)	//callba
 
     int start_bidx = -1;
     int stop_bidx = -1;
-    
 	for(int field_bidx = 0; field_bidx < ctl->size; field_bidx += sizeof(int32_t))
 	{
 		uint8_t match = 1;
@@ -52,26 +51,40 @@ int dartt_sync(buffer_t * ctl, buffer_t * periph, dartt_sync_t * psync)	//callba
 			if(ctl->buf[bidx] != periph->buf[bidx])
 			{
 				match = 0;
-				break;
+				break;  
+                /*
+                TODO: Rather than breaking, log the current field_bidx as 'start'
+                Then, continue incrementing field_bidx by 4 until the following conditions are met:
+                    1. you exceed the size of the write buffer (at which point you must write your current contents)
+                    2. you encounter a matching full 32bit word
+                    3. you exceed the size of the control buffer
+                Then, and ONLY then, do you perform the physical, blocking write/read exchange.
+                You have to flag the presence of a mismatch with the 'start_bidx' - if this is not, say, -1 (initialized) you have to write something.
+                */
 			}
 		}
-
-        // Start a new batch if we found a mismatch and don't have one started
-        if(match == 0 && start_bidx < 0)
+        if(match == 0 && start_bidx < 0)    //if you get a match and you haven't started, initialize start to a good value
         {
             start_bidx = field_bidx;
         }
-
-        // Check if we need to end the current batch
         if(start_bidx >= 0)
         {
-            // End batch if: found a match, reached end of buffer, or would exceed tx buffer size
-            int next_field = field_bidx + sizeof(int32_t);
-            int batch_size = next_field - start_bidx;
-
-            if(match == 1 || next_field >= ctl->size || batch_size + NUM_BYTES_NON_PAYLOAD > psync->tx_buf.size)
+            if(match == 1)
             {
-                stop_bidx = (match == 1) ? field_bidx : next_field;
+                stop_bidx = field_bidx;
+            }
+            else
+            {
+                int next_field = field_bidx + sizeof(int32_t);
+                if(next_field >= ctl->size)                       
+                {
+                    stop_bidx = next_field;
+                    field_bidx = next_field;
+                }
+                else if( ((next_field - start_bidx) + NUM_BYTES_NON_PAYLOAD) >= psync->tx_buf.size )
+                {
+                    //TODO: handle this
+                }
             }
         }
 
