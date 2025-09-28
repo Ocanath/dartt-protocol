@@ -177,4 +177,27 @@ void test_dartt_sync_full(void)
 
     TEST_ASSERT_NOT_EQUAL(ctl_master.m2_set, gl_periph.m2_set);     //technically all but the 4 values changed should not match, but we'll just throw one in for basic demonstration
 
+
+    //change the aliases to only target a small specific region, which should limit sync
+    ctl_master_alias.buf = (unsigned char *)(&ctl_master.mp[0].pi_vq);
+    ctl_master_alias.size = sizeof(fixed_PI_2_params_t);
+    ctl_master_alias.len = 0;
+    periph_master_alias.buf = (unsigned char *)(&periph_master.mp[0].pi_vq);
+    periph_master_alias.size = sizeof(fixed_PI_2_params_t);
+    periph_master_alias.len = 0;
+
+    ctl_master.m2_set = 100;
+    periph_master.m2_set = -50; //explicitly load these differently (they were already different but just for clarity)
+
+    //load two of the targets, not at zero and non-adjacent
+    ctl_master.mp[0].pi_vq.x = 124538;
+    ctl_master.mp[0].pi_vq.out_rshift = 7;
+    rc = dartt_sync(&ctl_master_alias, &periph_master_alias, &ctl_sync);
+    TEST_ASSERT_EQUAL(0, rc);
+    TEST_ASSERT_EQUAL(-50, periph_master.m2_set);
+    TEST_ASSERT_EQUAL(100, ctl_master.m2_set);
+    TEST_ASSERT_EQUAL(ctl_master.mp[0].pi_vq.x, gl_periph.mp[0].pi_vq.x);
+    TEST_ASSERT_EQUAL(ctl_master.mp[0].pi_vq.out_rshift, gl_periph.mp[0].pi_vq.out_rshift);
+    
+
 }
