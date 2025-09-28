@@ -185,7 +185,7 @@ void test_check_write_args(void)
 		};
 		
 		rc = check_write_args(&msg, TYPE_SERIAL_MESSAGE, &output);
-		TEST_ASSERT_EQUAL(SERIAL_PROTOCOL_SUCCESS, rc);
+		TEST_ASSERT_EQUAL(DARTT_PROTOCOL_SUCCESS, rc);
 	}
 	
 	// Test memory overrun for TYPE_ADDR_MESSAGE (index + checksum overhead)
@@ -231,7 +231,7 @@ void test_check_write_args(void)
 		};
 		
 		rc = check_write_args(&msg, TYPE_ADDR_MESSAGE, &output);
-		TEST_ASSERT_EQUAL(SERIAL_PROTOCOL_SUCCESS, rc);
+		TEST_ASSERT_EQUAL(DARTT_PROTOCOL_SUCCESS, rc);
 	}
 	
 	// Test memory overrun for TYPE_ADDR_CRC_MESSAGE (index overhead only)
@@ -277,7 +277,7 @@ void test_check_write_args(void)
 		};
 		
 		rc = check_write_args(&msg, TYPE_ADDR_CRC_MESSAGE, &output);
-		TEST_ASSERT_EQUAL(SERIAL_PROTOCOL_SUCCESS, rc);
+		TEST_ASSERT_EQUAL(DARTT_PROTOCOL_SUCCESS, rc);
 	}
 	
 	// Test edge case: minimum payload size (1 byte)
@@ -300,7 +300,7 @@ void test_check_write_args(void)
 		};
 		
 		rc = check_write_args(&msg, TYPE_SERIAL_MESSAGE, &output);
-		TEST_ASSERT_EQUAL(SERIAL_PROTOCOL_SUCCESS, rc);
+		TEST_ASSERT_EQUAL(DARTT_PROTOCOL_SUCCESS, rc);
 	}
 }
 
@@ -380,7 +380,7 @@ void test_check_read_args(void)
 		};
 		
 		rc = check_read_args(&msg, TYPE_SERIAL_MESSAGE, &output);
-		TEST_ASSERT_EQUAL(SERIAL_PROTOCOL_SUCCESS, rc);
+		TEST_ASSERT_EQUAL(DARTT_PROTOCOL_SUCCESS, rc);
 	}
 	
 	// Test memory overrun for TYPE_ADDR_MESSAGE (index + num_bytes + checksum)
@@ -414,7 +414,7 @@ void test_check_read_args(void)
 		};
 		
 		rc = check_read_args(&msg, TYPE_ADDR_MESSAGE, &output);
-		TEST_ASSERT_EQUAL(SERIAL_PROTOCOL_SUCCESS, rc);
+		TEST_ASSERT_EQUAL(DARTT_PROTOCOL_SUCCESS, rc);
 	}
 	
 	// Test memory overrun for TYPE_ADDR_CRC_MESSAGE (index + num_bytes only)
@@ -448,7 +448,7 @@ void test_check_read_args(void)
 		};
 		
 		rc = check_read_args(&msg, TYPE_ADDR_CRC_MESSAGE, &output);
-		TEST_ASSERT_EQUAL(SERIAL_PROTOCOL_SUCCESS, rc);
+		TEST_ASSERT_EQUAL(DARTT_PROTOCOL_SUCCESS, rc);
 	}
 	
 	// Test invalid message type
@@ -482,7 +482,7 @@ void test_check_read_args(void)
 		};
 		
 		rc = check_read_args(&msg, TYPE_SERIAL_MESSAGE, &output);
-		TEST_ASSERT_EQUAL(SERIAL_PROTOCOL_SUCCESS, rc);
+		TEST_ASSERT_EQUAL(DARTT_PROTOCOL_SUCCESS, rc);
 	}
 	
 	// Test edge case: minimum output buffer for TYPE_ADDR_MESSAGE
@@ -499,7 +499,7 @@ void test_check_read_args(void)
 		};
 		
 		rc = check_read_args(&msg, TYPE_ADDR_MESSAGE, &output);
-		TEST_ASSERT_EQUAL(SERIAL_PROTOCOL_SUCCESS, rc);
+		TEST_ASSERT_EQUAL(DARTT_PROTOCOL_SUCCESS, rc);
 	}
 	
 	// Test edge case: minimum output buffer for TYPE_ADDR_CRC_MESSAGE
@@ -516,7 +516,7 @@ void test_check_read_args(void)
 		};
 		
 		rc = check_read_args(&msg, TYPE_ADDR_CRC_MESSAGE, &output);
-		TEST_ASSERT_EQUAL(SERIAL_PROTOCOL_SUCCESS, rc);
+		TEST_ASSERT_EQUAL(DARTT_PROTOCOL_SUCCESS, rc);
 	}
 	
 	// Test large read request
@@ -533,7 +533,7 @@ void test_check_read_args(void)
 		};
 		
 		rc = check_read_args(&msg, TYPE_SERIAL_MESSAGE, &output);
-		TEST_ASSERT_EQUAL(SERIAL_PROTOCOL_SUCCESS, rc);
+		TEST_ASSERT_EQUAL(DARTT_PROTOCOL_SUCCESS, rc);
 	}
 	
 	// Test zero num_bytes (edge case - should still work)
@@ -550,7 +550,7 @@ void test_check_read_args(void)
 		};
 		
 		rc = check_read_args(&msg, TYPE_SERIAL_MESSAGE, &output);
-		TEST_ASSERT_EQUAL(SERIAL_PROTOCOL_SUCCESS, rc);
+		TEST_ASSERT_EQUAL(DARTT_PROTOCOL_SUCCESS, rc);
 	}
 }
 
@@ -628,7 +628,7 @@ int write_frame_to_struct(buffer_t * input, serial_message_type_t type, misc_wri
 	}
 	msg->payload.len = payload_len;
 	
-	return SERIAL_PROTOCOL_SUCCESS;
+	return DARTT_PROTOCOL_SUCCESS;
 }
 
 void test_write_frame_to_struct(void)
@@ -651,7 +651,7 @@ void test_write_frame_to_struct(void)
 		}
 	};
 	int rc = write_frame_to_struct(&buf, TYPE_SERIAL_MESSAGE, &writemessage);
-	TEST_ASSERT_EQUAL(SERIAL_PROTOCOL_SUCCESS, rc);
+	TEST_ASSERT_EQUAL(DARTT_PROTOCOL_SUCCESS, rc);
 	TEST_ASSERT_EQUAL(0x12, writemessage.address);
 	TEST_ASSERT_EQUAL(3, writemessage.payload.len);
 	TEST_ASSERT_EQUAL(4, writemessage.payload.buf[0]);
@@ -720,7 +720,7 @@ int read_frame_to_struct(buffer_t * input, serial_message_type_t type, misc_read
 	num_bytes |= (((uint16_t)(input->buf[bidx++])) << 8);
 	msg->num_bytes = num_bytes;
 	
-	return SERIAL_PROTOCOL_SUCCESS;
+	return DARTT_PROTOCOL_SUCCESS;
 }
 
 
@@ -735,10 +735,10 @@ void test_append_crc(void)
 			.len = 4
 		};
 		int rc = append_crc(&buf);
-		TEST_ASSERT_EQUAL(SERIAL_PROTOCOL_SUCCESS, rc);
+		TEST_ASSERT_EQUAL(DARTT_PROTOCOL_SUCCESS, rc);
 		TEST_ASSERT_EQUAL(6, buf.len);	
 		rc = validate_crc(&buf);
-		TEST_ASSERT_EQUAL(SERIAL_PROTOCOL_SUCCESS, rc);
+		TEST_ASSERT_EQUAL(DARTT_PROTOCOL_SUCCESS, rc);
 	}
 	{	//sad path 1
 		unsigned char mem[] = {1,2,3,4, 0, 0};
@@ -764,10 +764,10 @@ void test_validate_crc(void)
 			.len = 4
 		};
 		int rc = append_crc(&buf);
-		TEST_ASSERT_EQUAL(SERIAL_PROTOCOL_SUCCESS, rc);
+		TEST_ASSERT_EQUAL(DARTT_PROTOCOL_SUCCESS, rc);
 		TEST_ASSERT_EQUAL(6, buf.len);
 		rc = validate_crc(&buf);
-		TEST_ASSERT_EQUAL(SERIAL_PROTOCOL_SUCCESS, rc);
+		TEST_ASSERT_EQUAL(DARTT_PROTOCOL_SUCCESS, rc);
 	}
 	{	//sad path 1
 		unsigned char mem[] = {1,2,3,4,0,0};
@@ -818,11 +818,11 @@ void test_dartt_create_write_frame(void)
 			.len = 0
 		};
 		int rc = dartt_create_write_frame(&msg, TYPE_SERIAL_MESSAGE, &output);
-		TEST_ASSERT_EQUAL(SERIAL_PROTOCOL_SUCCESS, rc);
+		TEST_ASSERT_EQUAL(DARTT_PROTOCOL_SUCCESS, rc);
 		TEST_ASSERT_EQUAL(output.len, (NUM_BYTES_ADDRESS + NUM_BYTES_INDEX + msg.payload.len + NUM_BYTES_CHECKSUM) );
 		TEST_ASSERT_EQUAL(output.buf[0], msg.address);
 		rc = validate_crc(&output);
-		TEST_ASSERT_EQUAL(SERIAL_PROTOCOL_SUCCESS, rc);
+		TEST_ASSERT_EQUAL(DARTT_PROTOCOL_SUCCESS, rc);
 		TEST_ASSERT_EQUAL((unsigned char)(msg.index & 0x00FF), output.buf[1]);
 		TEST_ASSERT_EQUAL( (unsigned char)((msg.index & 0x0FF00)>>8), output.buf[2]);
 		
@@ -891,7 +891,7 @@ void create_test_message_and_frame(serial_message_type_t type, misc_write_messag
 	// Generate frame using existing function
 	frame->len = 0;
 	int rc = dartt_create_write_frame(msg, type, frame);
-	TEST_ASSERT_EQUAL(SERIAL_PROTOCOL_SUCCESS, rc);
+	TEST_ASSERT_EQUAL(DARTT_PROTOCOL_SUCCESS, rc);
 }
 
 // Helper function to setup payload layer message for copy vs alias
@@ -924,7 +924,7 @@ void f2p_happy_path_helper(serial_message_type_t type, payload_mode_t mode)
 	setup_payload_msg(mode, &pld, copy_buf, sizeof(copy_buf));
 	
 	int rc = dartt_frame_to_payload(&frame, type, mode, &pld);
-	TEST_ASSERT_EQUAL(SERIAL_PROTOCOL_SUCCESS, rc);
+	TEST_ASSERT_EQUAL(DARTT_PROTOCOL_SUCCESS, rc);
 	
 	// Verify address is extracted correctly for TYPE_SERIAL_MESSAGE
 	if(type == TYPE_SERIAL_MESSAGE) {
@@ -1031,7 +1031,7 @@ void f2p_malformed_input_helper(serial_message_type_t type, payload_mode_t mode)
 	int rc = dartt_frame_to_payload(&frame, type, mode, &pld);
 	if(type == TYPE_ADDR_CRC_MESSAGE) {
 		// TYPE_ADDR_CRC_MESSAGE with len=1 should actually work
-		TEST_ASSERT_EQUAL(SERIAL_PROTOCOL_SUCCESS, rc);
+		TEST_ASSERT_EQUAL(DARTT_PROTOCOL_SUCCESS, rc);
 	} else {
 		TEST_ASSERT_EQUAL(ERROR_MALFORMED_MESSAGE, rc);
 	}
@@ -1124,7 +1124,7 @@ void test_dartt_frame_to_payload(void)
 		.len = 0
 	};
 	int rc = dartt_create_write_frame(&msg, TYPE_SERIAL_MESSAGE, &output);
-	TEST_ASSERT_EQUAL(SERIAL_PROTOCOL_SUCCESS, rc);
+	TEST_ASSERT_EQUAL(DARTT_PROTOCOL_SUCCESS, rc);
 	
 	// Test alias mode
 	payload_layer_msg_t pld = {
@@ -1137,7 +1137,7 @@ void test_dartt_frame_to_payload(void)
 	};
 	
 	rc = dartt_frame_to_payload(&output, TYPE_SERIAL_MESSAGE, PAYLOAD_ALIAS, &pld);	
-	TEST_ASSERT_EQUAL(SERIAL_PROTOCOL_SUCCESS, rc);
+	TEST_ASSERT_EQUAL(DARTT_PROTOCOL_SUCCESS, rc);
 	TEST_ASSERT_EQUAL(output.buf[0], pld.address);
 	TEST_ASSERT_EQUAL(output.len, pld.msg.len + NUM_BYTES_ADDRESS + NUM_BYTES_CHECKSUM);
 }

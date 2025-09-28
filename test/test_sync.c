@@ -63,7 +63,7 @@ int dartt_init_buffer(buffer_t * b, uint8_t * arr, size_t size)
     b->buf = (unsigned char *)arr;
     b->size = size;
     b->len = 0;
-    return SERIAL_PROTOCOL_SUCCESS;
+    return DARTT_PROTOCOL_SUCCESS;
 }
 
 //periph copy
@@ -81,7 +81,7 @@ int rx_blocking(unsigned char addr, buffer_t * rx, uint32_t timeout)
     payload_layer_msg_t rxpld_msg = {};
     dartt_frame_to_payload(p_sync_tx_buf, TYPE_SERIAL_MESSAGE, PAYLOAD_ALIAS, &rxpld_msg);
     dartt_parse_general_message(&rxpld_msg, TYPE_SERIAL_MESSAGE, &periph_alias, rx);
-    return SERIAL_PROTOCOL_SUCCESS;
+    return DARTT_PROTOCOL_SUCCESS;
 }
 
 int tx_blocking(unsigned char addr, buffer_t * tx, uint32_t timeout)
@@ -104,7 +104,7 @@ int tx_blocking(unsigned char addr, buffer_t * tx, uint32_t timeout)
     dartt_frame_to_payload(&tx_cpy_alias, TYPE_SERIAL_MESSAGE, PAYLOAD_ALIAS, &rxpld_msg);
     dartt_parse_general_message(&rxpld_msg, TYPE_SERIAL_MESSAGE, &periph_alias, &tx_cpy_alias);    //pipe reply to tx, it's fine if we corrupt it with this call. It should pretty much just set the len to 0
     printf("tx len = %d\n", tx->len);
-    return SERIAL_PROTOCOL_SUCCESS;
+    return DARTT_PROTOCOL_SUCCESS;
 }
 
 void test_dartt_sync_full(void)
@@ -162,7 +162,7 @@ void test_dartt_sync_full(void)
 
 
     rc = dartt_sync(&ctl_master_alias, &periph_master_alias, &ctl_sync);
-    TEST_ASSERT_EQUAL(SERIAL_PROTOCOL_SUCCESS, rc);
+    TEST_ASSERT_EQUAL(DARTT_PROTOCOL_SUCCESS, rc);
     for(int i = 0; i < ctl_master_alias.size; i++)
     {
         TEST_ASSERT_EQUAL(ctl_master_alias.buf[i], periph_master_alias.buf[i]);

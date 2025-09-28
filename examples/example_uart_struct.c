@@ -92,7 +92,7 @@ buffer_t motor_tx = {
         output_frame: Buffer to store the complete frame
         
     Returns:
-        SERIAL_PROTOCOL_SUCCESS on success, error code on failure
+        DARTT_PROTOCOL_SUCCESS on success, error code on failure
 */
 int create_struct_write_frame(unsigned char address, 
 	unsigned char * field, 

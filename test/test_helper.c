@@ -84,7 +84,7 @@ void test_copy_buf_full(void)
 		};
 		
 		int rc = copy_buf_full(&in_buf, &out_buf);
-		TEST_ASSERT_EQUAL(SERIAL_PROTOCOL_SUCCESS, rc);
+		TEST_ASSERT_EQUAL(DARTT_PROTOCOL_SUCCESS, rc);
 		
 		// Verify all data was copied correctly
 		for(int i = 0; i < 8; i++) {
@@ -195,7 +195,7 @@ void test_copy_buf_full(void)
 		};
 		
 		int rc = copy_buf_full(&in_buf, &out_buf);
-		TEST_ASSERT_EQUAL(SERIAL_PROTOCOL_SUCCESS, rc);
+		TEST_ASSERT_EQUAL(DARTT_PROTOCOL_SUCCESS, rc);
 		TEST_ASSERT_EQUAL(0xAB, out_data[0]);
 	}
 	
@@ -221,7 +221,7 @@ void test_copy_buf_full(void)
 		};
 		
 		int rc = copy_buf_full(&in_buf, &out_buf);
-		TEST_ASSERT_EQUAL(SERIAL_PROTOCOL_SUCCESS, rc);
+		TEST_ASSERT_EQUAL(DARTT_PROTOCOL_SUCCESS, rc);
 		
 		// Verify pattern was copied correctly
 		for(int i = 0; i < 256; i++) {

@@ -61,13 +61,13 @@ int dartt_sync(buffer_t * ctl, buffer_t * periph, dartt_sync_t * psync)	//callba
 					}
 			};
 			int rc = dartt_create_write_frame(&write_msg, psync->msg_type, &psync->tx_buf);
-			if(rc != SERIAL_PROTOCOL_SUCCESS)
+			if(rc != DARTT_PROTOCOL_SUCCESS)
 			{
 				return rc;
 			}
 			//blocking write callback
 			rc = (*(psync->blocking_tx_callback))(misc_address, &psync->tx_buf, psync->timeout_ms);
-			if(rc != SERIAL_PROTOCOL_SUCCESS)
+			if(rc != DARTT_PROTOCOL_SUCCESS)
 			{
 				return rc;
 			}
@@ -79,25 +79,25 @@ int dartt_sync(buffer_t * ctl, buffer_t * periph, dartt_sync_t * psync)	//callba
 					.num_bytes = write_msg.payload.len
 			};
 			rc = dartt_create_read_frame(&read_msg, psync->msg_type, &psync->tx_buf);
-			if(rc != SERIAL_PROTOCOL_SUCCESS)
+			if(rc != DARTT_PROTOCOL_SUCCESS)
 			{
 				return rc;
 			}
 			rc = (*(psync->blocking_tx_callback))(misc_address, &psync->tx_buf, psync->timeout_ms);
-			if(rc != SERIAL_PROTOCOL_SUCCESS)
+			if(rc != DARTT_PROTOCOL_SUCCESS)
 			{
 				return rc;
 			}
 
 			rc = (*(psync->blocking_rx_callback))(misc_address, &psync->rx_buf, psync->timeout_ms);
-			if(rc != SERIAL_PROTOCOL_SUCCESS)
+			if(rc != DARTT_PROTOCOL_SUCCESS)
 			{
 				return rc;
 			}
 
 			payload_layer_msg_t pld_msg = {};
 			rc = dartt_frame_to_payload(&psync->rx_buf, psync->msg_type, PAYLOAD_ALIAS, &pld_msg);
-			if(rc != SERIAL_PROTOCOL_SUCCESS)
+			if(rc != DARTT_PROTOCOL_SUCCESS)
 			{
 				return rc;
 			}
@@ -117,6 +117,6 @@ int dartt_sync(buffer_t * ctl, buffer_t * periph, dartt_sync_t * psync)	//callba
 		}
 	}
 
-	return SERIAL_PROTOCOL_SUCCESS;
+	return DARTT_PROTOCOL_SUCCESS;
 
 }

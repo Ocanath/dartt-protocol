@@ -102,14 +102,14 @@ ERROR_INVALID_ARGUMENT = -4
 ERROR_CHECKSUM_MISMATCH = -3
 ERROR_MALFORMED_MESSAGE = -2
 ADDRESS_FILTERED = -1
-SERIAL_PROTOCOL_SUCCESS = 0
+DARTT_PROTOCOL_SUCCESS = 0
 ```
 
 ### CRC Validation
 ```c
 // Always validate CRC on received frames (Types 0 and 1)
 int result = validate_crc(&rx_frame);
-if (result != SERIAL_PROTOCOL_SUCCESS) {
+if (result != DARTT_PROTOCOL_SUCCESS) {
     // Handle CRC error - discard frame or request retransmission
     return result;  // Will be ERROR_CHECKSUM_MISMATCH
 }
@@ -178,7 +178,7 @@ Key functions demonstrated:
 3. **Address Confusion**: Use `dartt_get_complementary_address()` to get misc address from motor address
 4. **Word Alignment**: Index values represent 32-bit word offsets, multiply by 4 for byte offsets
 5. **Memory Management**: Use `PAYLOAD_ALIAS` for efficiency, `PAYLOAD_COPY` for safety
-6. **Error Checking**: Always check return values against `SERIAL_PROTOCOL_SUCCESS`
+6. **Error Checking**: Always check return values against `DARTT_PROTOCOL_SUCCESS`
 7. **Read Reply Parsing**: Always pass the original `misc_read_message_t` to `dartt_parse_read_reply()` - it handles offset calculation automatically
 
 ## Integration Notes
