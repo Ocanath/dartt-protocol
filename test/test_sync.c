@@ -88,12 +88,12 @@ int synctest_rx_blocking(unsigned char addr, buffer_t * rx, uint32_t timeout)
 uint32_t gl_send_count = 0;    //flag to indicate to test software if tx is called. Zero before caller
 int synctest_tx_blocking(unsigned char addr, buffer_t * tx, uint32_t timeout)
 {
-    printf("transmitted: a = 0x%X, rx=0x");
-    for(int i = 0; i < tx->len; i++)
-    {
-        printf("%0.2X", tx->buf[i]);
-    }
-    printf("\n");
+    // printf("transmitted: a = 0x%X, rx=0x");
+    // for(int i = 0; i < tx->len; i++)
+    // {
+    //     printf("%0.2X", tx->buf[i]);
+    // }
+    // printf("\n");
     
     
     unsigned char tx_cpy[sizeof(tx_mem)] = {};
@@ -105,7 +105,7 @@ int synctest_tx_blocking(unsigned char addr, buffer_t * tx, uint32_t timeout)
     payload_layer_msg_t rxpld_msg = {};
     dartt_frame_to_payload(&tx_cpy_alias, TYPE_SERIAL_MESSAGE, PAYLOAD_ALIAS, &rxpld_msg);
     dartt_parse_general_message(&rxpld_msg, TYPE_SERIAL_MESSAGE, &periph_alias, &tx_cpy_alias);    //pipe reply to tx, it's fine if we corrupt it with this call. It should pretty much just set the len to 0
-    printf("tx len = %d\n", tx->len);
+    // printf("tx len = %d\n", tx->len);
     gl_send_count++;
     return DARTT_PROTOCOL_SUCCESS;
 }
@@ -360,7 +360,7 @@ void test_dartt_write(void)
 
 void test_bad_inputs(void)
 {
-    
+
     buffer_t b1, b2, b3, b4;
 
     uint8_t b1_mem[4] = {};
@@ -375,10 +375,222 @@ void test_bad_inputs(void)
     ds.blocking_tx_callback = &synctest_tx_blocking;
     dartt_init_buffer(&ds.tx_buf, tx_mem, sizeof(tx_mem));
     dartt_init_buffer(&ds.rx_buf, tx_mem, sizeof(tx_mem));
-    dartt_init_buffer(&ds.base, b3_mem, sizeof(b3_mem));    
+    dartt_init_buffer(&ds.base, b3_mem, sizeof(b3_mem));
     int rc = dartt_sync(&b1, &b2, &ds);
     TEST_ASSERT_NOT_EQUAL(0, rc);
     dartt_init_buffer(&ds.base, b1_mem, sizeof(b1_mem));
     rc = dartt_sync(&b1, &b2, &ds);
     TEST_ASSERT_EQUAL(0, rc);
+}
+
+void test_undersized_tx_buffers(void)
+{
+    test_struct_t ctl_master = {};
+    test_struct_t periph_master = {};
+    buffer_t ctl_alias, periph_alias;
+    init_struct_buffer(&ctl_master, &ctl_alias);
+    init_struct_buffer(&periph_master, &periph_alias);
+
+    dartt_sync_t ctl_sync = {};
+    ctl_sync.address = 3;
+    ctl_sync.base = ctl_alias;
+    ctl_sync.msg_type = TYPE_SERIAL_MESSAGE;
+    ctl_sync.blocking_rx_callback = &synctest_rx_blocking;
+    ctl_sync.blocking_tx_callback = &synctest_tx_blocking;
+    ctl_sync.timeout_ms = 10;
+
+    // Test 1: Extremely undersized buffer (1 byte) - should fail immediately
+    uint8_t tiny_tx_mem[1] = {};
+    uint8_t tiny_rx_mem[64] = {};
+    dartt_init_buffer(&ctl_sync.tx_buf, tiny_tx_mem, sizeof(tiny_tx_mem));
+    dartt_init_buffer(&ctl_sync.rx_buf, tiny_rx_mem, sizeof(tiny_rx_mem));
+
+    // Make buffers different to trigger sync attempt
+    ctl_master.m1_set = 100;
+    periph_master.m1_set = 0;
+
+    int rc = dartt_sync(&ctl_alias, &periph_alias, &ctl_sync);
+    TEST_ASSERT_EQUAL(ERROR_MEMORY_OVERRUN, rc);
+
+    // Test 2: Buffer exactly at minimum non-payload size (5 bytes) - should fail
+    uint8_t min_tx_mem[5] = {};
+    dartt_init_buffer(&ctl_sync.tx_buf, min_tx_mem, sizeof(min_tx_mem));
+
+    rc = dartt_sync(&ctl_alias, &periph_alias, &ctl_sync);
+    TEST_ASSERT_EQUAL(ERROR_MEMORY_OVERRUN, rc);
+
+    // Test 3: Buffer with 4 bytes (less than minimum) - should fail
+    uint8_t small_tx_mem[4] = {};
+    dartt_init_buffer(&ctl_sync.tx_buf, small_tx_mem, sizeof(small_tx_mem));
+
+    rc = dartt_sync(&ctl_alias, &periph_alias, &ctl_sync);
+    TEST_ASSERT_EQUAL(ERROR_MEMORY_OVERRUN, rc);
+}
+
+void test_minimum_sized_tx_buffers(void)
+{
+    test_struct_t ctl_master = {};
+    test_struct_t periph_master = {};
+    buffer_t ctl_alias, periph_alias;
+    init_struct_buffer(&ctl_master, &ctl_alias);
+    init_struct_buffer(&periph_master, &periph_alias);
+
+    dartt_sync_t ctl_sync = {};
+    ctl_sync.address = 3;
+    ctl_sync.base = ctl_alias;
+    ctl_sync.msg_type = TYPE_SERIAL_MESSAGE;
+    ctl_sync.blocking_rx_callback = &synctest_rx_blocking;
+    ctl_sync.blocking_tx_callback = &synctest_tx_blocking;
+    ctl_sync.timeout_ms = 10;
+    p_sync_tx_buf = &ctl_sync.tx_buf;
+
+    uint8_t rx_mem_local[64] = {};
+    dartt_init_buffer(&ctl_sync.rx_buf, rx_mem_local, sizeof(rx_mem_local));
+
+    // Test 1: Buffer with exactly 6 bytes (5 + 1 payload byte) - should fail for 4-byte payload
+    uint8_t min6_tx_mem[6] = {};
+    dartt_init_buffer(&ctl_sync.tx_buf, min6_tx_mem, sizeof(min6_tx_mem));
+
+    // Try to sync a 4-byte field (int32_t) - should fail due to insufficient space
+    ctl_master.m1_set = 100;
+    periph_master.m1_set = 0;
+
+    int rc = dartt_sync(&ctl_alias, &periph_alias, &ctl_sync);
+    TEST_ASSERT_EQUAL(ERROR_MEMORY_OVERRUN, rc);
+
+    // Test 2: Buffer with exactly 9 bytes (5 + 4 payload bytes) - should work for single int32_t
+    uint8_t min9_tx_mem[9] = {};
+    dartt_init_buffer(&ctl_sync.tx_buf, min9_tx_mem, sizeof(min9_tx_mem));
+
+    rc = dartt_sync(&ctl_alias, &periph_alias, &ctl_sync);
+    TEST_ASSERT_EQUAL(DARTT_PROTOCOL_SUCCESS, rc);
+    TEST_ASSERT_EQUAL(ctl_master.m1_set, periph_master.m1_set);
+
+    // Test 3: Test buffer with 10 bytes - should handle single field but fail with adjacent changes
+    uint8_t tx10_mem[10] = {};
+    dartt_init_buffer(&ctl_sync.tx_buf, tx10_mem, sizeof(tx10_mem));
+
+    // Reset and change two adjacent int32_t fields
+    ctl_master.m1_set = 200;
+    ctl_master.m2_set = 300;
+    periph_master.m1_set = 0;
+    periph_master.m2_set = 0;
+
+    gl_send_count = 0;
+    rc = dartt_sync(&ctl_alias, &periph_alias, &ctl_sync);
+    // Should succeed but may require multiple transmissions due to buffer splitting
+    TEST_ASSERT_EQUAL(DARTT_PROTOCOL_SUCCESS, rc);
+    TEST_ASSERT_EQUAL(4, gl_send_count);
+    TEST_ASSERT_EQUAL(ctl_master.m1_set, periph_master.m1_set);
+    TEST_ASSERT_EQUAL(ctl_master.m2_set, periph_master.m2_set);
+}
+
+void test_tx_buffer_edge_cases(void)
+{
+    test_struct_t ctl_master = {};
+    test_struct_t periph_master = {};
+    buffer_t ctl_alias, periph_alias;
+    init_struct_buffer(&ctl_master, &ctl_alias);
+    init_struct_buffer(&periph_master, &periph_alias);
+
+    dartt_sync_t ctl_sync = {};
+    ctl_sync.address = 3;
+    ctl_sync.base = ctl_alias;
+    ctl_sync.msg_type = TYPE_SERIAL_MESSAGE;
+    ctl_sync.blocking_rx_callback = &synctest_rx_blocking;
+    ctl_sync.blocking_tx_callback = &synctest_tx_blocking;
+    ctl_sync.timeout_ms = 10;
+    p_sync_tx_buf = &ctl_sync.tx_buf;
+
+    uint8_t rx_mem_local[64] = {};
+    dartt_init_buffer(&ctl_sync.rx_buf, rx_mem_local, sizeof(rx_mem_local));
+
+    // Test 1: Buffer exactly fitting one 32-bit word (9 bytes: 5 overhead + 4 payload)
+    uint8_t exact_tx_mem[9] = {};
+    dartt_init_buffer(&ctl_sync.tx_buf, exact_tx_mem, sizeof(exact_tx_mem));
+
+    // Change only the first field
+    ctl_master.m1_set = 123;
+    periph_master.m1_set = 0;
+
+    gl_send_count = 0;
+    int rc = dartt_sync(&ctl_alias, &periph_alias, &ctl_sync);
+    TEST_ASSERT_EQUAL(DARTT_PROTOCOL_SUCCESS, rc);
+    TEST_ASSERT_EQUAL(ctl_master.m1_set, periph_master.m1_set);
+
+    // Test 2: Non-adjacent changes forcing multiple transmissions
+    uint8_t small_tx_mem[13] = {}; // 5 + 8 bytes (can fit 2 int32_t but not more)
+    dartt_init_buffer(&ctl_sync.tx_buf, small_tx_mem, sizeof(small_tx_mem));
+
+    // Reset state
+    for(int i = 0; i < ctl_alias.size; i++) 
+    {
+        ctl_alias.buf[i] = 0;
+        periph_alias.buf[i] = 0;
+    }
+
+    // Change non-adjacent fields that would require more buffer space if transmitted together
+    ctl_master.m2_set = 111;
+    ctl_master.mp[0].pi_vq.kp.i32 = 777;
+    ctl_master.mp[0].fds.module_number = 222;
+    ctl_master.mp[1].fds.align_offset = 333;
+
+    TEST_ASSERT_NOT_EQUAL(ctl_master.m2_set, periph_master.m2_set);
+    TEST_ASSERT_NOT_EQUAL(ctl_master.mp[0].pi_vq.kp.i32, periph_master.mp[0].pi_vq.kp.i32);
+    TEST_ASSERT_NOT_EQUAL(ctl_master.mp[0].fds.module_number, periph_master.mp[0].fds.module_number);
+    TEST_ASSERT_NOT_EQUAL(ctl_master.mp[1].fds.align_offset, periph_master.mp[1].fds.align_offset);
+    gl_send_count = 0;
+    rc = dartt_sync(&ctl_alias, &periph_alias, &ctl_sync);
+    TEST_ASSERT_EQUAL(DARTT_PROTOCOL_SUCCESS, rc);
+    // Should require multiple transmissions due to buffer splitting logic
+    TEST_ASSERT_EQUAL(6, gl_send_count);
+    // Verify all changes were applied
+    TEST_ASSERT_EQUAL(ctl_master.m2_set, periph_master.m2_set);
+    TEST_ASSERT_EQUAL(ctl_master.mp[0].pi_vq.kp.i32, periph_master.mp[0].pi_vq.kp.i32);
+    TEST_ASSERT_EQUAL(ctl_master.mp[0].fds.module_number, periph_master.mp[0].fds.module_number);
+    TEST_ASSERT_EQUAL(ctl_master.mp[1].fds.align_offset, periph_master.mp[1].fds.align_offset);
+    
+}
+
+void test_buffer_alignment_edge_cases(void)
+{
+    // Test with buffers that are not 32-bit aligned in size
+    uint8_t ctl_mem[7] = {}; // 7 bytes - not aligned to 4-byte boundary
+    uint8_t periph_mem[7] = {};
+
+    buffer_t ctl_buf = {.buf = ctl_mem, .size = sizeof(ctl_mem), .len = 0};
+    buffer_t periph_buf = {.buf = periph_mem, .size = sizeof(periph_mem), .len = 0};
+
+    dartt_sync_t ctl_sync = {};
+    ctl_sync.address = 3;
+    ctl_sync.base = ctl_buf;
+    ctl_sync.msg_type = TYPE_SERIAL_MESSAGE;
+    ctl_sync.blocking_rx_callback = &synctest_rx_blocking;
+    ctl_sync.blocking_tx_callback = &synctest_tx_blocking;
+    ctl_sync.timeout_ms = 10;
+
+    uint8_t tx_mem_local[64] = {};
+    uint8_t rx_mem_local[64] = {};
+    dartt_init_buffer(&ctl_sync.tx_buf, tx_mem_local, sizeof(tx_mem_local));
+    dartt_init_buffer(&ctl_sync.rx_buf, rx_mem_local, sizeof(rx_mem_local));
+    p_sync_tx_buf = &ctl_sync.tx_buf;
+
+    // This should fail due to non-32-bit alignment
+    int rc = dartt_sync(&ctl_buf, &periph_buf, &ctl_sync);
+    TEST_ASSERT_EQUAL(ERROR_INVALID_ARGUMENT, rc);
+
+    // Test with 8-byte aligned buffer (should work)
+    uint8_t ctl_mem8[8] = {};
+    uint8_t periph_mem8[8] = {};
+
+    buffer_t ctl_buf8 = {.buf = ctl_mem8, .size = sizeof(ctl_mem8), .len = 0};
+    buffer_t periph_buf8 = {.buf = periph_mem8, .size = sizeof(periph_mem8), .len = 0};
+    ctl_sync.base = ctl_buf8;
+
+    // Make them different to trigger sync
+    ctl_mem8[0] = 1;
+    periph_mem8[0] = 0;
+
+    rc = dartt_sync(&ctl_buf8, &periph_buf8, &ctl_sync);
+    TEST_ASSERT_EQUAL(DARTT_PROTOCOL_SUCCESS, rc);
 }
