@@ -213,6 +213,25 @@ void test_dartt_sync_full(void)
     TEST_ASSERT_EQUAL(ctl_master.mp[0].pi_vq.x, gl_periph.mp[0].pi_vq.x);
     TEST_ASSERT_EQUAL(ctl_master.mp[0].pi_vq.out_rshift, gl_periph.mp[0].pi_vq.out_rshift);
     
+
+    //final sync test - make the control and shadow copies completely out of sync, triggering a complete buffer write.
+    //since tx buf is small, this tests the logic of breaking up the tx buffer as well
+    init_struct_buffer(&ctl_master, &ctl_master_alias); //reinit both alias buffers to have proper size
+    init_struct_buffer(&periph_master, &periph_master_alias);
+    //reset all memory (both master copies and peripheral copy to a test state for the full write attempt)
+    for(int i = 0; i < ctl_master_alias.size; i++)
+    {
+        ctl_master_alias.buf[i] = (i % 254) + 1;
+        periph_master_alias.buf[i] = ((ctl_master_alias.buf[i] + 1) % 254) + 1;
+        periph_alias.buf[i] = 0;
+        TEST_ASSERT_NOT_EQUAL(0, ctl_master_alias.buf[i]);
+        TEST_ASSERT_NOT_EQUAL(0, periph_master_alias.buf[i]);
+        TEST_ASSERT_NOT_EQUAL(ctl_master_alias.buf[i], periph_master_alias.buf[i]);
+    }
+
+    gl_send_count = 0;
+    rc = dartt_sync(&ctl_master_alias, &periph_master_alias, &ctl_sync);
+    TEST_ASSERT_EQUAL(ERROR_MEMORY_OVERRUN, rc);
 }
 
 
