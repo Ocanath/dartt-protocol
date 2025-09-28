@@ -16,8 +16,9 @@ int dartt_sync(buffer_t * ctl, buffer_t * periph, dartt_sync_t * psync)	//callba
     /*TODO Implement a dartt_sync_t structure to wrap these things, and a callback registration function to load the function pointers. */
     assert(psync != NULL && ctl != NULL && periph != NULL);
     assert(psync->blocking_rx_callback != NULL && psync->blocking_tx_callback != NULL && psync->base.buf != NULL && psync->base.size != 0);
+    assert(psync->tx_buf.buf != NULL && psync->rx_buf.buf != NULL);
     assert(ctl != periph);
-    
+        
     if(ctl->size != periph->size)
 	{
 		return ERROR_MEMORY_OVERRUN;
@@ -76,14 +77,28 @@ int dartt_sync(buffer_t * ctl, buffer_t * periph, dartt_sync_t * psync)	//callba
             else
             {
                 int next_field = field_bidx + sizeof(int32_t);
-                if(next_field >= ctl->size)                       
+                if(next_field >= ctl->size)                       //check to see if we're at the last loop iteration. If so, you must transmit because the current word has a mismatch we have to close out
                 {
                     stop_bidx = next_field;
-                    field_bidx = next_field;
+                    field_bidx = stop_bidx;
                 }
-                else if( ((next_field - start_bidx) + NUM_BYTES_NON_PAYLOAD) >= psync->tx_buf.size )
+                else if( ((next_field - start_bidx) + NUM_BYTES_NON_PAYLOAD) >= psync->tx_buf.size )    //check to see if we're overrunning the tx buffer. Logic here is a bit tricky
                 {
-                    //TODO: handle this
+                    //TODO: handle this situation - tx buffer overrun. This should only happen if you change a fuckload of adjacent items and tx buf is undersized
+                    if(psync->tx_buf.size <= NUM_BYTES_NON_PAYLOAD)
+                    {
+                        return ERROR_MEMORY_OVERRUN;    //technically an overflow error guard, but it's not terribly inappropriate to return this
+                    }
+                    stop_bidx = (((psync->tx_buf.size-NUM_BYTES_NON_PAYLOAD)/sizeof(int32_t))) * sizeof(int32_t) + start_bidx;   //we know we've overrun tx buf, so set stop bidx to the maximum possible size the tx buffer will allow via floor division and reinflation with mutiplication
+                    if(stop_bidx <= start_bidx)
+                    {
+                        return ERROR_MEMORY_OVERRUN;
+                    }
+                    if(stop_bidx < sizeof(int32_t)) //if stop_bidx is equal to 4, we will set field_bidx to 4 on the next iteration and start there on the next rotation thru
+                    {
+                        return ERROR_MEMORY_OVERRUN;
+                    }
+                    field_bidx = stop_bidx - sizeof(int32_t); //we have to step backwards
                 }
             }
         }

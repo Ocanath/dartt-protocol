@@ -231,7 +231,15 @@ void test_dartt_sync_full(void)
 
     gl_send_count = 0;
     rc = dartt_sync(&ctl_master_alias, &periph_master_alias, &ctl_sync);
-    TEST_ASSERT_EQUAL(ERROR_MEMORY_OVERRUN, rc);
+    TEST_ASSERT_EQUAL(0, rc);
+    TEST_ASSERT_EQUAL(4, gl_send_count);//send 88 bytes with 64 byte buffer, minus headroom on each write = two writes, two reads for four total write callback calls
+    TEST_ASSERT_EQUAL(ctl_master_alias.size, sizeof(test_struct_t));
+    for(int i = 0; i < ctl_master_alias.size; i++)
+    {
+        TEST_ASSERT_EQUAL(ctl_master_alias.buf[i], periph_master_alias.buf[i]);
+        TEST_ASSERT_EQUAL(ctl_master_alias.buf[i], periph_alias.buf[i]);
+        TEST_ASSERT_NOT_EQUAL(0, periph_alias.buf[i]);
+    }
 }
 
 
@@ -365,6 +373,8 @@ void test_bad_inputs(void)
     dartt_sync_t ds = {};
     ds.blocking_rx_callback = &synctest_rx_blocking;
     ds.blocking_tx_callback = &synctest_tx_blocking;
+    dartt_init_buffer(&ds.tx_buf, tx_mem, sizeof(tx_mem));
+    dartt_init_buffer(&ds.rx_buf, tx_mem, sizeof(tx_mem));
     dartt_init_buffer(&ds.base, b3_mem, sizeof(b3_mem));    
     int rc = dartt_sync(&b1, &b2, &ds);
     TEST_ASSERT_NOT_EQUAL(0, rc);
