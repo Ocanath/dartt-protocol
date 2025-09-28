@@ -14,17 +14,11 @@
 int dartt_sync(buffer_t * ctl, buffer_t * periph, dartt_sync_t * psync)	//callbacks?
 {
     /*TODO Implement a dartt_sync_t structure to wrap these things, and a callback registration function to load the function pointers. */
-    if(psync == NULL || ctl == NULL || periph == NULL)
-    {
-        return ERROR_INVALID_ARGUMENT;
-    }
-    if(psync->blocking_rx_callback == NULL || psync->blocking_tx_callback == NULL || psync->base.buf == NULL || psync->base.size == 0)
-    {
-        return ERROR_INVALID_ARGUMENT;
-    }
+    assert(psync != NULL && ctl != NULL && periph != NULL);
+    assert(psync->blocking_rx_callback != NULL && psync->blocking_tx_callback != NULL && psync->base.buf != NULL && psync->base.size != 0);
+    assert(ctl != periph);
     
-
-	if(ctl->size != periph->size)
+    if(ctl->size != periph->size)
 	{
 		return ERROR_MEMORY_OVERRUN;
 	}
@@ -32,7 +26,19 @@ int dartt_sync(buffer_t * ctl, buffer_t * periph, dartt_sync_t * psync)	//callba
 	{
 		return ERROR_INVALID_ARGUMENT;	//make sure you're 32 bit aligned in all refs
 	}
-    
+        // Runtime checks for buffer bounds - these could be caused by developer error in ctl configuration
+    if (ctl->buf < psync->base.buf || ctl->buf >= (psync->base.buf + psync->base.size)) 
+    {
+        return ERROR_INVALID_ARGUMENT;
+    }
+    if (ctl->buf + ctl->len > psync->base.buf + psync->base.size) 
+    {
+        return ERROR_MEMORY_OVERRUN;
+    }
+    if (ctl->buf + ctl->size > psync->base.buf + psync->base.size) 
+    {
+        return ERROR_MEMORY_OVERRUN;
+    }
 
     int start_bidx = -1;
     // int stop_bidx = -1;

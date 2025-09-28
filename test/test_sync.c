@@ -316,3 +316,27 @@ void test_dartt_write(void)
     TEST_ASSERT_EQUAL(ctl_master.mp[1].pi_vq.kp.radix, periph_master.mp[1].pi_vq.kp.radix);    
 
 }
+
+
+void test_bad_inputs(void)
+{
+    
+    buffer_t b1, b2, b3, b4;
+
+    uint8_t b1_mem[4] = {};
+    uint8_t b2_mem[4] = {};
+    uint8_t b3_mem[4] = {};
+    uint8_t b4_mem[4] = {};
+    dartt_init_buffer(&b1, b1_mem, sizeof(b1_mem));
+    dartt_init_buffer(&b2, b2_mem, sizeof(b2_mem));
+    dartt_init_buffer(&b4, b4_mem, sizeof(b4_mem));
+    dartt_sync_t ds = {};
+    ds.blocking_rx_callback = &synctest_rx_blocking;
+    ds.blocking_tx_callback = &synctest_tx_blocking;
+    dartt_init_buffer(&ds.base, b3_mem, sizeof(b3_mem));    
+    int rc = dartt_sync(&b1, &b2, &ds);
+    TEST_ASSERT_NOT_EQUAL(0, rc);
+    dartt_init_buffer(&ds.base, b1_mem, sizeof(b1_mem));
+    rc = dartt_sync(&b1, &b2, &ds);
+    TEST_ASSERT_EQUAL(0, rc);
+}
