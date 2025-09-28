@@ -76,7 +76,7 @@ int dartt_sync(buffer_t * ctl, buffer_t * periph, dartt_sync_t * psync)	//callba
             else
             {
                 int next_field = field_bidx + sizeof(int32_t);
-                if(next_field >= ctl->size || ((next_field - start_bidx) + NUM_BYTES_NON_PAYLOAD) > psync->tx_buf.size)                       
+                if(next_field >= ctl->size || ((next_field - start_bidx) + NUM_BYTES_NON_PAYLOAD) >= psync->tx_buf.size)                       
                 {
                     stop_bidx = next_field;
                     field_bidx = next_field;

@@ -59,7 +59,7 @@ void test_check_write_args(void)
 			.len = 0
 		};
 
-		rc = check_write_args(&msg, TYPE_SERIAL_MESSAGE, &output);
+		rc = check_write_lengths(&msg, TYPE_SERIAL_MESSAGE, &output);
 		TEST_ASSERT_EQUAL(ERROR_MEMORY_OVERRUN, rc);
 	}
 	
@@ -117,7 +117,7 @@ void test_check_write_args(void)
 			.len = 0
 		};
 		
-		rc = check_write_args(&msg, TYPE_SERIAL_MESSAGE, &output);
+		rc = check_write_lengths(&msg, TYPE_SERIAL_MESSAGE, &output);
 		TEST_ASSERT_EQUAL(ERROR_INVALID_ARGUMENT, rc);
 	}
 	
@@ -207,7 +207,7 @@ void test_check_write_args(void)
 			.len = 0
 		};
 		
-		rc = check_write_args(&msg, TYPE_ADDR_MESSAGE, &output);
+		rc = check_write_lengths(&msg, TYPE_ADDR_MESSAGE, &output);
 		TEST_ASSERT_EQUAL(ERROR_MEMORY_OVERRUN, rc);
 	}
 	
@@ -253,7 +253,7 @@ void test_check_write_args(void)
 			.len = 0
 		};
 		
-		rc = check_write_args(&msg, TYPE_ADDR_CRC_MESSAGE, &output);
+		rc = check_write_lengths(&msg, TYPE_ADDR_CRC_MESSAGE, &output);
 		TEST_ASSERT_EQUAL(ERROR_MEMORY_OVERRUN, rc);
 	}
 	
@@ -277,6 +277,8 @@ void test_check_write_args(void)
 		};
 		
 		rc = check_write_args(&msg, TYPE_ADDR_CRC_MESSAGE, &output);
+		TEST_ASSERT_EQUAL(DARTT_PROTOCOL_SUCCESS, rc);
+		rc = check_write_lengths(&msg, TYPE_ADDR_CRC_MESSAGE, &output);
 		TEST_ASSERT_EQUAL(DARTT_PROTOCOL_SUCCESS, rc);
 	}
 	

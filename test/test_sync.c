@@ -85,7 +85,7 @@ int synctest_rx_blocking(unsigned char addr, buffer_t * rx, uint32_t timeout)
 }
 
 
-uint32_t send_count = 0;    //flag to indicate to test software if tx is called. Zero before caller
+uint32_t gl_send_count = 0;    //flag to indicate to test software if tx is called. Zero before caller
 int synctest_tx_blocking(unsigned char addr, buffer_t * tx, uint32_t timeout)
 {
     printf("transmitted: a = 0x%X, rx=0x");
@@ -106,7 +106,7 @@ int synctest_tx_blocking(unsigned char addr, buffer_t * tx, uint32_t timeout)
     dartt_frame_to_payload(&tx_cpy_alias, TYPE_SERIAL_MESSAGE, PAYLOAD_ALIAS, &rxpld_msg);
     dartt_parse_general_message(&rxpld_msg, TYPE_SERIAL_MESSAGE, &periph_alias, &tx_cpy_alias);    //pipe reply to tx, it's fine if we corrupt it with this call. It should pretty much just set the len to 0
     printf("tx len = %d\n", tx->len);
-    send_count++;
+    gl_send_count++;
     return DARTT_PROTOCOL_SUCCESS;
 }
 
@@ -264,22 +264,22 @@ void test_dartt_write(void)
     };
     ctl_master.m1_set = 1234;
     ctl_master.m2_set = 5689;
-    send_count = 0;
+    gl_send_count = 0;
     TEST_ASSERT_EQUAL(0, gl_periph.m1_set);
     TEST_ASSERT_EQUAL(0, gl_periph.m2_set);
     rc = dartt_ctl_write(&motor_commands, &ctl_sync);
     TEST_ASSERT_EQUAL(0, rc);
-    TEST_ASSERT_EQUAL(1, send_count);
-    send_count = 0;
+    TEST_ASSERT_EQUAL(1, gl_send_count);
+    gl_send_count = 0;
     TEST_ASSERT_EQUAL(ctl_master.m1_set, gl_periph.m1_set);
     TEST_ASSERT_EQUAL(ctl_master.m2_set, gl_periph.m2_set);
     
 
     TEST_ASSERT_NOT_EQUAL(ctl_master.m1_set, periph_master.m1_set);
     TEST_ASSERT_NOT_EQUAL(ctl_master.m2_set, periph_master.m2_set);
-    send_count = 0;
+    gl_send_count = 0;
     rc = dartt_ctl_read(&motor_commands, &periph_master_alias, &ctl_sync);
-    TEST_ASSERT_EQUAL(1, send_count);
+    TEST_ASSERT_EQUAL(1, gl_send_count);
     TEST_ASSERT_EQUAL(0, rc);
     TEST_ASSERT_EQUAL(ctl_master.m1_set, periph_master.m1_set);
     TEST_ASSERT_EQUAL(ctl_master.m2_set, periph_master.m2_set);

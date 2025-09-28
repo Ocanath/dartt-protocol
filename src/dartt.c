@@ -132,9 +132,8 @@ unsigned char dartt_get_complementary_address(unsigned char address)
  * 
  * @return DARTT_PROTOCOL_SUCCESS if validation passes, or error code:
  *         - ERROR_INVALID_ARGUMENT if parameters are NULL, invalid type, or empty payload
- *         - ERROR_MEMORY_OVERRUN if output buffer is too small for the resulting frame
  * 
- * @note Call this once during initialization on statically defined memory.
+ * @note Call this once during initialization on statically defined memory, use as an assert to reduce function call overhead
  * @note Frame overhead varies by type: SERIAL (addr+idx+crc), ADDR (idx+crc), ADDR_CRC (idx only).
  */
 int check_write_args(misc_write_message_t * msg, serial_message_type_t type, buffer_t * output)
@@ -147,12 +146,33 @@ int check_write_args(misc_write_message_t * msg, serial_message_type_t type, buf
 	{
 		return ERROR_INVALID_ARGUMENT;
 	}
-    if(msg->payload.len == 0 || msg->payload.buf == NULL || output->buf == NULL)
+    if(msg->payload.buf == NULL || output->buf == NULL)
     {
         return ERROR_INVALID_ARGUMENT;  
     }
+    if(msg->payload.size == 0 || output->size == 0)
+    {
+        return ERROR_INVALID_ARGUMENT;
+    }
+    return DARTT_PROTOCOL_SUCCESS;
+}
 
+/**
+ * @brief Validate input/output buffer lengths. Intended use is to call at beginning of write frame creation function and
+ * pass the return if not success
+ * 
+ * @param msg Write message structure containing payload and addressing information
+ * @param type Serial message type (TYPE_SERIAL_MESSAGE, TYPE_ADDR_MESSAGE, or TYPE_ADDR_CRC_MESSAGE)
+ * @param output Output buffer that will receive the generated frame
+ * @return int 
+ */
+int check_write_lengths(misc_write_message_t * msg, serial_message_type_t type, buffer_t * output)
+{
     //pre-check lengths for overrun
+    if(msg->payload.len == 0)
+    {
+        return ERROR_INVALID_ARGUMENT;
+    }
     if(type == TYPE_SERIAL_MESSAGE)
     {
         if( (msg->payload.len + (NUM_BYTES_ADDRESS + NUM_BYTES_INDEX + NUM_BYTES_CHECKSUM) ) > output->size)
@@ -206,7 +226,12 @@ int check_write_args(misc_write_message_t * msg, serial_message_type_t type, buf
 int dartt_create_write_frame(misc_write_message_t * msg, serial_message_type_t type, buffer_t * output)
 {
     assert(check_write_args(msg,type,output) == DARTT_PROTOCOL_SUCCESS);  //assert to save on runtime execution
-    
+    int rc = check_write_lengths(msg,type,output);
+    if(rc != DARTT_PROTOCOL_SUCCESS)
+    {
+        return rc;  //memory overrun guards. likelihood of this being a runtime error is high, especially since length is not constant, so failure to pass these checks should return nicely rather than throw an error or risk memory overrun in a release build
+    }
+
     //prepare the serial buffer
     output->len = 0;
     if(type == TYPE_SERIAL_MESSAGE)
@@ -544,7 +569,7 @@ int dartt_parse_read_reply(payload_layer_msg_t * payload, misc_read_message_t * 
     
     // Calculate the offset into the destination buffer based on the original read index
     size_t byte_offset = ((size_t)original_msg->index) * sizeof(uint32_t);
-    
+
     // Validate that the offset and data length don't exceed destination buffer bounds
     if(byte_offset >= dest->size)
     {
