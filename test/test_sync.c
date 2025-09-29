@@ -649,4 +649,16 @@ void test_dartt_read_multi(void)
     {
         TEST_ASSERT_EQUAL(periph_alias.buf[i], periph_master_alias.buf[i]);
     }
+
+    gl_periph.m1_set = 1234;
+    gl_periph.m2_set = 4321;
+    gl_periph.mp[31].fds.align_offset = -24;
+    rc = dartt_read_multi(&ctl_master_alias, &periph_master_alias, &ctl_sync);
+    TEST_ASSERT_EQUAL(0, rc);
+    for(int i = 0; i < ctl_master_alias.size; i++)
+    {
+        TEST_ASSERT_EQUAL(periph_alias.buf[i], periph_master_alias.buf[i]);
+    }
+
+
 }
