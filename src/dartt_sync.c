@@ -158,7 +158,10 @@ int dartt_sync(buffer_t * ctl, buffer_t * periph, dartt_sync_t * psync)	//callba
 			{
 				return rc;
 			}
-
+            if(psync->rx_buf.len == 0)  //check for failure to reply. rx blocking should return 0 length if 0 length was obtained
+            {
+                return ERROR_MALFORMED_MESSAGE;
+            }
 			payload_layer_msg_t pld_msg = {};
 			rc = dartt_frame_to_payload(&psync->rx_buf, psync->msg_type, PAYLOAD_ALIAS, &pld_msg);
 			if(rc != DARTT_PROTOCOL_SUCCESS)
@@ -294,7 +297,10 @@ int dartt_ctl_read(buffer_t * ctl, buffer_t * periph, dartt_sync_t * psync)
     {
         return rc;
     }
-
+    if(psync->rx_buf.len == 0)  //check for failure to reply. rx blocking should return 0 length if 0 length was obtained
+    {
+        return ERROR_MALFORMED_MESSAGE;
+    }
     payload_layer_msg_t pld_msg = {};
     rc = dartt_frame_to_payload(&psync->rx_buf, psync->msg_type, PAYLOAD_ALIAS, &pld_msg);
     if(rc != DARTT_PROTOCOL_SUCCESS)
