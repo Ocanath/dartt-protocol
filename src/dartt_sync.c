@@ -260,9 +260,13 @@ int dartt_ctl_read(buffer_t * ctl, buffer_t * periph, dartt_sync_t * psync)
     assert(psync->tx_buf.size != 0);
 
     // Runtime checks for buffer bounds - these could be caused by developer error in ctl configuration
-    if (ctl->buf < psync->base.buf || ctl->buf >= (psync->base.buf + psync->base.size)) 
+    if(ctl->len == 0)
     {
         return ERROR_INVALID_ARGUMENT;
+    }
+    if (ctl->buf < psync->base.buf || ctl->buf >= (psync->base.buf + psync->base.size)) 
+    {
+        return ERROR_MEMORY_OVERRUN;
     }
     if (ctl->buf + ctl->len > psync->base.buf + psync->base.size) 
     {
@@ -272,6 +276,11 @@ int dartt_ctl_read(buffer_t * ctl, buffer_t * periph, dartt_sync_t * psync)
     {
         return ERROR_MEMORY_OVERRUN;
     }
+    if(ctl->len + NUM_BYTES_ADDRESS + NUM_BYTES_CHECKSUM > psync->rx_buf.size)
+    {
+        return ERROR_MEMORY_OVERRUN;
+    }
+    
 
     unsigned char misc_address = dartt_get_complementary_address(psync->address);
     
@@ -286,6 +295,7 @@ int dartt_ctl_read(buffer_t * ctl, buffer_t * periph, dartt_sync_t * psync)
             .index = field_index,
             .num_bytes = ctl->len
     };
+
     int rc = dartt_create_read_frame(&read_msg, psync->msg_type, &psync->tx_buf);
     if(rc != DARTT_PROTOCOL_SUCCESS)
     {
@@ -321,4 +331,68 @@ int dartt_ctl_read(buffer_t * ctl, buffer_t * periph, dartt_sync_t * psync)
         periph->buf[i+field_index*sizeof(uint32_t)] = pld_msg.msg.buf[i];
     }
     return DARTT_PROTOCOL_SUCCESS;
+}
+
+/**
+ * @brief Wrapper for dartt read that automatically breaks out multiple read operations in order 
+ * to read from a larger chunk of memory than there is available read buffer space.
+ * 
+ * @param ctl 
+ * @param perip 
+ * @param psync 
+ * @return int 
+ */
+int dartt_read_multi(buffer_t * ctl, buffer_t * perip, dartt_sync_t * psync)
+{
+    assert(ctl != NULL && perip != NULL && psync != NULL);
+    if(!(ctl->buf >= psync->base.buf && ctl->buf < psync->base.buf + psync->base.size))
+    {
+        return ERROR_MEMORY_OVERRUN;
+    }
+    size_t rsize = psync->rx_buf.size;
+    
+    if(psync->msg_type == TYPE_SERIAL_MESSAGE)
+    {
+        rsize -= NUM_BYTES_ADDRESS;
+        rsize -= NUM_BYTES_CHECKSUM;
+    }
+    else if(psync->msg_type == TYPE_ADDR_MESSAGE)
+    {
+        rsize -= NUM_BYTES_CHECKSUM;
+    }
+    else if(psync->msg_type != TYPE_ADDR_CRC_MESSAGE)
+    {
+        return ERROR_INVALID_ARGUMENT;
+    }
+    rsize -= rsize % sizeof(uint32_t); //after making sure the dartt framing bytes are removed, you must ensure that the read size is 32 bit aligned for index_of_field
+
+    size_t start_bidx = ctl->buf - psync->base.buf;
+    size_t end_bidx = start_bidx + ctl->len;
+    int num_full_reads_required = ctl->len/rsize; 
+    int i = 0;
+    for(i = 0; i < num_full_reads_required; i++)
+    {
+        buffer_t ctl_chunk = 
+        {
+            .buf = ctl->buf + rsize * i,
+            .size = rsize,
+            .len = rsize
+        };
+        int rc = dartt_ctl_read(&ctl_chunk, perip, psync);
+        if(rc != DARTT_PROTOCOL_SUCCESS)
+        {
+            return rc;
+        }
+    }
+    buffer_t ctl_last_chunk = 
+    {
+        .buf = ctl->buf + rsize * i,
+        .size = ctl->len % rsize,
+        .len = ctl->len % rsize
+    };
+    int rc = dartt_ctl_read(&ctl_last_chunk, perip, psync);
+    if(rc != DARTT_PROTOCOL_SUCCESS)
+    {
+        return rc;
+    }
 }

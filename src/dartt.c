@@ -36,12 +36,6 @@ int index_of_field(void * p_field, void * mem, size_t mem_size)
     {
         return ERROR_INVALID_ARGUMENT;
     }
-    
-    //Check for underrun
-    if(p_field_nonvoid < pbase)
-    {
-        return ERROR_INVALID_ARGUMENT;
-    }
 
     size_t offset = p_field_nonvoid - pbase;
     

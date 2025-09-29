@@ -39,7 +39,7 @@ typedef struct test_struct_t
 {
     int32_t m1_set;
     int32_t m2_set;
-    motor_params_t mp[2];
+    motor_params_t mp[32];
 }test_struct_t;
 
 uint8_t tx_mem[64] = {};
@@ -232,7 +232,7 @@ void test_dartt_sync_full(void)
     gl_send_count = 0;
     rc = dartt_sync(&ctl_master_alias, &periph_master_alias, &ctl_sync);
     TEST_ASSERT_EQUAL(0, rc);
-    TEST_ASSERT_EQUAL(4, gl_send_count);//send 88 bytes with 64 byte buffer, minus headroom on each write = two writes, two reads for four total write callback calls
+    TEST_ASSERT_GREATER_THAN(2, gl_send_count);//must be multiple - depends on size
     TEST_ASSERT_EQUAL(ctl_master_alias.size, sizeof(test_struct_t));
     for(int i = 0; i < ctl_master_alias.size; i++)
     {
@@ -593,4 +593,60 @@ void test_buffer_alignment_edge_cases(void)
 
     rc = dartt_sync(&ctl_buf8, &periph_buf8, &ctl_sync);
     TEST_ASSERT_EQUAL(DARTT_PROTOCOL_SUCCESS, rc);
+}
+
+
+void test_dartt_read_multi(void)
+{
+    TEST_ASSERT_EQUAL(0, sizeof(test_struct_t)%sizeof(int32_t));//ensure struct is 32bit word aligned
+    //master structs and aliases
+    test_struct_t ctl_master = {};
+    buffer_t ctl_master_alias;
+    init_struct_buffer(&ctl_master, &ctl_master_alias);
+    test_struct_t periph_master = {};
+    buffer_t periph_master_alias;
+    init_struct_buffer(&periph_master, &periph_master_alias);
+    //sync params
+    dartt_sync_t ctl_sync = {};
+    ctl_sync.address = 3;
+    init_struct_buffer(&ctl_master, &ctl_sync.base);
+    ctl_sync.msg_type = TYPE_SERIAL_MESSAGE;
+    int rc = dartt_init_buffer(&ctl_sync.tx_buf, tx_mem, sizeof(tx_mem));
+    TEST_ASSERT_EQUAL(0,rc);
+    rc = dartt_init_buffer(&ctl_sync.rx_buf, rx_mem, sizeof(rx_mem));
+    TEST_ASSERT_EQUAL(0,rc);
+    ctl_sync.blocking_rx_callback = &synctest_rx_blocking;
+    ctl_sync.blocking_tx_callback = &synctest_tx_blocking;
+    ctl_sync.timeout_ms = 10;
+    p_sync_tx_buf = &ctl_sync.tx_buf;   //for unit testing only - set up ref for us to make fake peripheral device in the callbacks
+    //setup test structs
+    for(int i = 0; i < ctl_master_alias.size; i++)
+    {
+        ctl_master_alias.buf[i] = (i % 254) + 1;
+        periph_master_alias.buf[i] = ctl_master_alias.buf[i];
+    }
+    TEST_ASSERT_EQUAL(ctl_master_alias.size, periph_master_alias.size);
+    TEST_ASSERT_EQUAL(ctl_master_alias.size, periph_alias.size);
+    for(int i = 0; i < periph_alias.size; i++)
+    {
+        periph_alias.buf[i] = 0;
+    }
+    for(int i = 0; i < ctl_master_alias.size; i++)
+    {
+        TEST_ASSERT_NOT_EQUAL(ctl_master_alias.buf[i], periph_alias.buf[i]);
+        TEST_ASSERT_EQUAL(ctl_master_alias.buf[i], periph_master_alias.buf[i]);
+        TEST_ASSERT_NOT_EQUAL(0, periph_master_alias.buf[i]);
+    }
+    
+    TEST_ASSERT_LESS_THAN(ctl_master_alias.size, ctl_sync.rx_buf.size); //must be true for the test to function properly
+    ctl_master_alias.len = ctl_master_alias.size;   //indicate we want to read the full memory
+    rc = dartt_ctl_read(&ctl_master_alias, &periph_master_alias, &ctl_sync);
+    TEST_ASSERT_EQUAL(ERROR_MEMORY_OVERRUN, rc);   //because the transmit buffer is much smaller than the data we're trying to read, it should fail with a code (memory overrun)
+
+    rc = dartt_read_multi(&ctl_master_alias, &periph_master_alias, &ctl_sync);
+    TEST_ASSERT_EQUAL(0, rc);
+    for(int i = 0; i < ctl_master_alias.size; i++)
+    {
+        TEST_ASSERT_EQUAL(periph_alias.buf[i], periph_master_alias.buf[i]);
+    }
 }
