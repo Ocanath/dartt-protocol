@@ -256,15 +256,20 @@ int dartt_ctl_read(buffer_t * ctl, buffer_t * periph, dartt_sync_t * psync)
     assert(periph != NULL && psync != NULL && ctl != NULL);
     assert(ctl->buf != NULL && psync->base.buf != NULL && psync->blocking_tx_callback != NULL && psync->tx_buf.buf != NULL);
     assert(periph->buf != NULL);
+    assert(psync->rx_buf.size != 0);
+    assert(psync->tx_buf.size != 0);
 
     // Runtime checks for buffer bounds - these could be caused by developer error in ctl configuration
-    if (ctl->buf < psync->base.buf || ctl->buf >= (psync->base.buf + psync->base.size)) {
+    if (ctl->buf < psync->base.buf || ctl->buf >= (psync->base.buf + psync->base.size)) 
+    {
         return ERROR_INVALID_ARGUMENT;
     }
-    if (ctl->buf + ctl->len > psync->base.buf + psync->base.size) {
+    if (ctl->buf + ctl->len > psync->base.buf + psync->base.size) 
+    {
         return ERROR_MEMORY_OVERRUN;
     }
-    if (ctl->buf + ctl->size > psync->base.buf + psync->base.size) {
+    if (ctl->buf + ctl->size > psync->base.buf + psync->base.size) 
+    {
         return ERROR_MEMORY_OVERRUN;
     }
 
