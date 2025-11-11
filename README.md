@@ -33,7 +33,7 @@ Copy these files into your project:
 mkdir build
 cd build
 cmake ..
-make
+cmake --build .
 ```
 
 ### Running Unit Tests
@@ -41,68 +41,6 @@ The test suite can be run via ceedling
 ```bash
 ceedling test:all
 ```
-
-### Building Examples
-The example code is located in the `examples` directory. To build:
-```bash
-cd build
-make
-```
-
-The examples demonstrate:
-- Basic message creation and parsing
-- Read/write operations
-- Error handling
-
-## Usage Examples
-
-### Basic Initialization
-```c
-#include "dartt.h"
-
-comms_t comms = {0};  // Initialize your comms structure
-```
-
-### Creating a Read Message
-```c
-unsigned char msg_buf[256];
-int msg_len = create_misc_read_message(
-    device_address,    // Target device address
-    start_index,       // Starting word index (32bit word offset)
-    num_words,         // Number of words to read
-    serial_write_buf,           // Buffer used to write out response
-    sizeof(msg_buf)    // Size of buffer to prevent overrun
-);
-```
-
-### Creating a Write Message
-```c
-unsigned char payload[] = {0x01, 0x02, 0x03, 0x04};
-int msg_len = create_misc_write_message(
-    device_address,    // Target device address
-    start_index,       // Starting word index (32bit word offset)
-    payload,           // Data to write
-    sizeof(payload),   // Payload size
-    msg_buf,           // Message buffer
-    sizeof(msg_buf)    // Buffer size
-);
-```
-
-### Parsing Incoming Messages
-```c
-unsigned char reply_buf[256];
-int reply_len;
-int result = dartt_parse_general_message(
-    my_address,        // This device's address
-    received_msg,      // Received message buffer
-    msg_len,          // Received message length
-    reply_buf,        // Reply buffer
-    sizeof(reply_buf), // Reply buffer size
-    &reply_len,       // Pointer to store reply length
-    &comms            // Your comms structure
-);
-``` 
-
 
 ### DEBUGGING Unit Tests in vscode
 Open the specific test file you want to run (i.e. test_serial_comms.c) in vscode. It will attempt to debug the build artifact named for the currently opened file. Hit F5 or debug - the test will run and debugging will be enabled. You may need to pre-run ceedling test:all before debugging in order to ensure the .out artifact is up to date.
