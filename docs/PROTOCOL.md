@@ -114,8 +114,8 @@ The reply contains only the requested data block with no additional data:
 - **Range**: 0x00 - 0xFF
 - **Purpose**: Identifies the target device
 - **Special Values**:
-  - `0x7F`: Master motor address
-  - `0x80`: Master misc address (complement of 0x7F)
+  - `0x7F`: Controller motor address
+  - `0x80`: Controller misc address (complement of 0x7F)
 
 ### Index (2 bytes, little-endian)
 - **Bit 15**: Read/Write flag (1 = Read, 0 = Write)
@@ -171,13 +171,13 @@ The 8-bit address space is divided into four distinct regions to support differe
 | Address Range | Purpose      | Description                    |
 |---------------|--------------|--------------------------------|
 | `0x00-0x7E`   | Motor        | Individual motor device addresses (127 addresses) |
-| `0x7F`        | Motor Master | Master address for motor communications |
-| `0x80`        | Misc Master  | Master address for misc/general communications |
+| `0x7F`        | Motor Controller | Controller address for motor communications |
+| `0x80`        | Misc Controller  | Controller address for misc/general communications |
 | `0x81-0xFF`   | Misc         | Individual misc device addresses (127 addresses) |
 
 ### Device Address Pairing
 
-Each slave device has **two addresses**:
+Each peripheral device has **two addresses**:
 - **Motor Address**: Used for high-performance, application-specific motor control
 - **Misc Address**: Used for general configuration, diagnostics, and data exchange via block memory reads and writes
 
@@ -194,10 +194,10 @@ misc_address = 0xFF - motor_address
 | `0x10`        | `0xEF`       | Device 16   |
 | `0x42`        | `0xBD`       | Device 66   |
 | `0x7E`        | `0x81`       | Device 126  |
-| `0x7F`        | `0x80`       | Master      |
+| `0x7F`        | `0x80`       | Controller      |
 
-### Master Communication
+### Controller Communication
 
-- **Motor Master (`0x7F`)**: Used when master initiates motor-specific commands
-- **Misc Master (`0x80`)**: Used as the source address for slave replies and general communications
+- **Motor Controller (`0x7F`)**: Used when controller initiates motor-specific commands
+- **Misc Controller (`0x80`)**: Used as the source address for peripheral replies and general communications
 
