@@ -41,6 +41,24 @@ int dartt_sync(buffer_t * ctl, buffer_t * periph, dartt_sync_t * psync)	//callba
         return ERROR_MEMORY_OVERRUN;
     }
 
+    size_t nbytes_writemsg_overhead = 0;
+    if(psync->msg_type == TYPE_SERIAL_MESSAGE)
+    {
+    	nbytes_writemsg_overhead = (NUM_BYTES_ADDRESS + NUM_BYTES_INDEX + NUM_BYTES_CHECKSUM);	//serial message writes have the maximum overhead, 5 bytes
+    }
+    else if(psync->msg_type == TYPE_ADDR_MESSAGE)
+    {
+    	nbytes_writemsg_overhead = (NUM_BYTES_INDEX + NUM_BYTES_CHECKSUM);	//if inherently addressed, 4 bytes
+    }
+    else if(psync->msg_type == TYPE_ADDR_CRC_MESSAGE)
+    {
+    	nbytes_writemsg_overhead = NUM_BYTES_INDEX;	//if inherently addressed and error checked, only two bytes
+    }
+    else
+    {
+    	return ERROR_INVALID_ARGUMENT;
+    }
+
     int start_bidx = -1;
     int stop_bidx = -1;
 	for(int field_bidx = 0; field_bidx < ctl->size; field_bidx += sizeof(int32_t))
@@ -82,14 +100,13 @@ int dartt_sync(buffer_t * ctl, buffer_t * periph, dartt_sync_t * psync)	//callba
                     stop_bidx = next_field;
                     field_bidx = stop_bidx;
                 }
-                else if( ((next_field - start_bidx) + NUM_BYTES_NON_PAYLOAD) >= psync->tx_buf.size )    //check to see if we're overrunning the tx buffer. Logic here is a bit tricky
+                else if( ((next_field - start_bidx) + nbytes_writemsg_overhead) >= psync->tx_buf.size )    //check to see if we're overrunning the tx buffer. This is how we manage splitting large syncs into many writes
                 {
-                    //TODO: handle this situation - tx buffer overrun. This should only happen if you change a fuckload of adjacent items and tx buf is undersized
-                    if(psync->tx_buf.size <= NUM_BYTES_NON_PAYLOAD)
+                    if(psync->tx_buf.size <= nbytes_writemsg_overhead)
                     {
                         return ERROR_MEMORY_OVERRUN;    //technically an overflow error guard, but it's not terribly inappropriate to return this
                     }
-                    stop_bidx = (int)((((psync->tx_buf.size-NUM_BYTES_NON_PAYLOAD)/sizeof(int32_t))) * sizeof(int32_t) + start_bidx);   //we know we've overrun tx buf, so set stop bidx to the maximum possible size the tx buffer will allow via floor division and reinflation with mutiplication
+                    stop_bidx = (int)((((psync->tx_buf.size-nbytes_writemsg_overhead)/sizeof(int32_t))) * sizeof(int32_t) + start_bidx);   //we know we've overrun tx buf, so set stop bidx to the maximum possible size the tx buffer will allow via floor division and reinflation with mutiplication
                     if(stop_bidx <= start_bidx)
                     {
                         return ERROR_MEMORY_OVERRUN;
