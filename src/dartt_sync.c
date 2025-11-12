@@ -276,11 +276,22 @@ int dartt_ctl_read(buffer_t * ctl, buffer_t * periph, dartt_sync_t * psync)
     {
         return ERROR_MEMORY_OVERRUN;
     }
-    if(ctl->len + NUM_BYTES_ADDRESS + NUM_BYTES_CHECKSUM > psync->rx_buf.size)
+    //ensure the read reply we're requesting won't overrun the read buffer
+    size_t nb_overhead_read_reply = 0;
+    if(psync->msg_type == TYPE_SERIAL_MESSAGE)
     {
-        return ERROR_MEMORY_OVERRUN;
+    	nb_overhead_read_reply = NUM_BYTES_ADDRESS + NUM_BYTES_CHECKSUM;
     }
-    
+    else if(psync->msg_type == TYPE_ADDR_MESSAGE)
+    {
+    	nb_overhead_read_reply = NUM_BYTES_CHECKSUM;
+    }
+	if(ctl->len + nb_overhead_read_reply > psync->rx_buf.size)
+	{
+		return ERROR_MEMORY_OVERRUN;
+	}
+
+
 
     unsigned char misc_address = dartt_get_complementary_address(psync->address);
     
@@ -382,11 +393,19 @@ int dartt_read_multi(buffer_t * ctl, buffer_t * perip, dartt_sync_t * psync)
             return rc;
         }
     }
-    buffer_t ctl_last_chunk = 
-    {
-        .buf = ctl->buf + rsize * i,
-        .size = ctl->len % rsize,
-        .len = ctl->len % rsize
-    };
-    return dartt_ctl_read(&ctl_last_chunk, perip, psync); //pass final read rc
+	size_t last_read_size = ctl->len % rsize;
+	if(last_read_size != 0)
+	{
+		buffer_t ctl_last_chunk = 
+		{
+			.buf = ctl->buf + rsize * i,
+			.size = last_read_size,
+			.len = last_read_size
+		};
+		return dartt_ctl_read(&ctl_last_chunk, perip, psync); //pass final read rc
+	}
+	else
+	{
+		return DARTT_PROTOCOL_SUCCESS;
+	}
 }
