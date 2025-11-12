@@ -75,7 +75,7 @@ buffer_t periph_alias =
     .len = 0
 };
 
-int synctest_rx_blocking(unsigned char addr, buffer_t * rx, uint32_t timeout)
+int synctest_rx_blocking(buffer_t * rx, uint32_t timeout)
 {
     //model peripheral with reply behavior and modifications to periph via alias
     payload_layer_msg_t rxpld_msg = {};

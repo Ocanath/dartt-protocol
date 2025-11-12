@@ -153,7 +153,7 @@ int dartt_sync(buffer_t * ctl, buffer_t * periph, dartt_sync_t * psync)	//callba
 				return rc;
 			}
 
-			rc = (*(psync->blocking_rx_callback))(misc_address, &psync->rx_buf, psync->timeout_ms);
+			rc = (*(psync->blocking_rx_callback))(&psync->rx_buf, psync->timeout_ms);
 			if(rc != DARTT_PROTOCOL_SUCCESS)
 			{
 				return rc;
@@ -307,7 +307,7 @@ int dartt_ctl_read(buffer_t * ctl, buffer_t * periph, dartt_sync_t * psync)
         return rc;
     }
 
-    rc = (*(psync->blocking_rx_callback))(misc_address, &psync->rx_buf, psync->timeout_ms);
+    rc = (*(psync->blocking_rx_callback))(&psync->rx_buf, psync->timeout_ms);
     if(rc != DARTT_PROTOCOL_SUCCESS)
     {
         return rc;
