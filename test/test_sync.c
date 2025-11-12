@@ -805,9 +805,9 @@ void test_dartt_sync_full_fdcan(void)
     ctl_sync.address = 3;
     init_struct_buffer(&ctl_master, &ctl_sync.base);
     ctl_sync.msg_type = TYPE_ADDR_CRC_MESSAGE;
-    int rc = dartt_init_buffer(&ctl_sync.tx_buf, tx_mem, sizeof(tx_mem));
+    int rc = dartt_init_buffer(&ctl_sync.tx_buf, tx_mem, 8);
     TEST_ASSERT_EQUAL(0,rc);
-    rc = dartt_init_buffer(&ctl_sync.rx_buf, rx_mem, sizeof(rx_mem));
+    rc = dartt_init_buffer(&ctl_sync.rx_buf, rx_mem, 8);
     TEST_ASSERT_EQUAL(0,rc);
     ctl_sync.blocking_rx_callback = &synctest_rx_blocking_fdcan;
     ctl_sync.blocking_tx_callback = &synctest_tx_blocking_fdcan;
