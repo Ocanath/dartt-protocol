@@ -89,7 +89,7 @@ int dartt_sync(buffer_t * ctl, buffer_t * periph, dartt_sync_t * psync)	//callba
                     {
                         return ERROR_MEMORY_OVERRUN;    //technically an overflow error guard, but it's not terribly inappropriate to return this
                     }
-                    stop_bidx = (((psync->tx_buf.size-NUM_BYTES_NON_PAYLOAD)/sizeof(int32_t))) * sizeof(int32_t) + start_bidx;   //we know we've overrun tx buf, so set stop bidx to the maximum possible size the tx buffer will allow via floor division and reinflation with mutiplication
+                    stop_bidx = (int)((((psync->tx_buf.size-NUM_BYTES_NON_PAYLOAD)/sizeof(int32_t))) * sizeof(int32_t) + start_bidx);   //we know we've overrun tx buf, so set stop bidx to the maximum possible size the tx buffer will allow via floor division and reinflation with mutiplication
                     if(stop_bidx <= start_bidx)
                     {
                         return ERROR_MEMORY_OVERRUN;
@@ -140,7 +140,7 @@ int dartt_sync(buffer_t * ctl, buffer_t * periph, dartt_sync_t * psync)	//callba
 			{
 					.address = misc_address,
 					.index = field_index,
-					.num_bytes = write_msg.payload.len
+					.num_bytes = (uint16_t)(write_msg.payload.len)
 			};
 			rc = dartt_create_read_frame(&read_msg, psync->msg_type, &psync->tx_buf);
 			if(rc != DARTT_PROTOCOL_SUCCESS)
@@ -293,7 +293,7 @@ int dartt_ctl_read(buffer_t * ctl, buffer_t * periph, dartt_sync_t * psync)
     {
             .address = misc_address,
             .index = field_index,
-            .num_bytes = ctl->len
+            .num_bytes = (uint16_t)ctl->len
     };
 
     int rc = dartt_create_read_frame(&read_msg, psync->msg_type, &psync->tx_buf);
@@ -367,8 +367,7 @@ int dartt_read_multi(buffer_t * ctl, buffer_t * perip, dartt_sync_t * psync)
     rsize -= rsize % sizeof(uint32_t); //after making sure the dartt framing bytes are removed, you must ensure that the read size is 32 bit aligned for index_of_field
 
     size_t start_bidx = ctl->buf - psync->base.buf;
-    size_t end_bidx = start_bidx + ctl->len;
-    int num_full_reads_required = ctl->len/rsize; 
+    int num_full_reads_required = (int)(ctl->len/rsize); 
     int i = 0;
     for(i = 0; i < num_full_reads_required; i++)
     {
@@ -390,9 +389,5 @@ int dartt_read_multi(buffer_t * ctl, buffer_t * perip, dartt_sync_t * psync)
         .size = ctl->len % rsize,
         .len = ctl->len % rsize
     };
-    int rc = dartt_ctl_read(&ctl_last_chunk, perip, psync);
-    if(rc != DARTT_PROTOCOL_SUCCESS)
-    {
-        return rc;
-    }
+    return dartt_ctl_read(&ctl_last_chunk, perip, psync); //pass final read rc
 }

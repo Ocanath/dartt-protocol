@@ -51,7 +51,7 @@ int index_of_field(void * p_field, void * mem, size_t mem_size)
         return ERROR_INVALID_ARGUMENT;
     }
     
-    return offset / sizeof(int32_t);
+    return (int)(offset / sizeof(int32_t));
 }
 
 /**
