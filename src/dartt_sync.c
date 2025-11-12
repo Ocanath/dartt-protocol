@@ -366,7 +366,6 @@ int dartt_read_multi(buffer_t * ctl, buffer_t * perip, dartt_sync_t * psync)
     }
     rsize -= rsize % sizeof(uint32_t); //after making sure the dartt framing bytes are removed, you must ensure that the read size is 32 bit aligned for index_of_field
 
-    size_t start_bidx = ctl->buf - psync->base.buf;
     int num_full_reads_required = (int)(ctl->len/rsize); 
     int i = 0;
     for(i = 0; i < num_full_reads_required; i++)
