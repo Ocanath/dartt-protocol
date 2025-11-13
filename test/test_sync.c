@@ -653,6 +653,9 @@ void test_buffer_alignment_edge_cases(void)
     TEST_ASSERT_EQUAL(ERROR_INVALID_ARGUMENT, rc);	//we reassigned the ctl pointer without reassigning the base - this is invalid argument (or potentially memory overrun) error, so return with a code
 
 	ctl_sync.ctl_base = ctl_buf8;
+	rc = dartt_sync(&ctl_buf8, &ctl_sync);	
+    TEST_ASSERT_EQUAL(ERROR_MEMORY_OVERRUN, rc);	//we reassigned the ctl pointer without reassigning the base - this is invalid argument (or potentially memory overrun) error, so return with a code
+
 	ctl_sync.periph_base = periph_buf8;
 
 	rc = dartt_sync(&ctl_buf8, &ctl_sync);	
