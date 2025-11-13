@@ -237,10 +237,12 @@ int dartt_ctl_write(buffer_t * ctl, dartt_sync_t * psync)
     if (ctl->buf < psync->base.buf || ctl->buf >= (psync->base.buf + psync->base.size)) {
         return ERROR_INVALID_ARGUMENT;
     }
-    if (ctl->buf + ctl->len > psync->base.buf + psync->base.size) {
+    if (ctl->buf + ctl->len > psync->base.buf + psync->base.size) 
+	{
         return ERROR_MEMORY_OVERRUN;
     }
-    if (ctl->buf + ctl->size > psync->base.buf + psync->base.size) {
+    if (ctl->buf + ctl->size > psync->base.buf + psync->base.size) 
+	{
         return ERROR_MEMORY_OVERRUN;
     }
 

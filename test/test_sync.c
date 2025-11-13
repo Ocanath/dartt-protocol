@@ -84,7 +84,6 @@ int synctest_rx_blocking(buffer_t * rx, uint32_t timeout)
     return DARTT_PROTOCOL_SUCCESS;
 }
 
-
 int synctest_rx_blocking_fdcan(buffer_t * rx, uint32_t timeout)
 {
     //model peripheral with reply behavior and modifications to periph via alias
@@ -94,7 +93,7 @@ int synctest_rx_blocking_fdcan(buffer_t * rx, uint32_t timeout)
     return DARTT_PROTOCOL_SUCCESS;
 }
 
-
+serial_message_type_t gl_msg_type = TYPE_SERIAL_MESSAGE;
 uint32_t gl_send_count = 0;    //flag to indicate to test software if tx is called. Zero before caller
 int synctest_tx_blocking(unsigned char addr, buffer_t * tx, uint32_t timeout)
 {
@@ -113,8 +112,8 @@ int synctest_tx_blocking(unsigned char addr, buffer_t * tx, uint32_t timeout)
         tx_cpy_alias.buf[i] = tx->buf[i];
     }
     payload_layer_msg_t rxpld_msg = {};
-    dartt_frame_to_payload(&tx_cpy_alias, TYPE_SERIAL_MESSAGE, PAYLOAD_ALIAS, &rxpld_msg);
-    dartt_parse_general_message(&rxpld_msg, TYPE_SERIAL_MESSAGE, &periph_alias, &tx_cpy_alias);    //pipe reply to tx, it's fine if we corrupt it with this call. It should pretty much just set the len to 0
+    dartt_frame_to_payload(&tx_cpy_alias, gl_msg_type, PAYLOAD_ALIAS, &rxpld_msg);
+    dartt_parse_general_message(&rxpld_msg, gl_msg_type, &periph_alias, &tx_cpy_alias);    //pipe reply to tx, it's fine if we corrupt it with this call. It should pretty much just set the len to 0
     // printf("tx len = %d\n", tx->len);
     gl_send_count++;
     return DARTT_PROTOCOL_SUCCESS;
@@ -166,6 +165,7 @@ void test_dartt_sync_full(void)
     rc = dartt_init_buffer(&ctl_sync.rx_buf, rx_mem, sizeof(rx_mem));
     TEST_ASSERT_EQUAL(0,rc);
     ctl_sync.blocking_rx_callback = &synctest_rx_blocking;
+	gl_msg_type = ctl_sync.msg_type;
     ctl_sync.blocking_tx_callback = &synctest_tx_blocking;
     ctl_sync.timeout_ms = 10;
     p_sync_tx_buf = &ctl_sync.tx_buf;   //for unit testing only - set up ref for us to make fake peripheral device in the callbacks
@@ -299,6 +299,7 @@ void test_dartt_write(void)
     rc = dartt_init_buffer(&ctl_sync.rx_buf, rx_mem, sizeof(rx_mem));
     TEST_ASSERT_EQUAL(0,rc);
     ctl_sync.blocking_rx_callback = &synctest_rx_blocking;
+	gl_msg_type = ctl_sync.msg_type;
     ctl_sync.blocking_tx_callback = &synctest_tx_blocking;
     ctl_sync.timeout_ms = 10;
     p_sync_tx_buf = &ctl_sync.tx_buf;   //for unit testing only - set up ref for us to make fake peripheral device in the callbacks
@@ -408,6 +409,7 @@ void test_bad_inputs(void)
     dartt_init_buffer(&b4, b4_mem, sizeof(b4_mem));
     dartt_sync_t ds = {};
     ds.blocking_rx_callback = &synctest_rx_blocking;
+	gl_msg_type = TYPE_SERIAL_MESSAGE;
     ds.blocking_tx_callback = &synctest_tx_blocking;
     dartt_init_buffer(&ds.tx_buf, tx_mem, sizeof(tx_mem));
     dartt_init_buffer(&ds.rx_buf, tx_mem, sizeof(tx_mem));
@@ -432,6 +434,7 @@ void test_undersized_tx_buffers(void)
     ctl_sync.base = ctl_alias;
     ctl_sync.msg_type = TYPE_SERIAL_MESSAGE;
     ctl_sync.blocking_rx_callback = &synctest_rx_blocking;
+	gl_msg_type = ctl_sync.msg_type;
     ctl_sync.blocking_tx_callback = &synctest_tx_blocking;
     ctl_sync.timeout_ms = 10;
 
@@ -476,6 +479,7 @@ void test_minimum_sized_tx_buffers(void)
     ctl_sync.base = ctl_alias;
     ctl_sync.msg_type = TYPE_SERIAL_MESSAGE;
     ctl_sync.blocking_rx_callback = &synctest_rx_blocking;
+	gl_msg_type = ctl_sync.msg_type;
     ctl_sync.blocking_tx_callback = &synctest_tx_blocking;
     ctl_sync.timeout_ms = 10;
     p_sync_tx_buf = &ctl_sync.tx_buf;
@@ -534,6 +538,7 @@ void test_tx_buffer_edge_cases(void)
     ctl_sync.base = ctl_alias;
     ctl_sync.msg_type = TYPE_SERIAL_MESSAGE;
     ctl_sync.blocking_rx_callback = &synctest_rx_blocking;
+	gl_msg_type = ctl_sync.msg_type;
     ctl_sync.blocking_tx_callback = &synctest_tx_blocking;
     ctl_sync.timeout_ms = 10;
     p_sync_tx_buf = &ctl_sync.tx_buf;
@@ -602,6 +607,7 @@ void test_buffer_alignment_edge_cases(void)
     ctl_sync.base = ctl_buf;
     ctl_sync.msg_type = TYPE_SERIAL_MESSAGE;
     ctl_sync.blocking_rx_callback = &synctest_rx_blocking;
+	gl_msg_type = ctl_sync.msg_type;
     ctl_sync.blocking_tx_callback = &synctest_tx_blocking;
     ctl_sync.timeout_ms = 10;
 
@@ -652,6 +658,7 @@ void test_dartt_read_multi(void)
     rc = dartt_init_buffer(&ctl_sync.rx_buf, rx_mem, sizeof(rx_mem));
     TEST_ASSERT_EQUAL(0,rc);
     ctl_sync.blocking_rx_callback = &synctest_rx_blocking;
+	gl_msg_type = ctl_sync.msg_type;
     ctl_sync.blocking_tx_callback = &synctest_tx_blocking;
     ctl_sync.timeout_ms = 10;
     p_sync_tx_buf = &ctl_sync.tx_buf;   //for unit testing only - set up ref for us to make fake peripheral device in the callbacks
@@ -725,6 +732,7 @@ void test_dartt_read_multi_fdcan(void)
     rc = dartt_init_buffer(&ctl_sync.rx_buf, rx_mem, 8);
     TEST_ASSERT_EQUAL(0,rc);
     ctl_sync.blocking_rx_callback = &synctest_rx_blocking_fdcan;
+	gl_msg_type = ctl_sync.msg_type;
     ctl_sync.blocking_tx_callback = &synctest_tx_blocking_fdcan;
     ctl_sync.timeout_ms = 10;
     p_sync_tx_buf = &ctl_sync.tx_buf;   //for unit testing only - set up ref for us to make fake peripheral device in the callbacks
@@ -810,6 +818,7 @@ void test_dartt_sync_full_fdcan(void)
     rc = dartt_init_buffer(&ctl_sync.rx_buf, rx_mem, 8);
     TEST_ASSERT_EQUAL(0,rc);
     ctl_sync.blocking_rx_callback = &synctest_rx_blocking_fdcan;
+	gl_msg_type = ctl_sync.msg_type;
     ctl_sync.blocking_tx_callback = &synctest_tx_blocking_fdcan;
     ctl_sync.timeout_ms = 10;
     p_sync_tx_buf = &ctl_sync.tx_buf;   //for unit testing only - set up ref for us to make fake peripheral device in the callbacks
@@ -920,4 +929,85 @@ void test_dartt_sync_full_fdcan(void)
         TEST_ASSERT_EQUAL(ctl_master_alias.buf[i], periph_alias.buf[i]);
         TEST_ASSERT_NOT_EQUAL(0, periph_alias.buf[i]);
     }
+}
+
+
+
+
+
+
+
+void dartt_write_multi_wrapper(int rbufsize, int tbufsize, serial_message_type_t type)
+{
+    TEST_ASSERT_EQUAL(0, sizeof(test_struct_t)%sizeof(int32_t));//ensure struct is 32bit word aligned
+    //master structs and aliases
+    test_struct_t ctl_master = {};
+    buffer_t ctl_master_alias;
+    init_struct_buffer(&ctl_master, &ctl_master_alias);
+    test_struct_t periph_master = {};
+    buffer_t periph_master_alias;
+    init_struct_buffer(&periph_master, &periph_master_alias);
+    //sync params
+    dartt_sync_t ctl_sync = {};
+    ctl_sync.address = 3;
+    init_struct_buffer(&ctl_master, &ctl_sync.base);
+    ctl_sync.msg_type = type;
+    int rc = dartt_init_buffer(&ctl_sync.tx_buf, tx_mem, tbufsize);
+    TEST_ASSERT_EQUAL(0,rc);
+    rc = dartt_init_buffer(&ctl_sync.rx_buf, rx_mem, rbufsize);
+    TEST_ASSERT_EQUAL(0,rc);
+    ctl_sync.blocking_rx_callback = &synctest_rx_blocking;
+	gl_msg_type = ctl_sync.msg_type;
+    ctl_sync.blocking_tx_callback = &synctest_tx_blocking;
+    ctl_sync.timeout_ms = 10;
+    p_sync_tx_buf = &ctl_sync.tx_buf;   //for unit testing only - set up ref for us to make fake peripheral device in the callbacks
+    //setup test structs
+    for(int i = 0; i < ctl_master_alias.size; i++)
+    {
+        ctl_master_alias.buf[i] = (i % 254) + 1;
+        periph_master_alias.buf[i] = ctl_master_alias.buf[i];
+    }
+    TEST_ASSERT_EQUAL(ctl_master_alias.size, periph_master_alias.size);
+    TEST_ASSERT_EQUAL(ctl_master_alias.size, periph_alias.size);
+    for(int i = 0; i < periph_alias.size; i++)
+    {
+        periph_alias.buf[i] = 0;
+    }
+    for(int i = 0; i < ctl_master_alias.size; i++)
+    {
+        TEST_ASSERT_NOT_EQUAL(ctl_master_alias.buf[i], periph_alias.buf[i]);
+        TEST_ASSERT_EQUAL(ctl_master_alias.buf[i], periph_master_alias.buf[i]);
+        TEST_ASSERT_NOT_EQUAL(0, periph_master_alias.buf[i]);
+    }
+    
+    TEST_ASSERT_LESS_THAN(ctl_master_alias.size, ctl_sync.tx_buf.size); //verify that write multi is actually going to write multi
+    ctl_master_alias.len = ctl_master_alias.size;   //indicate we want to read the full memory
+    rc = dartt_ctl_write(&ctl_master_alias, &ctl_sync);
+    TEST_ASSERT_EQUAL(ERROR_MEMORY_OVERRUN, rc);   //because the transmit buffer is much smaller than the data we're trying to read, it should fail with a code (memory overrun)
+
+    rc = dartt_write_multi(&ctl_master_alias, &ctl_sync);
+    TEST_ASSERT_EQUAL(0, rc);
+    for(int i = 0; i < ctl_master_alias.size; i++)
+    {
+        TEST_ASSERT_EQUAL(ctl_master_alias.buf[i], periph_alias.buf[i]);
+    }
+	ctl_master.m1_set = 5646;
+    ctl_master.m2_set = -1415;
+    ctl_master.mp[31].fds.align_offset = -24;
+	ctl_master.mp[24].fds.module_number = 1;
+    rc = dartt_write_multi(&ctl_master_alias, &ctl_sync);
+    TEST_ASSERT_EQUAL(0, rc);
+    for(int i = 0; i < ctl_master_alias.size; i++)
+    {
+        TEST_ASSERT_EQUAL(ctl_master_alias.buf[i], periph_alias.buf[i]);
+    }
+}
+
+
+void test_dartt_write_multi(void)
+{
+	dartt_write_multi_wrapper(sizeof(rx_mem), sizeof(tx_mem), TYPE_SERIAL_MESSAGE);
+	dartt_write_multi_wrapper(sizeof(rx_mem), sizeof(tx_mem), TYPE_ADDR_MESSAGE);
+	dartt_write_multi_wrapper(sizeof(rx_mem), sizeof(tx_mem), TYPE_ADDR_CRC_MESSAGE);
+	dartt_write_multi_wrapper(8, 8, TYPE_ADDR_CRC_MESSAGE);
 }
