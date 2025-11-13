@@ -390,21 +390,24 @@ int dartt_read_multi(buffer_t * ctl, buffer_t * perip, dartt_sync_t * psync)
     {
         return ERROR_MEMORY_OVERRUN;
     }
-    size_t rsize = psync->rx_buf.size;
-    
+    size_t nbytes_read_overhead = 0;
     if(psync->msg_type == TYPE_SERIAL_MESSAGE)
     {
-        rsize -= NUM_BYTES_ADDRESS;
-        rsize -= NUM_BYTES_CHECKSUM;
+		nbytes_read_overhead = (NUM_BYTES_ADDRESS + NUM_BYTES_CHECKSUM);
     }
     else if(psync->msg_type == TYPE_ADDR_MESSAGE)
     {
-        rsize -= NUM_BYTES_CHECKSUM;
+        nbytes_read_overhead = NUM_BYTES_CHECKSUM;
     }
     else if(psync->msg_type != TYPE_ADDR_CRC_MESSAGE)
     {
         return ERROR_INVALID_ARGUMENT;
     }
+	if(psync->rx_buf.size < nbytes_read_overhead + sizeof(int32_t))
+	{
+		return ERROR_MEMORY_OVERRUN;
+	}
+	size_t rsize = psync->rx_buf.size - nbytes_read_overhead;
     rsize -= rsize % sizeof(uint32_t); //after making sure the dartt framing bytes are removed, you must ensure that the read size is 32 bit aligned for index_of_field
 
     int num_full_reads_required = (int)(ctl->len/rsize); 
@@ -438,4 +441,74 @@ int dartt_read_multi(buffer_t * ctl, buffer_t * perip, dartt_sync_t * psync)
 	{
 		return DARTT_PROTOCOL_SUCCESS;
 	}
+}
+
+/**
+* @brief Function to write a chunk of the controller copy out from the DARTT controller device,
+ with logic to break up large writes into smaller pieces.
+	@param ctl Buffer alias to the region of the controller struct you want to write out. Must be within psync->base or it will return an error
+	@param psync DARTT Sync structure, with registered callbacks, mode, target address, etc.
+ */
+int dartt_write_multi(buffer_t * ctl, dartt_sync_t * psync)
+{
+	assert(psync != NULL && ctl != NULL);
+	
+    size_t nbytes_writemsg_overhead = 0;
+    if(psync->msg_type == TYPE_SERIAL_MESSAGE)
+    {
+    	nbytes_writemsg_overhead = (NUM_BYTES_ADDRESS + NUM_BYTES_INDEX + NUM_BYTES_CHECKSUM);	//serial message writes have the maximum overhead, 5 bytes
+    }
+    else if(psync->msg_type == TYPE_ADDR_MESSAGE)
+    {
+    	nbytes_writemsg_overhead = (NUM_BYTES_INDEX + NUM_BYTES_CHECKSUM);	//if inherently addressed, 4 bytes
+    }
+    else if(psync->msg_type == TYPE_ADDR_CRC_MESSAGE)
+    {
+    	nbytes_writemsg_overhead = NUM_BYTES_INDEX;	//if inherently addressed and error checked, only two bytes
+    }
+    else
+    {
+    	return ERROR_INVALID_ARGUMENT;
+    }
+	if(psync->tx_buf.size < nbytes_writemsg_overhead + sizeof(int32_t)) 	//for completeness, due to DARTT indexing every 4 bytes, you must at minimum be able to write out one full 4 byte word for complete write access
+	{
+		return ERROR_MEMORY_OVERRUN;
+	}
+	
+	size_t wsize = psync->tx_buf.size - nbytes_writemsg_overhead;	
+	wsize -= wsize % sizeof(int32_t);	//must make sure every chunkified write is 32bit aligned due to dartt indexing
+
+	int num_undersized_writes = (int)(ctl->len / wsize);
+	int i = 0;
+	for(i = 0; i < num_undersized_writes; i++)
+	{
+		buffer_t ctl_chunk = 
+        {
+            .buf = ctl->buf + wsize * i,
+            .size = wsize,
+            .len = wsize
+        };
+		int rc = dartt_ctl_write(ctl, psync);
+		if(rc != DARTT_PROTOCOL_SUCCESS)
+		{
+			return rc;
+		}
+	}
+	
+	int last_write_pld_size = ctl->len % wsize;
+	if(last_write_pld_size != 0)			//last write
+	{
+		buffer_t ctl_last_chunk = 
+		{
+			.buf = ctl->buf + wsize * i,
+			.size = last_write_pld_size,
+			.len = last_write_pld_size
+		};
+		int rc = dartt_ctl_write(ctl, psync);
+		if(rc != DARTT_PROTOCOL_SUCCESS)
+		{
+			return rc;
+		}
+	}
+	return DARTT_PROTOCOL_SUCCESS;
 }
