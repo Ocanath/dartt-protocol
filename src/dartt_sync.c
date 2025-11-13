@@ -97,8 +97,21 @@ int dartt_sync(buffer_t * ctl, buffer_t * periph, dartt_sync_t * psync)	//callba
                 int next_field = field_bidx + sizeof(int32_t);
                 if(next_field >= ctl->size)                       //check to see if we're at the last loop iteration. If so, you must transmit because the current word has a mismatch we have to close out
                 {
-                    stop_bidx = next_field;
-                    field_bidx = stop_bidx;
+					int max_stop = (int)((((psync->tx_buf.size-nbytes_writemsg_overhead)/sizeof(int32_t))) * sizeof(int32_t) + start_bidx);   //we know we've overrun tx buf, so set stop bidx to the maximum possible size the tx buffer will allow via floor division and reinflation with mutiplication	
+					if(next_field < max_stop)
+					{
+						stop_bidx = next_field;
+						field_bidx = stop_bidx;
+					}
+					else
+					{
+						stop_bidx = max_stop;
+						field_bidx = stop_bidx - sizeof(int32_t);
+					}
+					if(stop_bidx <= start_bidx)
+                    {
+                        return ERROR_MEMORY_OVERRUN;
+                    }
                 }
                 else if( ((next_field - start_bidx) + nbytes_writemsg_overhead) >= psync->tx_buf.size )    //check to see if we're overrunning the tx buffer. This is how we manage splitting large syncs into many writes
                 {
