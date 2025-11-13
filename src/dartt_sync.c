@@ -488,7 +488,7 @@ int dartt_write_multi(buffer_t * ctl, dartt_sync_t * psync)
             .size = wsize,
             .len = wsize
         };
-		int rc = dartt_ctl_write(ctl, psync);
+		int rc = dartt_ctl_write(&ctl_chunk, psync);
 		if(rc != DARTT_PROTOCOL_SUCCESS)
 		{
 			return rc;
@@ -504,7 +504,7 @@ int dartt_write_multi(buffer_t * ctl, dartt_sync_t * psync)
 			.size = last_write_pld_size,
 			.len = last_write_pld_size
 		};
-		int rc = dartt_ctl_write(ctl, psync);
+		int rc = dartt_ctl_write(&ctl_last_chunk, psync);
 		if(rc != DARTT_PROTOCOL_SUCCESS)
 		{
 			return rc;
