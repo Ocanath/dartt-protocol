@@ -243,9 +243,6 @@ void test_dartt_sync_full(void)
     ctl_master_alias.buf = (unsigned char *)(&ctl_master.mp[0].pi_vq);
     ctl_master_alias.size = sizeof(fixed_PI_2_params_t);
     ctl_master_alias.len = 0;
-    ctl_sync.periph_base.buf = (unsigned char *)(&periph_master.mp[0].pi_vq);
-    ctl_sync.periph_base.size = sizeof(fixed_PI_2_params_t);
-    ctl_sync.periph_base.len = 0;
 
     ctl_master.m2_set = 100;
     periph_master.m2_set = -50; //explicitly load these differently (they were already different but just for clarity)
@@ -583,6 +580,7 @@ void test_tx_buffer_edge_cases(void)
     {
         ctl_alias.buf[i] = 0;
         periph_alias.buf[i] = 0;
+		ctl_sync.periph_base.buf[i] = 0;
     }
 
     // Change non-adjacent fields that would require more buffer space if transmitted together
@@ -599,7 +597,7 @@ void test_tx_buffer_edge_cases(void)
     rc = dartt_sync(&ctl_alias, &ctl_sync);
     TEST_ASSERT_EQUAL(DARTT_PROTOCOL_SUCCESS, rc);
     // Should require multiple transmissions due to buffer splitting logic
-    TEST_ASSERT_EQUAL(6, gl_send_count);
+    TEST_ASSERT_EQUAL(6, gl_send_count);	//dartt sync calls the tx callback twice per messge sent - once for write, once again for read confirmation
     // Verify all changes were applied
     TEST_ASSERT_EQUAL(ctl_master.m2_set, periph_master.m2_set);
     TEST_ASSERT_EQUAL(ctl_master.mp[0].pi_vq.kp.i32, periph_master.mp[0].pi_vq.kp.i32);
@@ -622,7 +620,7 @@ void test_buffer_alignment_edge_cases(void)
 	//init shadow copy buffer
 	ctl_sync.periph_base.buf = periph_mem;
 	ctl_sync.periph_base.size = sizeof(periph_mem);
-	ctl_sync.periph_base.buf = 0;
+	ctl_sync.periph_base.len = 0;
 
     ctl_sync.msg_type = TYPE_SERIAL_MESSAGE;
     ctl_sync.blocking_rx_callback = &synctest_rx_blocking;
@@ -644,15 +642,22 @@ void test_buffer_alignment_edge_cases(void)
     uint8_t ctl_mem8[8] = {};
     uint8_t periph_mem8[8] = {};
 
-    buffer_t ctl_buf8 = {.buf = ctl_mem8, .size = sizeof(ctl_mem8), .len = 0};
-    ctl_sync.ctl_base = ctl_buf8;
-
+    buffer_t ctl_buf8 = {.buf = ctl_mem8, .size = sizeof(ctl_mem8), .len = sizeof(ctl_mem8)};
+	buffer_t periph_buf8 = {.buf = periph_mem8, .size = sizeof(periph_mem8), .len = sizeof(periph_mem8)};
+	
     // Make them different to trigger sync
     ctl_mem8[0] = 1;
     periph_mem8[0] = 0;
 
-    rc = dartt_sync(&ctl_buf8, &ctl_sync);	//I think this should actually fail with a code - this is testing a now invalid test case for properly initialized dartt_sync structure with periph base
-    TEST_ASSERT_EQUAL(DARTT_PROTOCOL_SUCCESS, rc);
+    rc = dartt_sync(&ctl_buf8, &ctl_sync);	
+    TEST_ASSERT_EQUAL(ERROR_INVALID_ARGUMENT, rc);	//we reassigned the ctl pointer without reassigning the base - this is invalid argument (or potentially memory overrun) error, so return with a code
+
+	ctl_sync.ctl_base = ctl_buf8;
+	ctl_sync.periph_base = periph_buf8;
+
+	rc = dartt_sync(&ctl_buf8, &ctl_sync);	
+    TEST_ASSERT_EQUAL(DARTT_PROTOCOL_SUCCESS, rc);	//we reassigned the ctl pointer without reassigning the base - this is invalid argument (or potentially memory overrun) error, so return with a code
+
 }
 
 
