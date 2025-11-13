@@ -32,7 +32,7 @@ int index_of_field(void * p_field, void * mem, size_t mem_size)
     unsigned char * pbase = (unsigned char *)(mem);
     unsigned char * p_field_nonvoid = (unsigned char *)p_field;
 
-    if(p_field_nonvoid < pbase || p_field_nonvoid > (pbase + mem_size))
+    if(p_field_nonvoid < pbase || p_field_nonvoid >= (pbase + mem_size))
     {
         return ERROR_INVALID_ARGUMENT;
     }

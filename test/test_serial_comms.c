@@ -4,11 +4,11 @@
 
 /*
 	TODO:
-		Create reciprocal create functions (for testing only) - validate create functions
-		Create edge case conditions for parse_base. Test a read message which is one byte too small, etc.
 		Add test of dartt_frame_to_payload of a type 0 serial message consisting of only address and crc
-		Add test of dartt_frame_to_payload for a motor command and a serial command
-
+		Add test of dartt_frame_to_payload for a motor command and a dual address command
+ 
+		index_of_field - minimum overrun (index/offset is base+size, not base+size-1)
+		all index of field error conditions - at least one assert per case
 */
 
 //example structure for block mem testing. Further testing in test_struct

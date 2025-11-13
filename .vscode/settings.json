@@ -7,6 +7,11 @@
 		"serial-comms-struct.h": "c",
 		"stdio.h": "c",
 		"stddef.h": "c",
-		"dartt_sync.h": "c"
+		"dartt_sync.h": "c",
+		"array": "c",
+		"string_view": "c",
+		"format": "c",
+		"initializer_list": "c",
+		"span": "c"
 	}
 }

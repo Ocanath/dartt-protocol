@@ -15,7 +15,7 @@ The key to using DARTT Sync is the `dartt_sync_t` type.
 ## TODO DOCUMENTATION
 ADDRESS THE FOLLOWING AMBIGUITIES:
 
-1. What is 'base' in the dartt_sync_t struct? why pass the controller as an argument as well as a separate pointer to it in dartt_sync_t? (it's so you can point to specific regions of the controller rather than the whole controller struct)
+1. Provide CLEAR definitions of 'ctl_base' and 'periph_base', how they must be defined, and what theuy're for in the dartt_sync_t struct
 
 1. In CAN/CAN FD, you have to set the txbuf and rxbuf sizes to 8 for sync to work properly - it automatically sets the message size in integers, and for FD can above 8 the domain of possible message lengths is not positive integers (it's a LUT). For standard can this should be a non-issue
 

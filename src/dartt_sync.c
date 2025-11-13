@@ -11,15 +11,16 @@
  * @param periph Pointer to the buffer containing the 'peripheral' copy. This is our internal 'latest' reference to the peripheral
  * @param psync Pointer to a dartt_sync_t structure containing the address, serial callbacks, message type
  * */
-int dartt_sync(buffer_t * ctl, buffer_t * periph, dartt_sync_t * psync)	//callbacks?
+int dartt_sync(buffer_t * ctl, dartt_sync_t * psync)	//callbacks?
 {
     /*TODO Implement a dartt_sync_t structure to wrap these things, and a callback registration function to load the function pointers. */
-    assert(psync != NULL && ctl != NULL && periph != NULL);
-    assert(psync->blocking_rx_callback != NULL && psync->blocking_tx_callback != NULL && psync->base.buf != NULL && psync->base.size != 0);
+    assert(psync != NULL && ctl != NULL);
+    assert(psync->blocking_rx_callback != NULL && psync->blocking_tx_callback != NULL && psync->ctl_base.buf != NULL && psync->ctl_base.size != 0);
+	assert(psync->periph_base.buf != NULL);
     assert(psync->tx_buf.buf != NULL && psync->rx_buf.buf != NULL);
-    assert(ctl != periph);
-        
-    if(ctl->size != periph->size)
+    assert(psync->ctl_base.buf != psync->periph_base.buf);
+    
+    if(psync->ctl_base.size != psync->periph_base.size)
 	{
 		return ERROR_MEMORY_OVERRUN;
 	}
@@ -28,15 +29,15 @@ int dartt_sync(buffer_t * ctl, buffer_t * periph, dartt_sync_t * psync)	//callba
 		return ERROR_INVALID_ARGUMENT;	//make sure you're 32 bit aligned in all refs
 	}
         // Runtime checks for buffer bounds - these could be caused by developer error in ctl configuration
-    if (ctl->buf < psync->base.buf || ctl->buf >= (psync->base.buf + psync->base.size)) 
+    if (ctl->buf < psync->ctl_base.buf || ctl->buf >= (psync->ctl_base.buf + psync->ctl_base.size)) 
     {
         return ERROR_INVALID_ARGUMENT;
     }
-    if (ctl->buf + ctl->len > psync->base.buf + psync->base.size) 
+    if (ctl->buf + ctl->len > psync->ctl_base.buf + psync->ctl_base.size) 
     {
         return ERROR_MEMORY_OVERRUN;
     }
-    if (ctl->buf + ctl->size > psync->base.buf + psync->base.size) 
+    if (ctl->buf + ctl->size > psync->ctl_base.buf + psync->ctl_base.size) 
     {
         return ERROR_MEMORY_OVERRUN;
     }
@@ -59,6 +60,18 @@ int dartt_sync(buffer_t * ctl, buffer_t * periph, dartt_sync_t * psync)	//callba
     	return ERROR_INVALID_ARGUMENT;
     }
 
+
+	
+	size_t base_bidx = ctl->buf - psync->ctl_base.buf;	//safe due to guards at beginning of function
+	if(base_bidx + ctl->size > psync->periph_base.size)
+	{
+		return ERROR_MEMORY_OVERRUN;
+	}
+	if(base_bidx % sizeof(int32_t) != 0)
+	{
+		return ERROR_INVALID_ARGUMENT;
+	}
+
     int start_bidx = -1;
     int stop_bidx = -1;
 	for(int field_bidx = 0; field_bidx < ctl->size; field_bidx += sizeof(int32_t))
@@ -67,7 +80,7 @@ int dartt_sync(buffer_t * ctl, buffer_t * periph, dartt_sync_t * psync)	//callba
 		for(int i = 0; i < sizeof(int32_t); i++)
 		{
 			int bidx = field_bidx + i;
-			if(ctl->buf[bidx] != periph->buf[bidx])
+			if(ctl->buf[bidx] != psync->periph_base.buf[bidx+base_bidx])
 			{
 				match = 0;
 				break;  
@@ -136,7 +149,7 @@ int dartt_sync(buffer_t * ctl, buffer_t * periph, dartt_sync_t * psync)	//callba
 		if(stop_bidx >= 0)
 		{
 			// uint16_t field_index = field_bidx/sizeof(int32_t);
-            int field_index = index_of_field( (void*)(&ctl->buf[start_bidx]), (void*)(&psync->base.buf[0]), psync->base.size );
+            int field_index = index_of_field( (void*)(&ctl->buf[start_bidx]), (void*)(&psync->ctl_base.buf[0]), psync->ctl_base.size );
             if(field_index < 0)
             {
                 return field_index; //negative values are error codes, return if you get negative value
@@ -206,9 +219,13 @@ int dartt_sync(buffer_t * ctl, buffer_t * periph, dartt_sync_t * psync)	//callba
                     return ERROR_SYNC_MISMATCH;
                 }
             }
+			if(write_msg.payload.len + base_bidx + start_bidx > psync->periph_base.size)
+			{
+				return ERROR_MEMORY_OVERRUN;
+			}
             for(int i = 0; i < write_msg.payload.len; i++)
             {
-                periph->buf[start_bidx + i] = ctl->buf[start_bidx+i];   //copy the mismatched word after confirming the peripheral matches
+                psync->periph_base.buf[base_bidx + start_bidx + i] = ctl->buf[start_bidx+i];   //copy the mismatched word after confirming the peripheral matches
             }
             start_bidx = -1;
             stop_bidx = -1;
@@ -216,7 +233,6 @@ int dartt_sync(buffer_t * ctl, buffer_t * periph, dartt_sync_t * psync)	//callba
 	}
 
 	return DARTT_PROTOCOL_SUCCESS;
-
 }
 
 /**
@@ -231,22 +247,22 @@ int dartt_sync(buffer_t * ctl, buffer_t * periph, dartt_sync_t * psync)	//callba
 int dartt_ctl_write(buffer_t * ctl, dartt_sync_t * psync)
 {
     assert(ctl != NULL && psync != NULL);
-    assert(ctl->buf != NULL && psync->base.buf != NULL && psync->blocking_tx_callback != NULL && psync->tx_buf.buf != NULL);
+    assert(ctl->buf != NULL && psync->ctl_base.buf != NULL && psync->blocking_tx_callback != NULL && psync->tx_buf.buf != NULL);
 
     // Runtime checks for buffer bounds - these could be caused by developer error in ctl configuration
-    if (ctl->buf < psync->base.buf || ctl->buf >= (psync->base.buf + psync->base.size)) {
+    if (ctl->buf < psync->ctl_base.buf || ctl->buf >= (psync->ctl_base.buf + psync->ctl_base.size)) {
         return ERROR_INVALID_ARGUMENT;
     }
-    if (ctl->buf + ctl->len > psync->base.buf + psync->base.size) 
+    if (ctl->buf + ctl->len > psync->ctl_base.buf + psync->ctl_base.size) 
 	{
         return ERROR_MEMORY_OVERRUN;
     }
-    if (ctl->buf + ctl->size > psync->base.buf + psync->base.size) 
+    if (ctl->buf + ctl->size > psync->ctl_base.buf + psync->ctl_base.size) 
 	{
         return ERROR_MEMORY_OVERRUN;
     }
 
-    int field_index = index_of_field( (void*)(&ctl->buf[0]), (void*)(&psync->base.buf[0]), psync->base.size );
+    int field_index = index_of_field( (void*)(&ctl->buf[0]), (void*)(&psync->ctl_base.buf[0]), psync->ctl_base.size );
     if(field_index < 0)
     {
         return field_index; //negative values are error codes, return if you get negative value
@@ -283,11 +299,12 @@ int dartt_ctl_write(buffer_t * ctl, dartt_sync_t * psync)
  * @param psync Sync structure defining the control memory base, blocking read/write callbacks and memory structures 
  * @return int 
 */
-int dartt_ctl_read(buffer_t * ctl, buffer_t * periph, dartt_sync_t * psync)
+int dartt_ctl_read(buffer_t * ctl, dartt_sync_t * psync)
 {
-    assert(periph != NULL && psync != NULL && ctl != NULL);
-    assert(ctl->buf != NULL && psync->base.buf != NULL && psync->blocking_tx_callback != NULL && psync->tx_buf.buf != NULL);
-    assert(periph->buf != NULL);
+    assert(psync != NULL && ctl != NULL);
+	assert(psync->ctl_base.size == psync->periph_base.size);
+    assert(ctl->buf != NULL && psync->ctl_base.buf != NULL && psync->blocking_tx_callback != NULL && psync->tx_buf.buf != NULL);
+	assert(psync->periph_base.buf != NULL);
     assert(psync->rx_buf.size != 0);
     assert(psync->tx_buf.size != 0);
 
@@ -296,15 +313,15 @@ int dartt_ctl_read(buffer_t * ctl, buffer_t * periph, dartt_sync_t * psync)
     {
         return ERROR_INVALID_ARGUMENT;
     }
-    if (ctl->buf < psync->base.buf || ctl->buf >= (psync->base.buf + psync->base.size)) 
+    if (ctl->buf < psync->ctl_base.buf || ctl->buf >= (psync->ctl_base.buf + psync->ctl_base.size)) 
     {
         return ERROR_MEMORY_OVERRUN;
     }
-    if (ctl->buf + ctl->len > psync->base.buf + psync->base.size) 
+    if (ctl->buf + ctl->len > psync->ctl_base.buf + psync->ctl_base.size) 
     {
         return ERROR_MEMORY_OVERRUN;
     }
-    if (ctl->buf + ctl->size > psync->base.buf + psync->base.size) 
+    if (ctl->buf + ctl->size > psync->ctl_base.buf + psync->ctl_base.size) 
     {
         return ERROR_MEMORY_OVERRUN;
     }
@@ -327,7 +344,7 @@ int dartt_ctl_read(buffer_t * ctl, buffer_t * periph, dartt_sync_t * psync)
 
     unsigned char misc_address = dartt_get_complementary_address(psync->address);
     
-    int field_index = index_of_field( (void*)(&ctl->buf[0]), (void*)(&psync->base.buf[0]), psync->base.size );
+    int field_index = index_of_field( (void*)(&ctl->buf[0]), (void*)(&psync->ctl_base.buf[0]), psync->ctl_base.size );
     if(field_index < 0)
     {
         return field_index; //negative values are error codes, return if you get negative value
@@ -365,13 +382,14 @@ int dartt_ctl_read(buffer_t * ctl, buffer_t * periph, dartt_sync_t * psync)
     {
         return rc;
     }
-    if(pld_msg.msg.len > periph->size)
+	int base_bidx = field_index*sizeof(uint32_t);
+    if(base_bidx + pld_msg.msg.len > psync->periph_base.size)
     {
         return ERROR_MEMORY_OVERRUN;
     }
     for(int i = 0; i < pld_msg.msg.len; i++)
     {
-        periph->buf[i+field_index*sizeof(uint32_t)] = pld_msg.msg.buf[i];
+        psync->periph_base.buf[i+base_bidx] = pld_msg.msg.buf[i];
     }
     return DARTT_PROTOCOL_SUCCESS;
 }
@@ -385,10 +403,17 @@ int dartt_ctl_read(buffer_t * ctl, buffer_t * periph, dartt_sync_t * psync)
  * @param psync 
  * @return int 
  */
-int dartt_read_multi(buffer_t * ctl, buffer_t * perip, dartt_sync_t * psync)
+int dartt_read_multi(buffer_t * ctl, dartt_sync_t * psync)
 {
-    assert(ctl != NULL && perip != NULL && psync != NULL);
-    if(!(ctl->buf >= psync->base.buf && ctl->buf < psync->base.buf + psync->base.size))
+    assert(ctl != NULL && psync != NULL);
+	assert(psync->ctl_base.buf != NULL && psync->periph_base.buf != NULL);
+	assert(psync->ctl_base.buf != psync->periph_base.buf);	//basic sanity check - the master and shadow copy can't point to the same memory
+
+	if(psync->ctl_base.size != psync->periph_base.size)
+	{
+		return ERROR_MEMORY_OVERRUN;
+	}
+    if(!(ctl->buf >= psync->ctl_base.buf && ctl->buf < psync->ctl_base.buf + psync->ctl_base.size))
     {
         return ERROR_MEMORY_OVERRUN;
     }
@@ -422,7 +447,7 @@ int dartt_read_multi(buffer_t * ctl, buffer_t * perip, dartt_sync_t * psync)
             .size = rsize,
             .len = rsize
         };
-        int rc = dartt_ctl_read(&ctl_chunk, perip, psync);
+        int rc = dartt_ctl_read(&ctl_chunk, psync);
         if(rc != DARTT_PROTOCOL_SUCCESS)
         {
             return rc;
@@ -437,7 +462,7 @@ int dartt_read_multi(buffer_t * ctl, buffer_t * perip, dartt_sync_t * psync)
 			.size = last_read_size,
 			.len = last_read_size
 		};
-		return dartt_ctl_read(&ctl_last_chunk, perip, psync); //pass final read rc
+		return dartt_ctl_read(&ctl_last_chunk, psync); //pass final read rc
 	}
 	else
 	{
