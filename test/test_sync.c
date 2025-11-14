@@ -1109,12 +1109,36 @@ void test_dartt_update_controller(void)
 	unsigned char ctl_copy_backup[sizeof(gl_master_copy)] = {};
 	memcpy(ctl_copy_backup, gl_ds.ctl_base.buf, gl_ds.ctl_base.size);	
 
-	//happy path
+	//will overrun the master copy - improper buffer creation
 	buffer_t ctl;
+	ctl.buf = (unsigned char *)(&gl_master_copy.m2_set);
+	ctl.size = sizeof(test_struct_t);	
+	ctl.len = ctl.size;
+	int rc = dartt_update_controller(&ctl, &gl_ds);
+	TEST_ASSERT_EQUAL(ERROR_MEMORY_OVERRUN, rc);
+
+	//improper buffer creation - underflow
+	ctl.buf = (unsigned char *)(&gl_master_copy);
+	ctl.buf -= 1;
+	ctl.size = sizeof(test_struct_t);	
+	ctl.len = ctl.size;
+	rc = dartt_update_controller(&ctl, &gl_ds);
+	TEST_ASSERT_EQUAL(ERROR_MEMORY_OVERRUN, rc);
+
+	//improper buffer creation - misaligned (not 32bit aligned)
+	ctl.len = ctl.size;
+	ctl.buf = (unsigned char *)(&gl_master_copy);
+	ctl.buf += 1;
+	ctl.size = sizeof(test_struct_t);	
+	rc = dartt_update_controller(&ctl, &gl_ds);
+	TEST_ASSERT_EQUAL(ERROR_INVALID_ARGUMENT, rc);
+
+
+	//happy path
 	ctl.buf = (unsigned char *)(&gl_master_copy.m2_set);
 	ctl.size = 6*sizeof(uint32_t);
 	ctl.len = ctl.size;
-	int rc = dartt_update_controller(&ctl, &gl_ds);
+	rc = dartt_update_controller(&ctl, &gl_ds);
 	TEST_ASSERT_EQUAL(0, rc);
 	int fidx = index_of_field(ctl.buf, gl_ds.ctl_base.buf, gl_ds.ctl_base.size);
 	TEST_ASSERT_EQUAL(1, fidx);
@@ -1134,4 +1158,5 @@ void test_dartt_update_controller(void)
 		}
 	}
 	TEST_ASSERT_EQUAL(ctl.size, match_count);
+
 }

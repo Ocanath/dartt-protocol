@@ -34,7 +34,7 @@ int index_of_field(void * p_field, void * mem, size_t mem_size)
 
     if(p_field_nonvoid < pbase || p_field_nonvoid >= (pbase + mem_size))	//checks if pointer is in-range. also an integer underflow guard for unsigned offset calculation
     {
-        return ERROR_INVALID_ARGUMENT;
+        return ERROR_MEMORY_OVERRUN;
     }
 
     size_t offset = p_field_nonvoid - pbase;
@@ -42,7 +42,7 @@ int index_of_field(void * p_field, void * mem, size_t mem_size)
     // Check if the field is actually within the struct (overrun check)
     if(offset >= mem_size)
     {
-        return ERROR_INVALID_ARGUMENT;
+        return ERROR_MEMORY_OVERRUN;
     }
     
     // Ensure the offset is aligned to 32-bit boundaries

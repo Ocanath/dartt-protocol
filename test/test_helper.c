@@ -55,18 +55,18 @@ void test_index_of_field_comprehensive(void)
 
 	// Test 4: Pointer below base (create pointer arithmetic below base)
 	unsigned char* below_base = (unsigned char*)&comms - 4;
-	TEST_ASSERT_EQUAL(ERROR_INVALID_ARGUMENT,
+	TEST_ASSERT_EQUAL(ERROR_MEMORY_OVERRUN,
 	                  index_of_field(below_base, (void*)&comms, sizeof(comms_t)));
 
 	// Test 5: OFF-BY-ONE BUG - Pointer exactly at base+size (CRITICAL REGRESSION TEST)
 	// This test captures the bug fixed where p_field_nonvoid >= (pbase + mem_size) was changed to use >=
 	unsigned char* at_end = (unsigned char*)&comms + sizeof(comms_t);
-	TEST_ASSERT_EQUAL(ERROR_INVALID_ARGUMENT,
+	TEST_ASSERT_EQUAL(ERROR_MEMORY_OVERRUN,
 	                  index_of_field(at_end, (void*)&comms, sizeof(comms_t)));
 
 	// Test 6: Pointer beyond base+size
 	unsigned char* beyond_end = (unsigned char*)&comms + sizeof(comms_t) + 4;
-	TEST_ASSERT_EQUAL(ERROR_INVALID_ARGUMENT,
+	TEST_ASSERT_EQUAL(ERROR_MEMORY_OVERRUN,
 	                  index_of_field(beyond_end, (void*)&comms, sizeof(comms_t)));
 
 	// Test 7: Misaligned pointer (not 4-byte aligned) - +1 byte

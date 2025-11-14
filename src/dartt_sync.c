@@ -567,6 +567,10 @@ int dartt_update_controller(buffer_t * ctl, dartt_sync_t * psync)
 	assert(psync->ctl_base.buf != NULL && psync->periph_base.buf != NULL);
 
 	int field_offset = 	index_of_field(ctl->buf, psync->ctl_base.buf, psync->ctl_base.size);	//inherit ctl parameter validation from index_of_field
+	if(field_offset < 0)
+	{
+		return field_offset;	//must allow inde_of_field error messages to fall through
+	}
 	size_t base_bidx = (size_t)(field_offset*sizeof(uint32_t));	//index_of_field ensures 32bit alignment
 	if(base_bidx + ctl->size > psync->periph_base.size)	
 	{
