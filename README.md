@@ -1,25 +1,51 @@
 # DARTT - Dual Address Real-Time Transport Protocol
 
-## Overview
+## Introduction
 
-DARTT is a lightweight serial communication protocol that provides a simple, lightweight and low-overhead method of communicating with embedded systems. It's primary intended use case is in motor controllers for robots, but is useful as a general-purpose protocol for any simple communication network with a controller-peripheral structure. 
+DARTT is a serial communication protocol that provides a simple, lightweight and low-overhead method of communicating with embedded systems. Its primary intended use case for robotics (sensors, motor controllers), but is useful as a general-purpose protocol for any simple communication network with a controller-peripheral structure. 
 
-The protocol defines two primary frame types - an application defined 'motor' frame type, and a general purpose 'misc' frame type. These are generally accessed with a 'dual addressing' schema, where each peripheral responds to two different addresses - a 'motor' address and a 'misc' address. 
+DARTT has the following key advantages:
 
-The 'motor' frame is an application defined tight/packed frame for highest possible bandwidth containing specialized command and response patterns (such as voltage, current, position, velocity, etc). The 'misc' frames are protocol defined, and function as block memory read and write messages. 
+### Rapid Development
 
-The motor frame and block memory layout are application specific, and occupy the 'application' layer. Below this layer is the 'protocol' layer - this defines the underlying structure of DARTT generic/misc read and write messages (with block index, payload, read/write bit, etc), detailed below. Below the 'protocol' layer is the 'frame' layer - this is transport protocol specific, and may contain an address and CRC (type 0), just a CRC (type 1), or neither an address nor CRC (type 2). 
+Above all else, DARTT is designed for rapid protoyping and deployment of highly customized communication protocols. It is perfect for small teams or solo developers who want to set up fully featured communication on many different devices as quickly as possible. In most situations, a DARTT memory layout can be defined with a typedef struct in a single, shared header, containing all attributes that might need to be exposed over a communication interface. 
 
-The DARTT library is designed to be C language standards compliant - however, in embedded systems where the controller and peripheral endian-ness and bit-width match, type punning is the recommended way to define the block memory structure. This is especially true for the peripheral, which is most commonly an embedded system with fixed CPU architecture, and therefore will have a predictable memory layout. This is also the reason that DARTT is little-endian - for the most commonly used CPU architectures (ARM and x86), little-endian is the default.
+### Near-Zero Overhead
+
+DARTT is designed to be extremely minimal. The generic block memory read/write frame formats have at minimum two bytes of overhead, and at maximum 5 bytes. Messages sizes are also highly predictable, meaning that even the generic access format is suitable for real-time communication. Additionally, the dual addressing feature allows for zero overhead communication with specialized frame formats.
+
+### Flexibility
+
+DARTT is designed to be supported over nearly all microcontroller peripheral communication protocols with minimum overhead, including:
+
+- SPI
+- I2C
+- CAN
+- UART
+- Multi-drop serial protocols, such as RS485
+- UDP/TCP over WiFi
+- BLE
+
+DARTT messages will be formed depending on the supported features of the communciation protocol - for example, in CAN, where error handling via CRC and device filtering (by message ID) are handled on a protocol level, these elements are stripped from the frame format to minimize overhead. For communication over protocols such as RS485, DARTT handles both address filtering and error checking via CRC. For protocols with built-in device selection but no error handling (SPI, I2C, or point-to-point protocols such as UART), DARTT handles CRC but removes redundant address filtering.
+
+The DARTT library is designed to be C language standards compliant - however, in embedded systems where the controller and peripheral endian-ness and bit-width match, type punning is the recommended way to define the block memory structure. This is especially true for the peripheral, which is most commonly an embedded system with fixed CPU architecture, and therefore will have a predictable memory layout. This is also the reason that DARTT is little-endian - for the most commonly used CPU architectures (ARM and x86), little-endian is the default. Support across multiple languages (such as python) is possible, but requires additional development effort to support (manual enumeration, serialization tools, etc. ).
 
 ## Integration into Your Project
 
-### Required Files
-Copy these files into your project:
-- `src/dartt.c`
-- `src/dartt.h`
-- `src/checksum.c`
-- `src/checksum.h`
+The recommended way to include DARTT is as a git submodule. The required minimum files are:
+```
+checksum.c
+checksum.h
+dartt.c
+dartt.h
+```
+
+For controller devices, it is recommended to also include:
+```
+dartt_sync.c
+dartt_sync.h
+```
+
 
 ## Building and Testing
 
@@ -37,25 +63,8 @@ cmake --build .
 ```
 
 ### Running Unit Tests
-The test suite can be run via ceedling
+The test suite can be run via ceedling, which must first be installed.
 ```bash
 ceedling test:all
 ```
 
-### DEBUGGING Unit Tests in vscode
-Open the specific test file you want to run (i.e. test_serial_comms.c) in vscode. It will attempt to debug the build artifact named for the currently opened file. Hit F5 or debug - the test will run and debugging will be enabled. You may need to pre-run ceedling test:all before debugging in order to ensure the .out artifact is up to date.
-
-### Message Structure:
-```
-Write Message:
-    Full Serial: [Byte 0: address][Bytes 1-2: read/write bit (MSB), index (low 15)][Bytes 3 - (N-3): payload][Bytes (N-2)-(N-1): checksum]
-
-```
-
-
-### Protocol Definition:
-``` 
-This protocol has a layered structure. 
-
-It is designed to have a flexible and easy to implement custom Application layer. The Application layer consists of an address On embedded systems, the application layer can be implemented with typedef structs (with packed attributes for different types), or
-can be made standard-compliant with pointer arithmetic. The Application layer is simply implemented on a block of protected memory, which is written to and read from via the Payload layer. 

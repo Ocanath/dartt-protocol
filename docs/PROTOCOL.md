@@ -1,13 +1,29 @@
 # DARTT - Dual Address Real-Time Transport Protcol
 
-## Frame Definitions
+## Introduction
+
+DARTT has the following key features:
+
+### Dual-addressing Schema
+
+The protocol defines two primary frame types - an application defined 'motor' frame type, and a general purpose 'misc' frame type. These are generally accessed with a 'dual addressing' schema, where each peripheral responds to two different addresses - a 'motor' address and a 'misc' address. There is a 1:1 mapping between motor and misc addresses - each device gets only one 'identifier', which splits the address range.
+
+For applications that need absolutely zero overhead, the 'motor' address is used for custom frame formats exchanged with the highest possible bandwidth. Intended use is to pack specialized command and response patterns (such as voltage, current, position, velocity, etc). Typical use will be to use a fixed or context-defined zero-overhead frame structure. 
+
+The 'misc' frames are generic and protocol defined, and function as block memory read and write messages. The application simply needs to define a memory layout with all information that needs to be accessible over the network, and map it to DARTT. The rest of the application code reads from and writes to that memory block. Misc frames have very low overhead and predictable sizes, making them suitable for real-time control applications. 
+
+### Flexible Frame Format/Protocol Agnostic
+
+DARTT frames have three different 'modes' which effect the frame overhead. 
 
 The protocol supports three different message types to accommodate various transport layers:
 - **TYPE_SERIAL_MESSAGE**: Raw serial with address and CRC
 - **TYPE_ADDR_MESSAGE**: Built-in addressing with CRC
 - **TYPE_ADDR_CRC_MESSAGE**: Built-in addressing and CRC
 
-All multi-byte integers are transmitted in **little-endian** format.
+For protocols with no built-in arbitration or error handling, `TYPE_SERIAL_MESSAGE` will prepend an address for arbitration and append a CRC16 for validation/error handling. For protocols such as SPI and I2C which have built-in arbitration but no built in error handling, `TYPE_ADDR_MESSAGE` ensures only the CRC16 will be appended to the core DARTT layer message. For running DARTT over communication channels with fully managed arbitration and error handling (such as CAN-FD, UDP, BLE), `TYPE_ADDR_CRC_MESSAGE` removes address and CRC16 overhead from the core DARTT payload, minimizing overhead. 
+
+**Note:** For CAN specifically, it is necessary to use `TYPE_ADDR_CRC_MESSAGE` and at least a 6 byte payload size for DARTT to be supported. For CAN-FD with payload sizes above 8 bytes, application-driven padding logic and/or or careful message sizing must be performed to prevent errors, as CAN-FD payload sizes between 8 and 64 bytes are enumerated in non-uniform increments.
 
 ## Frame Formats
 
