@@ -12,7 +12,7 @@ extern "C" {
 typedef struct dartt_sync_t
 {
         unsigned char address;	 // Target peripheral address
-		buffer_t ctl_base;			// Base of master control structure
+		buffer_t ctl_base;			// Base of controller control structure
 		buffer_t periph_base;		 // Base of shadow copy structure
 		serial_message_type_t msg_type;	// Message framing type
 		buffer_t tx_buf;		// Transmission buffer

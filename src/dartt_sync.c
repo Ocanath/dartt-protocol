@@ -548,3 +548,33 @@ int dartt_write_multi(buffer_t * ctl, dartt_sync_t * psync)
 	}
 	return DARTT_PROTOCOL_SUCCESS;
 }
+
+
+/**
+ * @brief Helper function for copying data FROM a specific region of the shadow copy TO the corresponding region in the controller copy.
+ *
+ * @param ctl Pointer to region within ctl_base specifying the destination region to update, from periph_base (the shadow copy). Typical 
+ * call pattern is to make a call to dartt_read_multi, immediately followed by a call to dartt_update_controller with the exact same input
+ *  parameters.
+ * 
+ * @param psync Sync structure with ctl_base, periph_base, callbacks, and buffers.
+ * @return DARTT_PROTOCOL_SUCCESS on success, error code on failure
+ */
+dartt_update_controller(buffer_t * ctl, dartt_sync_t * psync)
+{
+	assert(ctl != NULL && psync != NULL);
+	assert(ctl->buf != NULL);
+	assert(psync->ctl_base.buf != NULL && psync->periph_base.buf != NULL);
+
+	int field_offset = 	index_of_field(ctl->buf, psync->ctl_base.buf, psync->ctl_base.size);	//inherit ctl parameter validation from index_of_field
+	size_t base_bidx = (size_t)(field_offset*sizeof(uint32_t));	//index_of_field ensures 32bit alignment
+	if(base_bidx + ctl->size > psync->periph_base.size)	
+	{
+		return ERROR_MEMORY_OVERRUN;	//memory overrun guard for the copy op we're about to do
+	}
+	for(int i = 0; i < ctl->size; i++)
+	{
+		ctl->buf[i] = psync->periph_base.buf[base_bidx + i];
+	}
+	return DARTT_PROTOCOL_SUCCESS;
+}

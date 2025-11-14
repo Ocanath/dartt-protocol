@@ -32,7 +32,7 @@ int index_of_field(void * p_field, void * mem, size_t mem_size)
     unsigned char * pbase = (unsigned char *)(mem);
     unsigned char * p_field_nonvoid = (unsigned char *)p_field;
 
-    if(p_field_nonvoid < pbase || p_field_nonvoid >= (pbase + mem_size))
+    if(p_field_nonvoid < pbase || p_field_nonvoid >= (pbase + mem_size))	//checks if pointer is in-range. also an integer underflow guard for unsigned offset calculation
     {
         return ERROR_INVALID_ARGUMENT;
     }
