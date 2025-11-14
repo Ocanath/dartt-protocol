@@ -2,13 +2,12 @@
 
 ## Table of Contents
 1. [Introduction](#1-introduction)
-2. [Core Concepts](#2-core-concepts)
-3. [Setup and Initialization](#3-setup-and-initialization)
+2. [Design Philosophy](#2-design-philosophy)
+3. [The dartt_sync_t Structure](#3-the-dartt_sync_t-structure)
 4. [The Three Core Functions](#4-the-three-core-functions)
-5. [Advanced Usage Patterns](#5-advanced-usage-patterns)
-6. [Common Pitfalls and Best Practices](#6-common-pitfalls-and-best-practices)
-7. [Example: Complete Workflow](#7-example-complete-workflow)
-8. [Troubleshooting](#8-troubleshooting)
+5. [Understanding the ctl Parameter Pattern](#5-understanding-the-ctl-parameter-pattern)
+6. [Common Pitfalls](#6-common-pitfalls)
+7. [Troubleshooting](#7-troubleshooting)
 
 ---
 
@@ -16,17 +15,13 @@
 
 DARTT Sync provides high-level convenience functions for synchronizing memory between a controller device and peripheral devices over the DARTT protocol. Instead of manually constructing read/write messages, you maintain two local copies of the peripheral's memory layout and let DARTT Sync handle the protocol details.
 
-**Philosophy**: The controller maintains:
-- **`ctl_base`**: The "master copy" - what you WANT the peripheral to be
-- **`periph_base`**: The "shadow copy" - what you BELIEVE the peripheral currently is
-
-DARTT Sync automatically detects differences and synchronizes them efficiently.
-
 ---
 
-## 2. Core Concepts
+## 2. Design Philosophy
 
-### 2.1 Memory Model
+### 2.1 The Two-Copy Model
+
+DARTT Sync is built around maintaining **two local copies** of the peripheral's memory structure:
 
 ```
 Controller Device Memory:
@@ -41,625 +36,328 @@ Controller Device Memory:
          write                    read back
 ```
 
-### 2.2 The dartt_sync_t Structure
+**Control Base (Master Copy)**:
+- Represents what you **WANT** the target device to be
+- You modify this when you want to change target memory state
+- Source of truth for desired configuration
+
+**Peripheral Base (Shadow Copy)**:
+- Represents what you **BELIEVE** the target currently is
+- Updated after successful writes or reads
+- Used for comparison to detect changes
+
+This separation allows DARTT Sync to:
+- Automatically detect only what has changed
+- Verify writes by comparing read-back data
+- Maintain consistency between controller and peripheral
+
+### 2.2 Operating on Regions
+
+All DARTT Sync functions operate on **regions** within these base structures. You don't always have to sync the entire structure - you can target specific fields or subsections. This enables:
+- Efficient updates (only sync what changed)
+- Flexible access patterns (for instance, call `dartt_sync` on a write-only section of the target memory layout, and `dartt_read_multi` on a different read-only section of the target memory layout)
+
+The `ctl` parameter in all functions specifies which region to operate on. It must always point within `ctl_base`, or the function will return an overflow error.
+
+---
+
+## 3. The `dartt_sync_t` Structure
+
+### 3.1 Structure Overview
 
 ```c
 typedef struct dartt_sync_t
 {
-        unsigned char address;	 // Target peripheral address
-		buffer_t ctl_base;			// Base of master control structure
-		buffer_t periph_base;		 // Base of shadow copy structure
-		serial_message_type_t msg_type;	// Message framing type
-		buffer_t tx_buf;		// Transmission buffer
-		buffer_t rx_buf;		 // Reception buffer
-		int (*blocking_tx_callback)(unsigned char, buffer_t*, uint32_t timeout);	//Callback for (blocking) transmissions with a millisecond timeout
-		int (*blocking_rx_callback)(buffer_t*, uint32_t timeout);		//Callback for (blocking) receptions with a millisecond timeout
-		uint32_t timeout_ms;		// Communication timeout
+    unsigned char address;           // Target peripheral address
+    buffer_t ctl_base;              // Base of master control structure
+    buffer_t periph_base;           // Base of shadow copy structure
+    serial_message_type_t msg_type; // Message framing type
+    buffer_t tx_buf;                // Transmission buffer
+    buffer_t rx_buf;                // Reception buffer
+    int (*blocking_tx_callback)(unsigned char, buffer_t*, uint32_t timeout);
+    int (*blocking_rx_callback)(buffer_t*, uint32_t timeout);
+    uint32_t timeout_ms;            // Communication timeout
 }dartt_sync_t;
 ```
 
-**Critical Requirements**:
-- `ctl_base` and `periph_base` MUST have identical `size` fields
-- `ctl_base.buf` and `periph_base.buf` MUST point to DIFFERENT memory locations
-- Both structures should represent the same layout (typically same typedef struct, but any method of decoding a shared memory structure will work)
-- All pointers must be 32-bit aligned (4-byte boundaries)
+### 3.2 Critical Requirements
 
-### 2.3 Buffer Sizing Constraints
+**Base Buffer Constraints**:
+- `ctl_base.size` and `periph_base.size` **MUST be identical**
+- `ctl_base.buf` and `periph_base.buf` **MUST point to different memory**
+- Both should represent the same layout (typically same struct type)
+- All pointers must be **32-bit aligned** (4-byte boundaries)
 
-**For CAN/CAN-FD**:
-- **Standard CAN**: Set tx_buf and rx_buf to 8 bytes for proper operation
-- **CAN-FD (IMPORTANT )**: For DLC > 8, message lengths follow a lookup table (not continuous integers). DARTT Sync does not handle LUT sizes for FD can, so so keep buffers ≤ 8 when doing block memory operations with CAN-FD.
+**Why these requirements matter**:
+- Same size: Functions calculate offsets assuming parallel structures
+- Different memory: Prevents comparing a structure to itself, preserve the shadow-copy paradigm
+- 32-bit alignment: DARTT protocol uses 32-bit word-based indexing
 
----
+### Note - Buffer Sizing for CAN/CAN-FD
 
-## 3. Setup and Initialization
+**Standard CAN**: Set `tx_buf` and `rx_buf` to 8 bytes.
 
-### 3.1 Define Your Memory Structure
+**CAN-FD**: For DLC > 8, message lengths follow a non-continuous lookup table. DARTT Sync assumes continuous integer sizing, so keep buffers ≤ 8 bytes for block memory operations on CAN-FD.
 
-Example:
-```c
-typedef struct motor_config_t {
-    uint32_t device_id;         // Word 0
-    uint32_t max_speed;         // Word 1
-    uint32_t position_target;   // Word 2
-    uint32_t current_position;  // Word 3
-    uint32_t status_flags;      // Word 4
-} motor_config_t;
-```
+### 3.4 Callback Expectations
 
-### 3.2 Allocate Master and Shadow Copies
+`blocking_tx_callback`
+- Receives a fully burdened DARTT frame to transmit
+- If any additional encoding is used (byte stuffing, etc.) it should be done here before transmission
+- Should block until transmission completes or timeout expires
+- Returns `DARTT_PROTOCOL_SUCCESS` or error code
 
-```c
-// Master copy (what we want the motor to be)
-motor_config_t motor_master = {
-    .device_id = 0x1234,
-    .max_speed = 1000,
-    .position_target = 0,
-    .current_position = 0,
-    .status_flags = 0
-};
-
-// Shadow copy (what we believe the motor currently is)
-motor_config_t motor_shadow = {0};  // Start zeroed
-```
-
-### 3.3 Implement Communication Callbacks
-
-```c
-int my_blocking_tx(unsigned char address, buffer_t* frame, uint32_t timeout_ms) {
-    // Send frame->buf (length: frame->len) to specified address
-    // Wait up to timeout_ms for transmission completion
-    // Return DARTT_PROTOCOL_SUCCESS or error code
-
-    // Example for CAN:
-    // can_send(address, frame->buf, frame->len);
-    // wait_for_tx_complete(timeout_ms);
-    return DARTT_PROTOCOL_SUCCESS;
-}
-
-int my_blocking_rx(buffer_t* frame, uint32_t timeout_ms) {
-    // Wait up to timeout_ms to receive a frame
-    // Store received data in frame->buf
-    // Set frame->len to number of bytes received
-    // Return DARTT_PROTOCOL_SUCCESS or error code
-
-    // IMPORTANT: This should return the RAW FRAME (not pre-processed)
-
-    // Example for CAN:
-    // if (can_receive(frame->buf, &frame->len, timeout_ms) == SUCCESS) {
-    //     return DARTT_PROTOCOL_SUCCESS;
-    // }
-    return ERROR_TIMEOUT;
-}
-```
-
-### 3.4 Initialize dartt_sync_t Structure
-
-```c
-// Communication buffers
-unsigned char tx_buffer[64];
-unsigned char rx_buffer[64];
-
-// Initialize sync structure
-dartt_sync_t motor_sync = {
-    .address = 0x03,  // Motor's address (function uses complementary internally)
-
-    .ctl_base = {
-        .buf = (unsigned char*)&motor_master,
-        .size = sizeof(motor_config_t),
-        .len = 0  // Not used for base
-    },
-
-    .periph_base = {
-        .buf = (unsigned char*)&motor_shadow,
-        .size = sizeof(motor_config_t),
-        .len = 0  // Not used for base
-    },
-
-    .msg_type = TYPE_SERIAL_MESSAGE,  // or TYPE_ADDR_MESSAGE, TYPE_ADDR_CRC_MESSAGE
-
-    .tx_buf = {
-        .buf = tx_buffer,
-        .size = sizeof(tx_buffer),
-        .len = 0
-    },
-
-    .rx_buf = {
-        .buf = rx_buffer,
-        .size = sizeof(rx_buffer),
-        .len = 0
-    },
-
-    .blocking_tx_callback = my_blocking_tx,
-    .blocking_rx_callback = my_blocking_rx,
-    .timeout_ms = 100
-};
-```
+`blocking_rx_callback`:
+- Should block until a fully burdened DARTT reply frame is received or timeout expires
+- Must set `frame->len` to the number of bytes received
+- Returns `DARTT_PROTOCOL_SUCCESS` or error code
 
 ---
 
 ## 4. The Three Core Functions
 
-### 4.1 dartt_sync() - Differential Synchronization
-
-**Purpose**: Scan for differences between master and shadow, then write+verify changes.
+### 4.1 dartt_sync() - Differential Synchronization with Verification
 
 ```c
 int dartt_sync(buffer_t * ctl, dartt_sync_t * psync);
 ```
 
-**How it works**:
-1. Compares `ctl` region (from master) with corresponding `periph_base` region
-2. Finds contiguous blocks of differences
-3. For each difference: writes master→peripheral, reads back, verifies match
-4. Updates shadow copy after successful verification
+**Purpose**: Compare master and shadow, write differences to peripheral, verify with read-back.
 
-**Example - Sync a single field**:
-```c
-// Update a single field
-motor_master.position_target = 5000;
+**Operation**:
+1. Scans the `ctl` region comparing master (ctl_base) to shadow (periph_base)
+2. Identifies contiguous blocks of differences
+3. For each difference:
+   - Writes master → peripheral
+   - Reads back from peripheral
+   - Verifies read-back matches what was written
+4. Updates shadow copy on successful verification
 
-// Create buffer alias to the field you want to sync
-buffer_t target_field = {
-    .buf = (unsigned char*)&motor_master.position_target,
-    .size = sizeof(motor_master.position_target),
-    .len = sizeof(motor_master.position_target)
-};
-
-// Sync just this field
-int rc = dartt_sync(&target_field, &motor_sync);
-if (rc == DARTT_PROTOCOL_SUCCESS) {
-    // motor_shadow.position_target now matches motor_master.position_target
-    // Peripheral device has been updated and verified
-}
-```
-
-**Example - Sync entire structure**:
-```c
-buffer_t full_struct = {
-    .buf = (unsigned char*)&motor_master,
-    .size = sizeof(motor_config_t),
-    .len = sizeof(motor_config_t)
-};
-rc = dartt_sync(&full_struct, &motor_sync);
-```
+**Automatic chunking**: If a mismatch region exceeds `tx_buf` capacity, it's automatically split into multiple write/read operations.
 
 **When to use**:
-- You want verification that the write succeeded
-- You need to detect peripheral write failures
-- Updating critical configuration that must be confirmed
+- Critical configuration that must be verified
+- Situations where write failures must be detected
+- When you need confirmation the peripheral accepted the write
+
+**Key behavior**: Shadow copy is updated **only after verification**, ensuring it accurately reflects peripheral state.
 
 ### 4.2 dartt_write_multi() - Write Without Verification
-
-**Purpose**: Write data from master to peripheral (no read-back verification).
 
 ```c
 int dartt_write_multi(buffer_t * ctl, dartt_sync_t * psync);
 ```
 
-**Key differences from dartt_sync()**:
-- Does NOT read back or verify
-- Does NOT update shadow copy
-- Faster but less safe
-- Automatically breaks large writes into chunks
+**Purpose**: Write data from master to peripheral without read-back verification.
 
-**Example**:
-```c
-// Write entire configuration without verification
-buffer_t config = {
-    .buf = (unsigned char*)&motor_master,
-    .size = sizeof(motor_config_t),
-    .len = sizeof(motor_config_t)
-};
-
-int rc = dartt_write_multi(&config, &motor_sync);
-// Data sent, but shadow NOT updated!
-```
+**Operation**:
+1. Writes the entire `ctl` region to peripheral
+2. Automatically splits into multiple messages if needed
+3. **Does NOT** read back
+4. **Does NOT** update shadow copy
 
 **When to use**:
-- High-frequency updates where verification would slow things down
-- Non-critical data where occasional write failures are acceptable
-- You plan to read back later to verify
+- High-frequency command updates where verification adds latency
+- Non-critical data where occasional failures are acceptable
+- Situations where you'll verify later with a read
+
+**Important**: Since shadow isn't updated, subsequent `dartt_sync()` calls will see mismatches unless you manually update the shadow or perform a read.
 
 ### 4.3 dartt_read_multi() - Read Into Shadow Copy
-
-**Purpose**: Read data from peripheral into shadow copy.
 
 ```c
 int dartt_read_multi(buffer_t * ctl, dartt_sync_t * psync);
 ```
 
-**⚠️ CONFUSING PARAMETER PATTERN** (Most common source of errors):
-- The `ctl` parameter specifies **WHAT** to read (the memory region)
-- Results go into `psync->periph_base` at the corresponding offset
-- The `ctl` parameter is **NOT** the destination!
+**Purpose**: Read data from peripheral into shadow copy.
 
-**Example - Reading position from peripheral**:
-```c
-// Read current position from peripheral
-buffer_t position_region = {
-    .buf = (unsigned char*)&motor_master.current_position,  // Specifies WHAT to read
-    .size = sizeof(motor_master.current_position),
-    .len = sizeof(motor_master.current_position)
-};
-
-int rc = dartt_read_multi(&position_region, &motor_sync);
-if (rc == DARTT_PROTOCOL_SUCCESS) {
-    // Result is now in motor_shadow.current_position
-    // (NOT in motor_master.current_position!)
-    printf("Position: %d\n", motor_shadow.current_position);
-
-    // If you want to update master, do it explicitly:
-    motor_master.current_position = motor_shadow.current_position;
-}
-```
+**Operation**:
+1. Calculates offset of `ctl` region within `ctl_base`
+2. Reads corresponding region from peripheral
+3. Stores result in `periph_base` at the matching offset
+4. Automatically splits into multiple reads if needed
 
 **When to use**:
-- Polling sensor data from peripheral
-- Reading status/feedback information
-- Verifying peripheral state
+- Polling sensor data or status from peripheral
+- Initializing shadow copy from peripheral state
+- Verifying peripheral state after writes
+
+**Critical note**: See section 5 for detailed explanation of the confusing parameter pattern.
 
 ---
 
-## 5. Advanced Usage Patterns
+## 5. Understanding the ctl Parameter Pattern
 
-### 5.1 Periodic Polling
+### 5.1 The Source of Confusion
 
-```c
-void update_motor_status(void) {
-    // Read status fields from peripheral (position + status_flags)
-    buffer_t status_region = {
-        .buf = (unsigned char*)&motor_master.current_position,
-        .size = 2 * sizeof(uint32_t),  // Read two consecutive fields
-        .len = 2 * sizeof(uint32_t)
-    };
+The `ctl` parameter behaves differently depending on context, which is the **most common source of errors** when using DARTT Sync.
 
-    dartt_read_multi(&status_region, &motor_sync);
-    // Results in motor_shadow.current_position and motor_shadow.status_flags
+**For dartt_sync() and dartt_write_multi()**:
+- `ctl` specifies **WHAT to send**
+- Data comes **FROM** the `ctl` buffer
+- Straightforward: you're writing what `ctl` points to
 
-    // Copy to master if needed
-    motor_master.current_position = motor_shadow.current_position;
-    motor_master.status_flags = motor_shadow.status_flags;
-}
-```
+**For dartt_read_multi()**:
+- `ctl` specifies **WHAT to read** (the region/offset)
+- Data goes **TO** `periph_base`, **NOT** to `ctl`!
+- `ctl` is only used to calculate the offset
 
-### 5.2 Batch Updates
+### 5.2 Why This Design?
 
-```c
-void configure_motor(uint32_t speed, uint32_t target) {
-    // Update multiple fields in master
-    motor_master.max_speed = speed;
-    motor_master.position_target = target;
+This design maintains API consistency - all functions use `ctl` to specify "which region of the structure" to operate on. However, for reads:
+- You can't read directly into `ctl_base` (it's the master copy you control)
+- Results must go into `periph_base` (the shadow reflecting peripheral state)
 
-    // Sync both fields at once
-    buffer_t config_region = {
-        .buf = (unsigned char*)&motor_master.max_speed,
-        .size = 2 * sizeof(uint32_t),
-        .len = 2 * sizeof(uint32_t)
-    };
+The `ctl` pointer essentially says "I want to operate on the field at THIS offset", and the function translates that to the corresponding offset in `periph_base`.
 
-    dartt_sync(&config_region, &motor_sync);
-    // Both fields written and verified as a batch
-}
-```
+### 5.3 Practical Implications
 
-### 5.3 Initialize Shadow Copy from Peripheral
+**After calling dartt_read_multi()**:
+- Check results in `periph_base`, not `ctl_base`
+- If you want master to reflect peripheral state, explicitly copy shadow → master
+- Don't assume anything about `ctl_base` changing
 
-```c
-void initialize_from_peripheral(void) {
-    // Read entire peripheral state into shadow
-    buffer_t full_read = {
-        .buf = (unsigned char*)&motor_master,  // Specifies full structure
-        .size = sizeof(motor_config_t),
-        .len = sizeof(motor_config_t)
-    };
-
-    dartt_read_multi(&full_read, &motor_sync);
-    // motor_shadow now contains peripheral's current state
-
-    // Copy to master to start synchronized
-    memcpy(&motor_master, &motor_shadow, sizeof(motor_config_t));
-}
-```
+**Common mistake**: Reading a value and checking the wrong buffer for results.
 
 ---
 
-## 6. Common Pitfalls and Best Practices
+## 6. Common Pitfalls
 
-### ❌ Pitfall 1: Confusing ctl Parameter in read_multi
+### 6.1 Reading and Expecting Results in Master
 
-```c
-// WRONG: Expecting result in motor_master
-buffer_t position = {
-    .buf = (unsigned char*)&motor_master.current_position,
-    .size = 4, .len = 4
-};
-dartt_read_multi(&position, &motor_sync);
-uint32_t value = motor_master.current_position;  // ❌ WRONG! Still old value
-```
+**Problem**: After `dartt_read_multi()`, checking the `ctl_base` field instead of `periph_base`.
 
-```c
-// CORRECT: Result goes to motor_shadow
-dartt_read_multi(&position, &motor_sync);
-uint32_t value = motor_shadow.current_position;  // ✅ Correct!
-```
+**Why it fails**: Read results go to shadow (periph_base), not master (ctl_base).
 
-### ❌ Pitfall 2: Buffer Pointer Outside Base
+**Solution**: Always access `periph_base` after reads. If you need the value in master, explicitly copy it.
 
-```c
-// WRONG: ctl not within ctl_base
-motor_config_t temp_config;
-buffer_t bad_buf = {
-    .buf = (unsigned char*)&temp_config,  // ❌ Not part of motor_master!
-    .size = sizeof(motor_config_t),
-    .len = sizeof(motor_config_t)
-};
-dartt_sync(&bad_buf, &motor_sync);  // Returns ERROR_INVALID_ARGUMENT
-```
+### 6.2 Buffer Pointer Outside Base Range
 
-```c
-// CORRECT: ctl points within motor_master
-buffer_t good_buf = {
-    .buf = (unsigned char*)&motor_master.position_target,  // ✅ Inside motor_master
-    .size = sizeof(uint32_t),
-    .len = sizeof(uint32_t)
-};
-dartt_sync(&good_buf, &motor_sync);  // Works correctly
-```
+**Problem**: Creating a `ctl` buffer that points to memory not within `ctl_base`.
 
-### ❌ Pitfall 3: Misaligned Pointers
+**Why it fails**: Functions calculate field offsets assuming `ctl` is within `ctl_base`. Invalid offsets cause `ERROR_INVALID_ARGUMENT`.
 
-```c
-// WRONG: Pointer not 32-bit aligned
-buffer_t misaligned = {
-    .buf = (unsigned char*)&motor_master + 1,  // ❌ +1 byte, not aligned!
-    .size = 4, .len = 4
-};
-dartt_sync(&misaligned, &motor_sync);  // Returns ERROR_INVALID_ARGUMENT
-```
+**Solution**: Always ensure `ctl->buf` is within the range `[ctl_base.buf, ctl_base.buf + ctl_base.size)`.
 
-### ❌ Pitfall 4: Using write_multi Then Expecting Shadow to Update
+### 6.3 Misaligned Pointers
 
-```c
-// WRONG: Assuming shadow updates after write_multi
-motor_master.position_target = 1000;
-buffer_t target = {
-    .buf = (unsigned char*)&motor_master.position_target,
-    .size = 4, .len = 4
-};
-dartt_write_multi(&target, &motor_sync);
-// motor_shadow.position_target is still old value! ❌
-```
+**Problem**: Pointing to a non-4-byte-aligned address.
 
-```c
-// CORRECT: Use dartt_sync for automatic shadow update
-dartt_sync(&target, &motor_sync);
-// motor_shadow.position_target now matches motor_master ✅
+**Why it fails**: DARTT uses 32-bit word indexing. Misaligned pointers produce incorrect field indices.
 
-// Or manually update shadow after write_multi
-dartt_write_multi(&target, &motor_sync);
-motor_shadow.position_target = motor_master.position_target;  // Manual update
-```
+**Solution**: Only point to fields that start on 4-byte boundaries. Structures with proper packing naturally satisfy this.
 
-### ✅ Best Practice 1: Validate Field Pointers
+### 6.4 Using write_multi() Then Expecting Sync to Work
 
-```c
-// Use index_of_field to verify field is within structure
-int idx = index_of_field(&motor_master.position_target,
-                         &motor_master,
-                         sizeof(motor_config_t));
-if (idx < 0) {
-    // Handle error - field not within structure
-}
-```
+**Problem**: Using `dartt_write_multi()`, then being surprised when `dartt_sync()` re-transmits the same data.
 
-### ✅ Best Practice 2: Initialize Properly
+**Why it fails**: `write_multi()` doesn't update shadow, so `dartt_sync()` sees master ≠ shadow and thinks it needs to write.
 
-```c
-// On startup, read peripheral state first
-dartt_read_multi(&full_struct, &motor_sync);
+**Solution**: Either:
+- Use `dartt_sync()` if you want automatic shadow updates
+- Manually update shadow after `write_multi()`
+- Use `dartt_read_multi()` to refresh shadow from peripheral
 
-// Copy shadow to master for initial sync
-memcpy(&motor_master, &motor_shadow, sizeof(motor_config_t));
+### 6.5 Mismatched Base Sizes
 
-// Now modify master and sync changes
-motor_master.control_mode = MODE_ACTIVE;
-dartt_sync(&mode_field, &motor_sync);
-```
+**Problem**: `ctl_base.size` ≠ `periph_base.size`.
 
-### ✅ Best Practice 3: Use Appropriate Function for Task
+**Why it fails**: Functions assume parallel structures. Offset calculations break with mismatched sizes, causing `ERROR_MEMORY_OVERRUN`.
 
-```c
-// For critical config: use dartt_sync (with verification)
-dartt_sync(&critical_field, &motor_sync);
-
-// For high-frequency commands: use dartt_write_multi (faster)
-dartt_write_multi(&position_cmd, &motor_sync);
-
-// For reading sensor data: use dartt_read_multi
-dartt_read_multi(&sensor_region, &motor_sync);
-```
+**Solution**: Always initialize both bases to point to structures of identical size.
 
 ---
 
-## 7. Example: Complete Workflow
-
-```c
-#include "dartt_sync.h"
-#include <string.h>
-
-// 1. Define structure
-typedef struct {
-    uint32_t id;
-    uint32_t speed;
-    uint32_t position;
-    uint32_t status;
-} device_t;
-
-// 2. Allocate copies
-device_t master = {.id = 1, .speed = 100, .position = 0, .status = 0};
-device_t shadow = {0};
-
-// 3. Communication buffers
-unsigned char tx[64], rx[64];
-
-// 4. Callbacks (implementation depends on your hardware)
-int hw_tx(unsigned char addr, buffer_t* buf, uint32_t timeout) {
-    // Your TX implementation (CAN, UART, etc.)
-    return DARTT_PROTOCOL_SUCCESS;
-}
-
-int hw_rx(buffer_t* buf, uint32_t timeout) {
-    // Your RX implementation
-    return DARTT_PROTOCOL_SUCCESS;
-}
-
-// 5. Initialize sync structure
-dartt_sync_t sync = {
-    .address = 0x05,
-    .ctl_base = {(unsigned char*)&master, sizeof(device_t), 0},
-    .periph_base = {(unsigned char*)&shadow, sizeof(device_t), 0},
-    .msg_type = TYPE_SERIAL_MESSAGE,
-    .tx_buf = {tx, sizeof(tx), 0},
-    .rx_buf = {rx, sizeof(rx), 0},
-    .blocking_tx_callback = hw_tx,
-    .blocking_rx_callback = hw_rx,
-    .timeout_ms = 100
-};
-
-// 6. Initialization sequence
-void init_sequence(void) {
-    // Read current peripheral state
-    buffer_t full_struct = {
-        .buf = (unsigned char*)&master,
-        .size = sizeof(device_t),
-        .len = sizeof(device_t)
-    };
-    dartt_read_multi(&full_struct, &sync);
-
-    // Copy shadow to master
-    memcpy(&master, &shadow, sizeof(device_t));
-
-    // Now we're synchronized!
-}
-
-// 7. Usage in main loop
-void main_loop(void) {
-    // Write new speed
-    master.speed = 500;
-    buffer_t speed_buf = {
-        .buf = (unsigned char*)&master.speed,
-        .size = 4, .len = 4
-    };
-    dartt_sync(&speed_buf, &sync);
-
-    // Read current position and status
-    buffer_t status_buf = {
-        .buf = (unsigned char*)&master.position,
-        .size = 8, .len = 8  // Read 2 fields (position + status)
-    };
-    dartt_read_multi(&status_buf, &sync);
-
-    // Result is in shadow!
-    printf("Position: %u, Status: %u\n", shadow.position, shadow.status);
-}
-```
-
----
-
-## 8. Troubleshooting
+## 7. Troubleshooting
 
 ### ERROR_INVALID_ARGUMENT
 
 **Possible causes**:
-- `ctl->buf` is not within `psync->ctl_base` range
-- Pointer is not 32-bit aligned (not on 4-byte boundary)
-- `ctl->size` is not a multiple of 4
+- `ctl->buf` not within `psync->ctl_base` range
+- Pointer not 32-bit aligned
+- `ctl->size` not a multiple of 4
+- NULL pointers in critical fields
 
-**Solutions**:
-```c
-// Check alignment
-if (((uintptr_t)ctl->buf) % 4 != 0) {
-    // Pointer not aligned!
-}
-
-// Verify within base
-if (ctl->buf < psync->ctl_base.buf ||
-    ctl->buf >= psync->ctl_base.buf + psync->ctl_base.size) {
-    // Pointer outside base range!
-}
-```
+**Debug approach**:
+- Verify `ctl->buf >= ctl_base.buf` and `ctl->buf < ctl_base.buf + ctl_base.size`
+- Check `((uintptr_t)ctl->buf) % 4 == 0` for alignment
+- Ensure structure size is multiple of `sizeof(uint32_t)`
 
 ### ERROR_MEMORY_OVERRUN
 
 **Possible causes**:
-- `ctl_base.size != periph_base.size`
+- `ctl_base.size` ≠ `periph_base.size`
 - `ctl->buf + ctl->len` exceeds `ctl_base` bounds
 - `tx_buf` or `rx_buf` too small for message overhead
+- Calculated write would exceed `periph_base` bounds
 
-**Solutions**:
-```c
-// Ensure bases match
-assert(psync->ctl_base.size == psync->periph_base.size);
-
-// Check buffer bounds
-if (ctl->buf + ctl->len > psync->ctl_base.buf + psync->ctl_base.size) {
-    // Buffer extends beyond base!
-}
-
-// Minimum buffer sizes (for TYPE_ADDR_CRC_MESSAGE):
-// tx_buf: 2 (overhead) + 4 (min payload) = 6 bytes minimum
-// rx_buf: Same as tx_buf
-```
+**Debug approach**:
+- Add assertion: `assert(ctl_base.size == periph_base.size)`
+- Verify buffer doesn't extend beyond base: `ctl->buf + ctl->len <= ctl_base.buf + ctl_base.size`
+- Check minimum buffer sizes accommodate overhead + at least one 4-byte word
 
 ### ERROR_SYNC_MISMATCH
 
-**Cause**: Peripheral didn't write correctly - read-back verification failed.
+**Cause**: Read-back verification failed - peripheral didn't store the written value correctly.
 
-**Solutions**:
-- Increase timeout (peripheral might be slow)
-- Check peripheral implementation
-- Verify peripheral address is correct
-- Check for electrical/communication issues
+**Possible reasons**:
+- Peripheral has read-only fields (can't be written)
+- Peripheral modified value (e.g., clamping to valid range)
+- Transmission error corrupted the write
+- Peripheral is malfunctioning
+
+**Debug approach**:
+- Verify the field is actually writable on the peripheral
+- Check for value constraints in peripheral firmware
+- Use logic analyzer to verify transmission integrity
+- Increase timeout in case peripheral is slow to process writes
 
 ### ERROR_MALFORMED_MESSAGE / ERROR_TIMEOUT
 
-**Cause**: No response from peripheral, or malformed response.
+**Cause**: No response from peripheral, or response couldn't be parsed.
 
-**Solutions**:
-```c
-// Verify rx callback returns frame->len > 0
-int my_rx(buffer_t* frame, uint32_t timeout) {
-    int rc = can_receive(frame->buf, &frame->len, timeout);
-    if (rc == SUCCESS && frame->len > 0) {  // ✅ Check len > 0
-        return DARTT_PROTOCOL_SUCCESS;
-    }
-    return ERROR_TIMEOUT;
-}
+**Possible reasons**:
+- Peripheral not connected or powered
+- Address mismatch (wrong peripheral address)
+- Callback returning incorrect data
+- Timeout too short for communication medium
 
-// Check address is correct (remember complementary addressing!)
-unsigned char actual_addr = dartt_get_complementary_address(psync->address);
-```
+**Debug approach**:
+- Verify `rx_callback` sets `frame->len > 0` on successful reception
+- Check address is correct (remember DARTT uses complementary addressing internally)
+- Ensure callbacks return raw frames, not pre-processed data
+- Increase `timeout_ms` for slower communication links
 
 ### Silent Failures / Unexpected Behavior
 
 **Debug checklist**:
-1. Verify `ctl_base` and `periph_base` point to different memory locations
-2. Check that structures are 32-bit aligned (size is multiple of 4)
-3. Ensure callbacks actually send/receive data
-4. Use a logic analyzer to verify physical layer
-5. Add logging to callbacks to trace message flow
+1. Verify `ctl_base.buf` ≠ `periph_base.buf` (different memory locations)
+2. Ensure structures are 32-bit aligned in size
+3. Confirm callbacks actually send/receive data (add logging)
+4. Check physical layer with logic analyzer or oscilloscope
+5. Verify peripheral firmware is running and responding
+6. Use `index_of_field()` to validate field pointers before sync operations
 
 ---
 
 ## Summary
 
-**Key Takeaways**:
-1. **Two copies**: Maintain master (ctl_base) and shadow (periph_base)
-2. **dartt_sync()**: For verified writes with read-back
-3. **dartt_write_multi()**: For fast writes without verification
-4. **dartt_read_multi()**: Reads into shadow (NOT into ctl buffer!)
-5. **Always** ensure 32-bit alignment
-6. **Initialize** by reading peripheral state first
+**Core Concepts**:
+1. Maintain two copies: **master** (ctl_base) and **shadow** (periph_base)
+2. Functions operate on **regions** within these bases
+3. The `ctl` parameter specifies **which region**, with behavior depending on function
 
-For more details on the protocol itself, see [DARTT.md](DARTT.md).
+**Function Selection**:
+- **dartt_sync()**: Verified writes with automatic shadow update - safest option
+- **dartt_write_multi()**: Fast unverified writes - use for high-frequency commands
+- **dartt_read_multi()**: Read peripheral state into shadow - **results go to periph_base**
+
+**Critical Requirements**:
+- 32-bit alignment for all pointers
+- Identical sizes for ctl_base and periph_base
+- Callbacks return raw frames, not processed payloads
+- For CAN: keep buffers ≤ 8 bytes
+
+For protocol details and message formats, see [DARTT.md](DARTT.md).
+
+For working code examples, see the `examples/` directory.
