@@ -3,17 +3,20 @@
 
 
 /**
- * @brief This function scans two buffers (one control and one peripheral) for the presense of any mismatch between control and peripheral.
- * If a difference is found, the master then writes the control copy TO the peripheral, and reads it back into the shadow copy (local peripheral or *periph) to verify a match.
+ * @brief This function scans two buffers (one control and one peripheral) for the presence of any mismatch between control and peripheral.
+ * If a difference is found, the master then writes the control copy content TO the target device, and reads it back into the shadow copy to verify a match.
  * Access to hardware is managed with callback function pointers. Callback function pointers must be loaded into *psync
- * 
- * @param ctl Pointer to the buffer containing the 'control' copy. This is the master copy we are synchronizing peripheral devices to
- * @param periph Pointer to the buffer containing the 'peripheral' copy. This is our internal 'latest' reference to the peripheral
- * @param psync Pointer to a dartt_sync_t structure containing the address, serial callbacks, message type
+ *
+ * @param ctl Pointer to the region within ctl_base that should be synchronized. This is the subset of the master copy
+ *            we are synchronizing to the peripheral device. Must be equal to or within psync->ctl_base or function returns error.
+ *            The corresponding region in psync->periph_base is compared, and if different, the peripheral is updated and
+ *            read back to verify the write succeeded.
+ * @param psync Pointer to a dartt_sync_t structure containing the address, serial callbacks, message type, ctl_base,
+ *              periph_base (shadow copy), and communication buffers.
+ * @return DARTT_PROTOCOL_SUCCESS on success, error code on failure
  * */
-int dartt_sync(buffer_t * ctl, dartt_sync_t * psync)	//callbacks?
+int dartt_sync(buffer_t * ctl, dartt_sync_t * psync)
 {
-    /*TODO Implement a dartt_sync_t structure to wrap these things, and a callback registration function to load the function pointers. */
     assert(psync != NULL && ctl != NULL);
     assert(psync->blocking_rx_callback != NULL && psync->blocking_tx_callback != NULL && psync->ctl_base.buf != NULL && psync->ctl_base.size != 0);
 	assert(psync->periph_base.buf != NULL);
@@ -84,15 +87,6 @@ int dartt_sync(buffer_t * ctl, dartt_sync_t * psync)	//callbacks?
 			{
 				match = 0;
 				break;  
-                /*
-                TODO: Rather than breaking, log the current field_bidx as 'start'
-                Then, continue incrementing field_bidx by 4 until the following conditions are met:
-                    1. you exceed the size of the write buffer (at which point you must write your current contents)
-                    2. you encounter a matching full 32bit word
-                    3. you exceed the size of the control buffer
-                Then, and ONLY then, do you perform the physical, blocking write/read exchange.
-                You have to flag the presence of a mismatch with the 'start_bidx' - if this is not, say, -1 (initialized) you have to write something.
-                */
 			}
 		}
         if(match == 0 && start_bidx < 0)    //if you get a match and you haven't started, initialize start to a good value
@@ -238,7 +232,9 @@ int dartt_sync(buffer_t * ctl, dartt_sync_t * psync)	//callbacks?
 /**
  * @brief This function implements a full wrapper for dartt write frames.
  * You pass by reference a buffer to a region you want to write, located within the base control structure.
- * ctl must be within psync->base or the function will return an error.
+ * ctl must be within psync->ctl_base or the function will return an error. Additionally, if ctl->len
+ * exceeds psync->tx_buf.size, this will return an error. Use dartt_write_multi to automatically manage
+ * multi-frame transmission for undersized transmit buffers.
  * 
  * @param ctl Pointer to the memory within the master control structure that you want to write. Essentially just an alias into 
  * the master control structure
@@ -290,15 +286,20 @@ int dartt_ctl_write(buffer_t * ctl, dartt_sync_t * psync)
 
 
 /**
- * @brief This function creates a master dartt write/read sequence to load a dartt payload into the dest buffer.
- * Dest should be properly aliased to destination memory (via buf and size) and the length of the desired data should be loaded into dest->len
- * 
- * 
- * @param ctl The region of memory which should be read from the true peripheral device, and dumped into the shadow copy/destination buffer periph
- * @param periph The destination of the read (control shadow copy of the peripheral)
- * @param psync Sync structure defining the control memory base, blocking read/write callbacks and memory structures 
- * @return int 
-*/
+ * @brief This function creates a master dartt write/read sequence to read data from the peripheral device
+ * and store it in the shadow copy (psync->periph_base). It is primarily used as a helper function -
+ * the wrapper dartt_read_multi is preferred in almost all situations, unless the full reply will fit in psync->rx_buf.
+ *
+ * IMPORTANT: The ctl parameter specifies WHAT to read (the memory region), but results are stored in psync->periph_base
+ * at the corresponding offset, NOT in the ctl buffer itself.
+ *
+ * @param ctl The region of memory (within ctl_base) specifying WHAT to read from the peripheral device.
+ *            The ctl->len field specifies how many bytes to read. Results are stored in psync->periph_base
+ *            at the offset corresponding to ctl's position within ctl_base.
+ * @param psync Sync structure defining the control memory base (ctl_base), peripheral shadow copy base (periph_base),
+ *              blocking read/write callbacks and memory structures.
+ * @return DARTT_PROTOCOL_SUCCESS on success, error code on failure
+ */
 int dartt_ctl_read(buffer_t * ctl, dartt_sync_t * psync)
 {
     assert(psync != NULL && ctl != NULL);
@@ -395,13 +396,17 @@ int dartt_ctl_read(buffer_t * ctl, dartt_sync_t * psync)
 }
 
 /**
- * @brief Wrapper for dartt read that automatically breaks out multiple read operations in order 
- * to read from a larger chunk of memory than there is available read buffer space.
- * 
- * @param ctl 
- * @param perip 
- * @param psync 
- * @return int 
+ * @brief Wrapper for dartt_ctl_read that automatically breaks large read operations into multiple
+ * smaller read messages to fit within available buffer space.
+ *
+ * IMPORTANT: Like dartt_ctl_read, the ctl parameter specifies WHAT to read, but results go into psync->periph_base.
+ * This function will automatically split the read into multiple operations if needed.
+ *
+ * @param ctl Pointer to region within ctl_base specifying WHAT to read. The function will automatically
+ *            split this into multiple read operations if the requested length exceeds available rx buffer space.
+ *            Results are stored in psync->periph_base at the corresponding offset.
+ * @param psync Sync structure with ctl_base, periph_base, callbacks, and buffers.
+ * @return DARTT_PROTOCOL_SUCCESS on success, error code on failure
  */
 int dartt_read_multi(buffer_t * ctl, dartt_sync_t * psync)
 {
@@ -471,10 +476,14 @@ int dartt_read_multi(buffer_t * ctl, dartt_sync_t * psync)
 }
 
 /**
-* @brief Function to write a chunk of the controller copy out from the DARTT controller device,
- with logic to break up large writes into smaller pieces.
-	@param ctl Buffer alias to the region of the controller struct you want to write out. Must be within psync->base or it will return an error
-	@param psync DARTT Sync structure, with registered callbacks, mode, target address, etc.
+ * @brief Wrapper for dartt_ctl_write that automatically breaks large write operations into multiple
+ * smaller write messages for undersized write buffers.
+ *
+ * @param ctl Pointer to region within ctl_base specifying WHAT to write. The function will automatically
+ *            split this into multiple write operations if the requested length exceeds available tx buffer space.
+ * 
+ * @param psync Sync structure with ctl_base, periph_base, callbacks, and buffers.
+ * @return DARTT_PROTOCOL_SUCCESS on success, error code on failure
  */
 int dartt_write_multi(buffer_t * ctl, dartt_sync_t * psync)
 {

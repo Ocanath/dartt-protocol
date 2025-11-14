@@ -24,7 +24,7 @@ typedef struct comms_t
 } comms_t;
 
 /*
-	Test helper function index_of_field.
+	Test helper function index_of_field - basic happy path tests.
 */
 void test_index_of_field(void)
 {
@@ -32,6 +32,69 @@ void test_index_of_field(void)
 	TEST_ASSERT_EQUAL(2, index_of_field(&comms.gl_joint_theta, (void*)&comms, sizeof(comms_t)));
 	TEST_ASSERT_EQUAL(1, index_of_field(&comms.gl_iq, (void*)&comms, sizeof(comms_t)));
 	TEST_ASSERT_EQUAL(0, index_of_field(&comms.motor_command_mode, (void*)&comms, sizeof(comms_t)));
+}
+
+/*
+	Comprehensive test for index_of_field - covers all error conditions and edge cases.
+	This test prevents regression of the off-by-one bug where ptr == base + size was incorrectly accepted.
+*/
+void test_index_of_field_comprehensive(void)
+{
+	comms_t comms = {};
+
+	// Test 1: NULL p_field pointer
+	TEST_ASSERT_EQUAL(ERROR_INVALID_ARGUMENT,
+	                  index_of_field(NULL, (void*)&comms, sizeof(comms_t)));
+
+	// Test 2: NULL mem pointer
+	TEST_ASSERT_EQUAL(ERROR_INVALID_ARGUMENT,
+	                  index_of_field(&comms.gl_iq, NULL, sizeof(comms_t)));
+
+	// Test 3: Both NULL
+	TEST_ASSERT_EQUAL(ERROR_INVALID_ARGUMENT, index_of_field(NULL, NULL, 0));
+
+	// Test 4: Pointer below base (create pointer arithmetic below base)
+	unsigned char* below_base = (unsigned char*)&comms - 4;
+	TEST_ASSERT_EQUAL(ERROR_INVALID_ARGUMENT,
+	                  index_of_field(below_base, (void*)&comms, sizeof(comms_t)));
+
+	// Test 5: OFF-BY-ONE BUG - Pointer exactly at base+size (CRITICAL REGRESSION TEST)
+	// This test captures the bug fixed where p_field_nonvoid >= (pbase + mem_size) was changed to use >=
+	unsigned char* at_end = (unsigned char*)&comms + sizeof(comms_t);
+	TEST_ASSERT_EQUAL(ERROR_INVALID_ARGUMENT,
+	                  index_of_field(at_end, (void*)&comms, sizeof(comms_t)));
+
+	// Test 6: Pointer beyond base+size
+	unsigned char* beyond_end = (unsigned char*)&comms + sizeof(comms_t) + 4;
+	TEST_ASSERT_EQUAL(ERROR_INVALID_ARGUMENT,
+	                  index_of_field(beyond_end, (void*)&comms, sizeof(comms_t)));
+
+	// Test 7: Misaligned pointer (not 4-byte aligned) - +1 byte
+	unsigned char* misaligned1 = (unsigned char*)&comms + 1;
+	TEST_ASSERT_EQUAL(ERROR_INVALID_ARGUMENT,
+	                  index_of_field(misaligned1, (void*)&comms, sizeof(comms_t)));
+
+	// Test 8: Misaligned pointer - +2 bytes
+	unsigned char* misaligned2 = (unsigned char*)&comms + 2;
+	TEST_ASSERT_EQUAL(ERROR_INVALID_ARGUMENT,
+	                  index_of_field(misaligned2, (void*)&comms, sizeof(comms_t)));
+
+	// Test 9: Misaligned pointer - +3 bytes
+	unsigned char* misaligned3 = (unsigned char*)&comms + 3;
+	TEST_ASSERT_EQUAL(ERROR_INVALID_ARGUMENT,
+	                  index_of_field(misaligned3, (void*)&comms, sizeof(comms_t)));
+
+	// Test 10: Valid boundary case - last valid field
+	// Calculate pointer to last 4-byte aligned field within structure
+	uint32_t* last_valid_field = (uint32_t*)((unsigned char*)&comms + sizeof(comms_t) - sizeof(uint32_t));
+	int result = index_of_field(last_valid_field, (void*)&comms, sizeof(comms_t));
+	TEST_ASSERT_GREATER_OR_EQUAL(0, result); // Should succeed (return field index >= 0)
+
+	// Test 11: Valid first field (redundant with basic test, but good for completeness)
+	TEST_ASSERT_EQUAL(0, index_of_field(&comms.motor_command_mode, (void*)&comms, sizeof(comms_t)));
+
+	// Test 12: Valid middle field
+	TEST_ASSERT_EQUAL(1, index_of_field(&comms.gl_iq, (void*)&comms, sizeof(comms_t)));
 }
 
 void test_dartt_get_complementary_address(void)

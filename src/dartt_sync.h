@@ -11,15 +11,15 @@ extern "C" {
 
 typedef struct dartt_sync_t
 {
-        unsigned char address;	//address of the peripheral target
-		buffer_t ctl_base;			//buffer alias/reference to the base of the master copy/controller copy structure. This must always point to the BASE of the memory.
-		buffer_t periph_base;
-		serial_message_type_t msg_type;	//peripheral target message type
-		buffer_t tx_buf;		//buffer for tx payloads
-		buffer_t rx_buf;		//buffer for rx payloads
-		int (*blocking_tx_callback)(unsigned char, buffer_t*, uint32_t timeout);
-		int (*blocking_rx_callback)(buffer_t*, uint32_t timeout);
-		uint32_t timeout_ms;
+        unsigned char address;	 // Target peripheral address
+		buffer_t ctl_base;			// Base of master control structure
+		buffer_t periph_base;		 // Base of shadow copy structure
+		serial_message_type_t msg_type;	// Message framing type
+		buffer_t tx_buf;		// Transmission buffer
+		buffer_t rx_buf;		 // Reception buffer
+		int (*blocking_tx_callback)(unsigned char, buffer_t*, uint32_t timeout);	//Callback for (blocking) transmissions with a millisecond timeout
+		int (*blocking_rx_callback)(buffer_t*, uint32_t timeout);		//Callback for (blocking) receptions with a millisecond timeout
+		uint32_t timeout_ms;		// Communication timeout
 }dartt_sync_t;
 
 
