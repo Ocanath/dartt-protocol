@@ -28,7 +28,7 @@ DARTT Sync is built around maintaining **two local copies** of the peripheral's 
 Controller Device Memory:
 +------------------+          +------------------+
 |   ctl_base       |          |  periph_base     |
-|  (master copy)   |          | (shadow copy)    |
+|  (controller copy)   |          | (shadow copy)    |
 +------------------+          +------------------+
         |                            ^
         |                            |
@@ -37,7 +37,7 @@ Controller Device Memory:
          write                    read back
 ```
 
-**Control Base (Master Copy)**:
+**Control Base (Controller Copy)**:
 
 - Represents what you **WANT** the target device to be
 - You modify this when you want to change target memory state
@@ -74,7 +74,7 @@ The `ctl` parameter in all functions specifies which region to operate on. It mu
 typedef struct dartt_sync_t
 {
     unsigned char address;           // Target peripheral address
-    buffer_t ctl_base;              // Base of master control structure
+    buffer_t ctl_base;              // Base of controller structure
     buffer_t periph_base;           // Base of shadow copy structure
     serial_message_type_t msg_type; // Message framing type
     buffer_t tx_buf;                // Transmission buffer
@@ -131,18 +131,16 @@ typedef struct dartt_sync_t
 int dartt_sync(buffer_t * ctl, dartt_sync_t * psync);
 ```
 
-**Purpose**: Compare master and shadow, write differences to peripheral, verify with read-back.
+**Purpose**: Compare controller and shadow, write differences to peripheral, verify with read-back.
 
 **Operation**:
 
-1. Scans the `ctl` region comparing master (ctl_base) to shadow (periph_base)
+1. Scans the `ctl` region comparing controller (ctl_base) to shadow (periph_base)
 2. Identifies contiguous blocks of differences
 3. For each difference:
    - Writes controller copy content to the target device
    - Reads back from target device into shadow copy
    - Checks shadow copy for discrepancies with controller copy. Returns `ERROR_SYNC_MISMATCH` if there is any mismatch.
-   - 
-4. 
 
 **Automatic chunking**: If a mismatch region exceeds `tx_buf` capacity, it's automatically split into multiple write/read operations.
 
@@ -160,7 +158,7 @@ int dartt_sync(buffer_t * ctl, dartt_sync_t * psync);
 int dartt_write_multi(buffer_t * ctl, dartt_sync_t * psync);
 ```
 
-**Purpose**: Write data from master to peripheral without read-back verification.
+**Purpose**: Write data from controller to peripheral without read-back verification.
 
 **Operation**:
 
@@ -183,7 +181,7 @@ int dartt_write_multi(buffer_t * ctl, dartt_sync_t * psync);
 int dartt_read_multi(buffer_t * ctl, dartt_sync_t * psync);
 ```
 
-**Purpose**: Read data from peripheral into shadow copy.
+**Purpose**: Read data from target/peripheral into shadow copy.
 
 **Operation**:
 
@@ -197,8 +195,6 @@ int dartt_read_multi(buffer_t * ctl, dartt_sync_t * psync);
 - Polling sensor data or status from peripheral
 - Initializing shadow copy from peripheral state
 - Verifying peripheral state after writes
-
-**Critical note**: See section 5 for detailed explanation of the confusing parameter pattern.
 
 ---
 
@@ -222,70 +218,22 @@ The `ctl` parameter behaves differently depending on context, which is the **mos
 
 ### 5.2 Why This Design?
 
-This design maintains API consistency - all functions use `ctl` to specify "which region of the structure" to operate on. However, for reads:
+This design maintains API consistency - the controller copy is the record of your desired peripheral state, while the shadow copy is the most up-to-date record of what the actual state of the peripheral is. The `ctl` parameter is used to specify "which region of the structure" to operate on - since `ctl_base` (controller copy) and `periph_base` (shadow copy) have identical layouts, any subset of `ctl_base` has a corresponding subset of `periph_base`.
 
-- You can't read directly into `ctl_base` (it's the master copy you control)
-- Results must go into `periph_base` (the shadow reflecting peripheral state)
-
-The `ctl` pointer essentially says "I want to operate on the field at THIS offset", and the function translates that to the corresponding offset in `periph_base`.
+This behavior has to be maintained specifically for `dartt_read_multi`, because this function has multiple potential uses. In a situation where `dartt_read_multi` is polling 'read-only' sensor data, it would be logical to copy the result to the controller copy automatically. However, in a situation where `dartt_read_multi` is being used to verify a previous `dartt_write_multi` operation, this would be a destructive operation. To cover both use cases, a convenience function `dartt_update_controller()` can be called after dartt_read_multi with the same `ctl` parameter so that the controller copy is synchronized.
 
 ### 5.3 Practical Implications
 
 **After calling dartt_read_multi()**:
 
 - Check results in `periph_base`, not `ctl_base`
-- If you want master to reflect peripheral state, explicitly copy shadow → master
-- Don't assume anything about `ctl_base` changing
 
-**Common mistake**: Reading a value and checking the wrong buffer for results.
-
----
-
-## 6. Common Pitfalls
-
-### 6.1 Reading and Expecting Results in Master
-
-**Problem**: After `dartt_read_multi()`, checking the `ctl_base` field instead of `periph_base`.
-
-**Why it fails**: Read results go to shadow (periph_base), not master (ctl_base).
-
-**Solution**: Always access `periph_base` after reads. If you need the value in master, explicitly copy it.
-
-### 6.2 Buffer Pointer Outside Base Range
-
-**Problem**: Creating a `ctl` buffer that points to memory not within `ctl_base`.
-
-**Why it fails**: Functions calculate field offsets assuming `ctl` is within `ctl_base`. Invalid offsets cause `ERROR_INVALID_ARGUMENT`.
-
-**Solution**: Always ensure `ctl->buf` is within the range `[ctl_base.buf, ctl_base.buf + ctl_base.size)`.
-
-### 6.3 Misaligned Pointers
-
-**Problem**: Pointing to a non-4-byte-aligned address.
-
-**Why it fails**: DARTT uses 32-bit word indexing. Misaligned pointers produce incorrect field indices.
-
-**Solution**: Only point to fields that start on 4-byte boundaries. Structures with proper packing naturally satisfy this.
-
-### 6.4 Using write_multi() Then Expecting Sync to Work
-
-**Problem**: Using `dartt_write_multi()`, then being surprised when `dartt_sync()` re-transmits the same data.
-
-**Why it fails**: `write_multi()` doesn't update shadow, so `dartt_sync()` sees master ≠ shadow and thinks it needs to write.
-
-**Solution**: Either:
-
-- Use `dartt_sync()` if you want automatic shadow updates
-- Manually update shadow after `write_multi()`
-- Use `dartt_read_multi()` to refresh shadow from peripheral
-
-### 6.5 Mismatched Base Sizes
-
-**Problem**: `ctl_base.size` ≠ `periph_base.size`.
-
-**Why it fails**: Functions assume parallel structures. Offset calculations break with mismatched sizes, causing `ERROR_MEMORY_OVERRUN`.
-
-**Solution**: Always initialize both bases to point to structures of identical size.
+- If you want to synchronize the controller copy with the current peripheral state, explicitly copy the corresponding region of shadow → controller using the helper function `dartt_update_controller()`. An example:
+  
+  ```c
+  dartt_read_multi(&region, &sync);    //read into periph_base based on 'region'
+  dartt_update_controller(&region, &sync);    //copy the result we just obtained into ctl_base
+  ```
 
 ---
 
@@ -298,13 +246,6 @@ The `ctl` pointer essentially says "I want to operate on the field at THIS offse
 - `ctl->buf` not within `psync->ctl_base` range
 - Pointer not 32-bit aligned
 - `ctl->size` not a multiple of 4
-- NULL pointers in critical fields
-
-**Debug approach**:
-
-- Verify `ctl->buf >= ctl_base.buf` and `ctl->buf < ctl_base.buf + ctl_base.size`
-- Check `((uintptr_t)ctl->buf) % 4 == 0` for alignment
-- Ensure structure size is multiple of `sizeof(uint32_t)`
 
 ### ERROR_MEMORY_OVERRUN
 
@@ -314,12 +255,6 @@ The `ctl` pointer essentially says "I want to operate on the field at THIS offse
 - `ctl->buf + ctl->len` exceeds `ctl_base` bounds
 - `tx_buf` or `rx_buf` too small for message overhead
 - Calculated write would exceed `periph_base` bounds
-
-**Debug approach**:
-
-- Add assertion: `assert(ctl_base.size == periph_base.size)`
-- Verify buffer doesn't extend beyond base: `ctl->buf + ctl->len <= ctl_base.buf + ctl_base.size`
-- Check minimum buffer sizes accommodate overhead + at least one 4-byte word
 
 ### ERROR_SYNC_MISMATCH
 
@@ -332,12 +267,7 @@ The `ctl` pointer essentially says "I want to operate on the field at THIS offse
 - Transmission error corrupted the write
 - Peripheral is malfunctioning
 
-**Debug approach**:
-
-- Verify the field is actually writable on the peripheral
-- Check for value constraints in peripheral firmware
-- Use logic analyzer to verify transmission integrity
-- Increase timeout in case peripheral is slow to process writes
+The application is responsible for managing this error - can be ignored, trigger a retransmission pattern if due to a physical error, etc.
 
 ### ERROR_MALFORMED_MESSAGE / ERROR_TIMEOUT
 
@@ -350,31 +280,13 @@ The `ctl` pointer essentially says "I want to operate on the field at THIS offse
 - Callback returning incorrect data
 - Timeout too short for communication medium
 
-**Debug approach**:
-
-- Verify `rx_callback` sets `frame->len > 0` on successful reception
-- Check address is correct (remember DARTT uses complementary addressing internally)
-- Ensure callbacks return raw frames, not pre-processed data
-- Increase `timeout_ms` for slower communication links
-
-### Silent Failures / Unexpected Behavior
-
-**Debug checklist**:
-
-1. Verify `ctl_base.buf` ≠ `periph_base.buf` (different memory locations)
-2. Ensure structures are 32-bit aligned in size
-3. Confirm callbacks actually send/receive data (add logging)
-4. Check physical layer with logic analyzer or oscilloscope
-5. Verify peripheral firmware is running and responding
-6. Use `index_of_field()` to validate field pointers before sync operations
-
 ---
 
 ## Summary
 
 **Core Concepts**:
 
-1. Maintain two copies: **master** (ctl_base) and **shadow** (periph_base)
+1. Maintain two copies: **controller** (ctl_base) and **shadow** (periph_base)
 2. Functions operate on **regions** within these bases
 3. The `ctl` parameter specifies **which region**, with behavior depending on function
 
@@ -392,5 +304,3 @@ The `ctl` pointer essentially says "I want to operate on the field at THIS offse
 - For CAN: keep buffers ≤ 8 bytes
 
 For protocol details and message formats, see [DARTT.md](DARTT.md).
-
-For working code examples, see the `examples/` directory.
