@@ -27,68 +27,63 @@ For protocols with no built-in arbitration or error handling, `TYPE_SERIAL_MESSA
 
 ## Frame Formats
 
+DARTT generic block memory access relies on three different basic frame structures.
+1. Write frame, consisting of a 16-bit index word where the MSB is a read/write bit (R = 0), followed by an array of N bytes
+1. Read request frame, consisting of a 16-bit index word where the MSB is a read/write bit (R = 0), followed by a 16-bit 'number of bytes' argument
+1. Read reply frame, consisting of an N-byte array containing the requested data from the Read request frame.
+
+Indexes are 32-bit aligned. I.e. a DARTT write frame with index argument `2` would begin writing data at byte offset `8`.
+
+The upper bound on DARTT memory block sizes is strictly bounded by the read request frame format - the maximum index argument is 15-bits, and 65535 bytes can be requested from that maximum offset, meaning the maximum possible block size is precisely 163,835 bytes. Practical considerations on maximum single read frame size further restrict this to ~131kb. If a control memory layout larger than 131kb is needed, custom extensions to the DARTT protocol should be implemented (i.e. filtering messages with additional arguments by some fixed preamble before passing to DARTT, subscibing to multiple addresses on one device, etc.) or else a different protocol entirely should be considered.
+
+In order to support multiple communication protocols, core DARTT messages can be extended with addressing and error checking. Addresses are always single-byte and prepended to the frame, and checksums are always CRC16 and are appended to the frame. 
+
+Index arguments and CRC16 words are always little-endian. Payload formatting is fully application defined and does not have any expected endian-ness or required formatting.
+
 ### TYPE_SERIAL_MESSAGE (Type 0)
 Used for raw serial protocols like UART, RS485, RS232.
 
 #### Write Frame Format
-```
-+--------+--------+--------+--------+--------+--------+--------+
-| Byte 0 | Byte 1 | Byte 2 |  ...   |  ...   | CRC Lo | CRC Hi |
-+--------+--------+--------+--------+--------+--------+--------+
-|Address | Index Lo| Index Hi|    Payload Data         |   CRC  |
-+--------+--------+--------+--------+--------+--------+--------+
-```
+
+| Byte 0  | Bytes 1-2     | Bytes 3-N    | Bytes N+1 to N+2 |
+|---------|---------------|--------------|------------------|
+| Address | Index (R=0)   | Payload Data | CRC              |
 
 #### Read Frame Format
-```
-+--------+--------+--------+--------+--------+--------+--------+
-| Byte 0 | Byte 1 | Byte 2 | Byte 3 | Byte 4 | CRC Lo | CRC Hi |
-+--------+--------+--------+--------+--------+--------+--------+
-|Address |   Index (R=1)   |   Num Bytes     |      CRC       |
-+--------+--------+--------+--------+--------+--------+--------+
-```
+
+| Byte 0  | Bytes 1-2   | Bytes 3-4 | Bytes 5-6 |
+|---------|-------------|-----------|-----------|
+| Address | Index (R=1) | Num Bytes | CRC       |
 
 ### TYPE_ADDR_MESSAGE (Type 1)
 Used for protocols with built-in addressing like SPI, I2C.
 
 #### Write Frame Format
-```
-+--------+--------+--------+--------+--------+--------+
-| Byte 0 | Byte 1 |  ...   |  ...   | CRC Lo | CRC Hi |
-+--------+--------+--------+--------+--------+--------+
-| Index Lo| Index Hi|    Payload Data     |   CRC  |
-+--------+--------+--------+--------+--------+--------+
-```
+
+| Bytes 0-1   | Bytes 2-N    | Bytes N+1 to N+2 |
+|-------------|--------------|------------------|
+| Index (R=0) | Payload Data | CRC              |
 
 #### Read Frame Format
-```
-+--------+--------+--------+--------+--------+--------+
-| Byte 0 | Byte 1 | Byte 2 | Byte 3 | CRC Lo | CRC Hi |
-+--------+--------+--------+--------+--------+--------+
-|   Index (R=1)   |   Num Bytes     |      CRC       |
-+--------+--------+--------+--------+--------+--------+
-```
+
+| Bytes 0-1   | Bytes 2-3 | Bytes 4-5 |
+|-------------|-----------|-----------|
+| Index (R=1) | Num Bytes | CRC       |
 
 ### TYPE_ADDR_CRC_MESSAGE (Type 2)
 Used for protocols with built-in addressing and CRC like CAN, UDP.
 
 #### Write Frame Format
-```
-+--------+--------+--------+--------+--------+
-| Byte 0 | Byte 1 |  ...   |  ...   |  ...  |
-+--------+--------+--------+--------+--------+
-| Index Lo| Index Hi|    Payload Data      |
-+--------+--------+--------+--------+--------+
-```
+
+| Bytes 0-1   | Bytes 2-N    |
+|-------------|--------------|
+| Index (R=0) | Payload Data |
 
 #### Read Frame Format
-```
-+--------+--------+--------+--------+
-| Byte 0 | Byte 1 | Byte 2 | Byte 3 |
-+--------+--------+--------+--------+
-|   Index (R=1)   |   Num Bytes     |
-+--------+--------+--------+--------+
-```
+
+| Bytes 0-1   | Bytes 2-3 |
+|-------------|-----------|
+| Index (R=1) | Num Bytes |
 
 ## Read Reply Frame Formats
 
@@ -96,42 +91,34 @@ When a peripheral responds to a read request, the frame format varies by message
 
 ### TYPE_SERIAL_MESSAGE (Type 0) - Read Reply
 The reply contains the requested data block with a prepended address and appended CRC:
-```
-+--------+--------+--------+--------+--------+--------+
-| Byte 0 |  ...   |  ...   |  ...   | CRC Lo | CRC Hi |
-+--------+--------+--------+--------+--------+--------+
-|Address |    Requested Data Block    |      CRC       |
-+--------+--------+--------+--------+--------+--------+
-```
 
-### TYPE_ADDR_MESSAGE (Type 1) - Read Reply  
+| Byte 0  | Bytes 1-N            | Bytes N+1 to N+2 |
+|---------|----------------------|------------------|
+| Address | Requested Data Block | CRC              |
+
+### TYPE_ADDR_MESSAGE (Type 1) - Read Reply
 The reply contains the requested data block with an appended CRC:
-```
-+--------+--------+--------+--------+--------+
-|  ...   |  ...   |  ...   | CRC Lo | CRC Hi |
-+--------+--------+--------+--------+--------+
-|    Requested Data Block    |      CRC       |
-+--------+--------+--------+--------+--------+
-```
+
+| Bytes 0-N            | Bytes N+1 to N+2 |
+|----------------------|------------------|
+| Requested Data Block | CRC              |
 
 ### TYPE_ADDR_CRC_MESSAGE (Type 2) - Read Reply
 The reply contains only the requested data block with no additional data:
-```
-+--------+--------+--------+--------+
-|  ...   |  ...   |  ...   |  ...   |
-+--------+--------+--------+--------+
-|    Requested Data Block             |
-+--------+--------+--------+--------+
-```
+
+| Bytes 0-N            |
+|----------------------|
+| Requested Data Block |
 
 ## Field Descriptions
 
 ### Address (1 byte)
-- **Range**: 0x00 - 0xFF
-- **Purpose**: Identifies the target device
-- **Special Values**:
-  - `0x7F`: Controller motor address
-  - `0x80`: Controller misc address (complement of 0x7F)
+- **Range**
+	- `0x00`-`0x7E`: Motor Address range
+	- `0x7F`: Controller Address (default, when applicable)
+	- `0x80`: Controller Misc Address (default, when applicable)
+	- `0x81`-`0xFF`: Misc Address range
+- **Purpose**: Identifies the target device. 
 
 ### Index (2 bytes, little-endian)
 - **Bit 15**: Read/Write flag (1 = Read, 0 = Write)
@@ -152,31 +139,7 @@ The reply contains only the requested data block with no additional data:
 - **Coverage**: All bytes except the CRC field itself
 - **Present in**: TYPE_SERIAL_MESSAGE and TYPE_ADDR_MESSAGE only
 
-## Examples
 
-### Write Example (TYPE_SERIAL_MESSAGE)
-Write 4 bytes `[0x12, 0x34, 0x56, 0x78]` to word index 5 on device 0x42:
-
-```
-Byte:  0    1    2    3    4    5    6    7    8
-Data: 0x42 0x05 0x00 0x12 0x34 0x56 0x78 0xXX 0xXX
-      |    |    |    |              | |    CRC   |
-      |    |    |    +--- Payload ---+
-      |    +- Index -+
-      Address
-```
-
-### Read Example (TYPE_SERIAL_MESSAGE)
-Read 8 bytes starting from word index 10 on device 0x42:
-
-```
-Byte:  0    1    2    3    4    5    6
-Data: 0x42 0x8A 0x00 0x08 0x00 0xXX 0xXX
-      |    |    |    |    |    |  CRC  |
-      |    |    |    +- Num Bytes -+
-      |    +- Index (0x800A) -+
-      Address
-```
 
 ## Addressing Scheme
 
@@ -217,3 +180,7 @@ misc_address = 0xFF - motor_address
 - **Motor Controller (`0x7F`)**: Used when controller initiates motor-specific commands
 - **Misc Controller (`0x80`)**: Used as the source address for peripheral replies and general communications
 
+
+### Final Note on Addressing
+
+Single byte dual addressing is only enforced at a protcol/API level for Type 0 messages. Outside of Type 0, arbitration must be handled outside of the DARTT API. This also means that the specific implementation of 'dual addressing' can be left up to the user in such situations. I.e. for CAN, which uses 11-bit identifiers, the same general technique of splitting the address range can be applied, or a completely different addressing schema can be used (i.e. the device can have only one fixed address and handle generic DARTT messages only). For point-to-point communications (such as UART), it is possible to omit the 'dual addressing' feature altogether and pass Type 1 generic messages back and forth, since it is only possible for the peripheral to recieve data from a single controller, and vice versa.
