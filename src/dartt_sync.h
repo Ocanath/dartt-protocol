@@ -29,6 +29,7 @@ int dartt_ctl_write(buffer_t * ctl, dartt_sync_t * psync);
 int dartt_ctl_read(buffer_t * ctl, dartt_sync_t * psync);
 int dartt_read_multi(buffer_t * ctl, dartt_sync_t * psync);
 int dartt_write_multi(buffer_t * ctl, dartt_sync_t * psync);
+int dartt_update_controller(buffer_t * ctl, dartt_sync_t * psync);
 
 #ifdef __cplusplus
 }

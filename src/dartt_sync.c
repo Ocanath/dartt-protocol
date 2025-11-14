@@ -560,7 +560,7 @@ int dartt_write_multi(buffer_t * ctl, dartt_sync_t * psync)
  * @param psync Sync structure with ctl_base, periph_base, callbacks, and buffers.
  * @return DARTT_PROTOCOL_SUCCESS on success, error code on failure
  */
-dartt_update_controller(buffer_t * ctl, dartt_sync_t * psync)
+int dartt_update_controller(buffer_t * ctl, dartt_sync_t * psync)
 {
 	assert(ctl != NULL && psync != NULL);
 	assert(ctl->buf != NULL);

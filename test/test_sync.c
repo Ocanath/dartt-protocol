@@ -3,7 +3,7 @@
 #include "dartt.h"
 #include "dartt_sync.h"
 #include "unity.h"
-
+#include <string.h>
 /**
  * TODO: Add test coverage for:
  * 1. periphbase and ctlbase size mismatch
@@ -57,7 +57,6 @@ typedef struct test_struct_t
 uint8_t tx_mem[64] = {};
 buffer_t * p_sync_tx_buf;
 uint8_t rx_mem[64] = {};
-
 
 int init_struct_buffer(test_struct_t * s, buffer_t * buf)
 {
@@ -1042,3 +1041,97 @@ void test_dartt_write_multi(void)
 	dartt_write_multi_wrapper(8, 8, TYPE_ADDR_CRC_MESSAGE);
 }
 
+//initialize memory
+test_struct_t gl_master_copy;
+test_struct_t gl_shadow_copy;
+unsigned char gl_tx_buffer[sizeof(gl_master_copy)+NUM_BYTES_NON_PAYLOAD] = {0};
+unsigned char gl_rx_buffer[sizeof(gl_master_copy)+NUM_BYTES_NON_PAYLOAD] = {0};
+//initialize sync
+dartt_sync_t gl_ds;
+
+void init_gl_ds(void)
+{
+	gl_ds.address = 0x3;
+	init_struct_buffer(&gl_master_copy, &gl_ds.ctl_base);
+	init_struct_buffer(&gl_shadow_copy, &gl_ds.periph_base);
+	gl_ds.msg_type = TYPE_SERIAL_MESSAGE;	//ignored by this function
+	dartt_init_buffer(&gl_ds.tx_buf, gl_tx_buffer, sizeof(gl_tx_buffer));
+	dartt_init_buffer(&gl_ds.rx_buf, gl_rx_buffer, sizeof(gl_rx_buffer));
+	gl_ds.blocking_rx_callback = &synctest_rx_blocking;
+	gl_ds.blocking_tx_callback = &synctest_tx_blocking;
+	gl_ds.timeout_ms = 5;
+	TEST_ASSERT_EQUAL(gl_ds.periph_base.size, periph_alias.size);
+	TEST_ASSERT_EQUAL(gl_ds.ctl_base.size, periph_alias.size);
+	for(int i = 0; i < gl_ds.ctl_base.size; i++)
+	{
+		gl_ds.ctl_base.buf[i] = 0;
+		gl_ds.periph_base.buf[i] = 0;
+		periph_alias.buf[i] = 0;
+	}
+}
+
+void scramble_buffers(void)
+{
+	for(int i = 0; i < gl_ds.ctl_base.size; i++)
+	{
+		gl_ds.ctl_base.buf[i] = (i % 255) + 1;
+		gl_ds.periph_base.buf[i] = ((gl_ds.ctl_base.buf[i] + 1) % 255) + 1;
+		
+		periph_alias.buf[i] = 1;
+		if(periph_alias.buf[i] == gl_ds.ctl_base.buf[i])
+		{
+			periph_alias.buf[i]++;
+		}
+		if(periph_alias.buf[i] == gl_ds.periph_base.buf[i])
+		{
+			periph_alias.buf[i]++;
+		}
+
+		TEST_ASSERT_NOT_EQUAL(gl_ds.ctl_base.buf[i], gl_ds.periph_base.buf[i]);
+		TEST_ASSERT_NOT_EQUAL(gl_ds.periph_base.buf[i], periph_alias.buf[i]);
+		TEST_ASSERT_NOT_EQUAL(gl_ds.ctl_base.buf[i], periph_alias.buf[i]);
+	}
+}
+
+/*
+Happy path testing for update_controller
+*/
+void test_dartt_update_controller(void)
+{
+
+	//init and zero out the gl_ds structure
+	init_gl_ds();
+	//ensure callbacks are configured to match message type. not necessary here because this is an internal function - just here for test consistency
+	gl_msg_type = gl_ds.msg_type;	
+	//make everything unequal
+	scramble_buffers();
+
+	unsigned char ctl_copy_backup[sizeof(gl_master_copy)] = {};
+	memcpy(ctl_copy_backup, gl_ds.ctl_base.buf, gl_ds.ctl_base.size);	
+
+	//happy path
+	buffer_t ctl;
+	ctl.buf = (unsigned char *)(&gl_master_copy.m2_set);
+	ctl.size = 6*sizeof(uint32_t);
+	ctl.len = ctl.size;
+	int rc = dartt_update_controller(&ctl, &gl_ds);
+	TEST_ASSERT_EQUAL(0, rc);
+	int fidx = index_of_field(ctl.buf, gl_ds.ctl_base.buf, gl_ds.ctl_base.size);
+	TEST_ASSERT_EQUAL(1, fidx);
+	TEST_ASSERT_LESS_THAN(gl_ds.ctl_base.size, fidx*sizeof(uint32_t)+ctl.size);
+	int match_count = 0;
+	for(int i = 0; i < gl_ds.ctl_base.size; i++)
+	{
+		if(i >= fidx * sizeof(uint32_t) && i < fidx*sizeof(uint32_t) + ctl.size)
+		{
+			TEST_ASSERT_NOT_EQUAL(ctl_copy_backup[i], gl_ds.ctl_base.buf[i]);
+			TEST_ASSERT_EQUAL(gl_ds.periph_base.buf[i], gl_ds.ctl_base.buf[i]);
+			match_count++;
+		}
+		else
+		{
+			TEST_ASSERT_EQUAL(ctl_copy_backup[i], gl_ds.ctl_base.buf[i]);
+		}
+	}
+	TEST_ASSERT_EQUAL(ctl.size, match_count);
+}
