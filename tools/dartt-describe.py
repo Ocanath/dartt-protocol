@@ -334,20 +334,24 @@ def flatten_fields(type_info, prefix="", base_offset=0):
     """
     Flatten nested struct fields into a flat list with full paths.
     This makes it easier for the dashboard to address individual fields.
+
+    Output uses DARTT protocol conventions:
+    - dartt_offset: 32-bit word index (byte_offset / 4)
+    - nbytes: size in bytes
     """
     fields = []
 
     if type_info.get("type") == "struct" or type_info.get("type") == "union":
         for field in type_info.get("fields", []):
             field_name = field.get("name", "")
-            field_offset = (field.get("offset") or 0) + base_offset
+            field_byte_offset = (field.get("offset") or 0) + base_offset
             field_type = field.get("type_info", {})
 
             full_name = f"{prefix}.{field_name}" if prefix else field_name
 
             # If this field is itself a struct, recurse
             if field_type.get("type") in ("struct", "union"):
-                fields.extend(flatten_fields(field_type, full_name, field_offset))
+                fields.extend(flatten_fields(field_type, full_name, field_byte_offset))
             elif field_type.get("type") == "array":
                 elem_type = field_type.get("element_type", {})
                 elem_size = elem_type.get("size", 0)
@@ -357,26 +361,36 @@ def flatten_fields(type_info, prefix="", base_offset=0):
                 if elem_type.get("type") in ("struct", "union"):
                     for i in range(total):
                         elem_name = f"{full_name}[{i}]"
-                        elem_offset = field_offset + (i * elem_size)
-                        fields.extend(flatten_fields(elem_type, elem_name, elem_offset))
+                        elem_byte_offset = field_byte_offset + (i * elem_size)
+                        fields.extend(flatten_fields(elem_type, elem_name, elem_byte_offset))
                 else:
                     # Array of primitives - add as single field with array info
-                    fields.append({
+                    entry = {
                         "name": full_name,
-                        "offset": field_offset,
-                        "size": field_type.get("size", 0),
+                        "dartt_offset": field_byte_offset // 4,
+                        "nbytes": field_type.get("size", 0),
                         "type": get_simple_type_name(elem_type),
                         "array_size": total,
-                        "element_size": elem_size
-                    })
+                        "element_nbytes": elem_size
+                    }
+                    # Flag if not 32-bit aligned
+                    if field_byte_offset % 4 != 0:
+                        entry["unaligned"] = True
+                        entry["byte_offset"] = field_byte_offset
+                    fields.append(entry)
             else:
                 # Primitive field
                 entry = {
                     "name": full_name,
-                    "offset": field_offset,
-                    "size": field_type.get("size", 0),
+                    "dartt_offset": field_byte_offset // 4,
+                    "nbytes": field_type.get("size", 0),
                     "type": get_simple_type_name(field_type)
                 }
+
+                # Flag if not 32-bit aligned
+                if field_byte_offset % 4 != 0:
+                    entry["unaligned"] = True
+                    entry["byte_offset"] = field_byte_offset
 
                 # Add bitfield info if present
                 if "bit_size" in field:
@@ -475,17 +489,32 @@ Examples:
         type_info = parser_obj.resolve_type(type_die, type_cu)
 
         # Build output structure
+        total_nbytes = symbol_size or type_info.get("size", 0)
         output = {
             "symbol": args.symbol,
             "address": f"0x{symbol_addr:08X}",
             "address_int": symbol_addr,
-            "size": symbol_size or type_info.get("size", 0),
+            "nbytes": total_nbytes,
+            "nwords": (total_nbytes + 3) // 4,  # 32-bit words (rounded up)
             "type": type_info
         }
 
         # Add flattened fields if requested
         if args.flat:
             output["flat_fields"] = flatten_fields(type_info)
+
+            # Check for unaligned fields and warn user
+            unaligned_fields = [f for f in output["flat_fields"] if f.get("unaligned")]
+            if unaligned_fields:
+                print(f"Error: {len(unaligned_fields)} field(s) are not 32-bit aligned!", file=sys.stderr)
+                print("DARTT protocol requires 32-bit aligned access. Unaligned fields:", file=sys.stderr)
+                for f in unaligned_fields:
+                    byte_off = f.get("byte_offset", 0)
+                    print(f"  - {f['name']}: byte_offset={byte_off} (0x{byte_off:X}), "
+                          f"remainder={byte_off % 4}", file=sys.stderr)
+                print("\nConsider restructuring your typedef to ensure 32-bit alignment.", file=sys.stderr)
+                print("Hint: Group smaller types (uint8_t, uint16_t) together, or add explicit padding.\n",
+                      file=sys.stderr)
 
     # Output JSON
     indent = None if args.compact else 2
