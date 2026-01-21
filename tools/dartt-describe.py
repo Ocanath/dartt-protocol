@@ -582,8 +582,10 @@ Examples:
         }
 
         # Add flattened fields if requested (for backwards compatibility)
+        # Use the original cached type_info (with relative byte_offsets) since
+        # flatten_fields computes absolute offsets itself
         if args.flat:
-            output["flat_fields"] = flatten_fields(type_info)
+            output["flat_fields"] = flatten_fields(type_info_cached)
 
     # Output JSON
     indent = None if args.compact else 2
