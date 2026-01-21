@@ -14,6 +14,7 @@ Requires: pyelftools (pip install pyelftools)
 """
 
 import argparse
+import copy
 import json
 import sys
 from pathlib import Path
@@ -291,16 +292,20 @@ class DWARFStructParser:
         """Parse a struct/union member DIE."""
         name = self.get_attr_value(die, 'DW_AT_name')
 
-        # Get offset (for struct members)
-        offset = None
+        # Get byte_offset (for struct members) - relative to parent struct
+        # Default to 0 if not specified (common for unions, first members)
+        byte_offset = 0
         if 'DW_AT_data_member_location' in die.attributes:
             loc = die.attributes['DW_AT_data_member_location']
             if hasattr(loc, 'value'):
-                offset = loc.value
+                byte_offset = loc.value
                 # Handle DWARF expressions (simplified)
-                if isinstance(offset, list):
+                if isinstance(byte_offset, list):
                     # Usually DW_OP_plus_uconst
-                    offset = offset[0] if offset else 0
+                    byte_offset = byte_offset[0] if byte_offset else 0
+                # Ensure it's an int
+                if byte_offset is None:
+                    byte_offset = 0
 
         # Get bit offset/size for bitfields
         bit_offset = self.get_attr_value(die, 'DW_AT_bit_offset')
@@ -313,7 +318,7 @@ class DWARFStructParser:
 
         field = {
             "name": name,
-            "offset": offset,
+            "byte_offset": byte_offset,
             "type_info": type_info
         }
 
@@ -330,6 +335,65 @@ class DWARFStructParser:
         return field
 
 
+def compute_dartt_offsets(type_info, base_byte_offset=0, unaligned_fields=None):
+    """
+    Walk the type tree and add absolute dartt_offset to each field.
+    Also collects any unaligned fields for reporting.
+
+    All dartt_offset values are ABSOLUTE - referenced to the top-level struct base address.
+    This matches how DARTT protocol addresses memory.
+
+    Args:
+        type_info: The type dictionary from resolve_type()
+        base_byte_offset: Cumulative byte offset from TOP-LEVEL struct base
+        unaligned_fields: List to collect unaligned field info (mutated)
+
+    Returns:
+        List of unaligned fields found
+    """
+    if unaligned_fields is None:
+        unaligned_fields = []
+
+    if type_info.get("type") in ("struct", "union"):
+        for field in type_info.get("fields", []):
+            # byte_offset starts as relative to parent, compute absolute from struct base
+            relative_byte_offset = field.get("byte_offset") or 0
+            absolute_byte_offset = base_byte_offset + relative_byte_offset
+
+            # Store ABSOLUTE byte_offset (overwrite the relative value)
+            field["byte_offset"] = absolute_byte_offset
+
+            # Compute dartt_offset - ABSOLUTE 32-bit word index from struct base
+            field["dartt_offset"] = absolute_byte_offset // 4
+
+            # Flag unaligned fields
+            if absolute_byte_offset % 4 != 0:
+                field["unaligned"] = True
+                unaligned_fields.append({
+                    "name": field.get("name"),
+                    "absolute_byte_offset": absolute_byte_offset,
+                    "remainder": absolute_byte_offset % 4
+                })
+
+            # Recurse into nested types - pass the ABSOLUTE offset as the new base
+            # IMPORTANT: deep copy the type_info to avoid shared references
+            # (same struct type used at different offsets would otherwise share the dict)
+            field_type = field.get("type_info", {})
+            if field_type.get("type") in ("struct", "union"):
+                # Make an independent copy for this specific field instance
+                field["type_info"] = copy.deepcopy(field_type)
+                compute_dartt_offsets(field["type_info"], absolute_byte_offset, unaligned_fields)
+            elif field_type.get("type") == "array":
+                elem_type = field_type.get("element_type", {})
+                if elem_type.get("type") in ("struct", "union"):
+                    # For arrays of structs, compute offsets for element type template
+                    # Element 0 starts at the array's absolute offset
+                    field["type_info"] = copy.deepcopy(field_type)
+                    compute_dartt_offsets(field["type_info"]["element_type"], absolute_byte_offset, unaligned_fields)
+
+    return unaligned_fields
+
+
 def flatten_fields(type_info, prefix="", base_offset=0):
     """
     Flatten nested struct fields into a flat list with full paths.
@@ -344,7 +408,7 @@ def flatten_fields(type_info, prefix="", base_offset=0):
     if type_info.get("type") == "struct" or type_info.get("type") == "union":
         for field in type_info.get("fields", []):
             field_name = field.get("name", "")
-            field_byte_offset = (field.get("offset") or 0) + base_offset
+            field_byte_offset = (field.get("byte_offset") or 0) + base_offset
             field_type = field.get("type_info", {})
 
             full_name = f"{prefix}.{field_name}" if prefix else field_name
@@ -486,7 +550,25 @@ Examples:
 
         # Get type information
         type_die, type_cu = parser_obj.get_type_die(var_die, var_cu)
-        type_info = parser_obj.resolve_type(type_die, type_cu)
+        type_info_cached = parser_obj.resolve_type(type_die, type_cu)
+
+        # Deep copy to avoid modifying cached type_info (shared across same-typed fields)
+        type_info = copy.deepcopy(type_info_cached)
+
+        # Compute absolute dartt_offset for all fields in the hierarchy
+        unaligned_fields = compute_dartt_offsets(type_info)
+
+        # Warn about unaligned fields
+        if unaligned_fields:
+            print(f"Warning: {len(unaligned_fields)} field(s) are not 32-bit aligned!", file=sys.stderr)
+            print("DARTT protocol requires 32-bit aligned access. Unaligned fields:", file=sys.stderr)
+            for f in unaligned_fields:
+                byte_off = f.get("absolute_byte_offset", 0)
+                print(f"  - {f['name']}: absolute_byte_offset={byte_off} (0x{byte_off:X}), "
+                      f"remainder={f['remainder']}", file=sys.stderr)
+            print("\nConsider restructuring your typedef to ensure 32-bit alignment.", file=sys.stderr)
+            print("Hint: Group smaller types (uint8_t, uint16_t) together, or add explicit padding.\n",
+                  file=sys.stderr)
 
         # Build output structure
         total_nbytes = symbol_size or type_info.get("size", 0)
@@ -499,22 +581,9 @@ Examples:
             "type": type_info
         }
 
-        # Add flattened fields if requested
+        # Add flattened fields if requested (for backwards compatibility)
         if args.flat:
             output["flat_fields"] = flatten_fields(type_info)
-
-            # Check for unaligned fields and warn user
-            unaligned_fields = [f for f in output["flat_fields"] if f.get("unaligned")]
-            if unaligned_fields:
-                print(f"Error: {len(unaligned_fields)} field(s) are not 32-bit aligned!", file=sys.stderr)
-                print("DARTT protocol requires 32-bit aligned access. Unaligned fields:", file=sys.stderr)
-                for f in unaligned_fields:
-                    byte_off = f.get("byte_offset", 0)
-                    print(f"  - {f['name']}: byte_offset={byte_off} (0x{byte_off:X}), "
-                          f"remainder={byte_off % 4}", file=sys.stderr)
-                print("\nConsider restructuring your typedef to ensure 32-bit alignment.", file=sys.stderr)
-                print("Hint: Group smaller types (uint8_t, uint16_t) together, or add explicit padding.\n",
-                      file=sys.stderr)
 
     # Output JSON
     indent = None if args.compact else 2
