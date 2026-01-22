@@ -355,41 +355,50 @@ def compute_dartt_offsets(type_info, base_byte_offset=0, unaligned_fields=None):
         unaligned_fields = []
 
     if type_info.get("type") in ("struct", "union"):
-        for field in type_info.get("fields", []):
+        fields_list = type_info.get("fields", [])
+        for i, field in enumerate(fields_list):
             # byte_offset starts as relative to parent, compute absolute from struct base
             relative_byte_offset = field.get("byte_offset") or 0
             absolute_byte_offset = base_byte_offset + relative_byte_offset
+            dartt_offset = absolute_byte_offset // 4
 
-            # Store ABSOLUTE byte_offset (overwrite the relative value)
-            field["byte_offset"] = absolute_byte_offset
-
-            # Compute dartt_offset - ABSOLUTE 32-bit word index from struct base
-            field["dartt_offset"] = absolute_byte_offset // 4
+            # Rebuild field dict with desired key order: name, byte_offset, dartt_offset, ...
+            new_field = {"name": field.get("name")}
+            new_field["byte_offset"] = absolute_byte_offset
+            new_field["dartt_offset"] = dartt_offset
 
             # Flag unaligned fields
             if absolute_byte_offset % 4 != 0:
-                field["unaligned"] = True
+                new_field["unaligned"] = True
                 unaligned_fields.append({
                     "name": field.get("name"),
                     "absolute_byte_offset": absolute_byte_offset,
                     "remainder": absolute_byte_offset % 4
                 })
 
+            # Copy remaining fields (type_info, bit_size, bit_offset, etc.)
+            for key in field:
+                if key not in new_field:
+                    new_field[key] = field[key]
+
+            # Replace field in list
+            fields_list[i] = new_field
+
             # Recurse into nested types - pass the ABSOLUTE offset as the new base
             # IMPORTANT: deep copy the type_info to avoid shared references
             # (same struct type used at different offsets would otherwise share the dict)
-            field_type = field.get("type_info", {})
+            field_type = new_field.get("type_info", {})
             if field_type.get("type") in ("struct", "union"):
                 # Make an independent copy for this specific field instance
-                field["type_info"] = copy.deepcopy(field_type)
-                compute_dartt_offsets(field["type_info"], absolute_byte_offset, unaligned_fields)
+                new_field["type_info"] = copy.deepcopy(field_type)
+                compute_dartt_offsets(new_field["type_info"], absolute_byte_offset, unaligned_fields)
             elif field_type.get("type") == "array":
                 elem_type = field_type.get("element_type", {})
                 if elem_type.get("type") in ("struct", "union"):
                     # For arrays of structs, compute offsets for element type template
                     # Element 0 starts at the array's absolute offset
-                    field["type_info"] = copy.deepcopy(field_type)
-                    compute_dartt_offsets(field["type_info"]["element_type"], absolute_byte_offset, unaligned_fields)
+                    new_field["type_info"] = copy.deepcopy(field_type)
+                    compute_dartt_offsets(new_field["type_info"]["element_type"], absolute_byte_offset, unaligned_fields)
 
     return unaligned_fields
 
