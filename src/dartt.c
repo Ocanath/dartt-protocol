@@ -660,13 +660,23 @@ int dartt_frame_to_payload(buffer_t * ser_msg, serial_message_type_t type, paylo
 {
     assert(pld != NULL);
     assert(type == TYPE_SERIAL_MESSAGE || type == TYPE_ADDR_MESSAGE || type == TYPE_ADDR_CRC_MESSAGE);
-	assert((pld->msg.buf == NULL && pld->msg.size == 0) || (pld->msg.buf != NULL && pld->msg.size != 0));
 	
+	//check for payload argument validity
+	if(pld_mode != PAYLOAD_ALIAS)
+	{
+		int cb = check_buffer(&pld->msg);
+		if(cb != DARTT_PROTOCOL_SUCCESS)
+		{
+			return cb;
+		}
+	}
+
 	int cb = check_buffer(ser_msg);
 	if(cb != DARTT_PROTOCOL_SUCCESS)
 	{
 		return cb;
 	}
+
 	
 	if(type == TYPE_SERIAL_MESSAGE)
     {
