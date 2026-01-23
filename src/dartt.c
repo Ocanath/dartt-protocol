@@ -72,14 +72,17 @@ int index_of_field(void * p_field, void * mem, size_t mem_size)
  */
 int copy_buf_full(buffer_t * in, buffer_t * out)
 {
-	if(in == NULL || out == NULL)
+	int cb = check_buffer(in);
+	if(cb != DARTT_PROTOCOL_SUCCESS)
 	{
-		return ERROR_INVALID_ARGUMENT;
+		return cb;
 	}
-	else if(in->buf == NULL || out->buf == NULL)
+	cb = check_buffer(out);
+	if(cb != DARTT_PROTOCOL_SUCCESS)
 	{
-		return ERROR_INVALID_ARGUMENT;
+		return cb;
 	}
+
 	if(in->size != out->size)
 	{
 		return ERROR_MEMORY_OVERRUN;
@@ -470,12 +473,14 @@ int dartt_parse_base_serial_message(payload_layer_msg_t* pld_msg, buffer_t * mem
  * @note CRC bytes are stored in little-endian format: [crc_low][crc_high]
  * @note Buffer must be at least NUM_BYTES_CHECKSUM + 1 bytes long
  */
-int validate_crc(buffer_t * input)
+int validate_crc(const buffer_t * input)
 {
-    assert(input != NULL);
-    assert(input->buf != NULL);
-    assert(input->size != 0);
-    assert(input->len <= input->size);
+	int cb = check_buffer(input);
+	if(cb != DARTT_PROTOCOL_SUCCESS)
+	{
+		return cb;
+	}
+
     if(input->len <= NUM_BYTES_CHECKSUM)
     {
         return ERROR_INVALID_ARGUMENT;
@@ -516,10 +521,11 @@ int validate_crc(buffer_t * input)
  */
 int append_crc(buffer_t * input)
 {
-    assert(input != NULL);
-    assert(input->buf != NULL);
-    assert(input->size != 0);
-    assert(input->len <= input->size);
+	int cb = check_buffer(input);
+	if(cb != DARTT_PROTOCOL_SUCCESS)
+	{
+		return cb;
+	}
 
     if(input->len + NUM_BYTES_CHECKSUM > input->size)
     {
@@ -591,6 +597,35 @@ int dartt_parse_read_reply(payload_layer_msg_t * payload, misc_read_message_t * 
 }
 
 /**
+* @brief Helper function to validate buffer.
+* 
+* This function checks the three basic conditions for a buffer - non-null pointer arguments, 
+* and overrun guard based on len/size. 
+* 
+* @param b The buffer we are checking for validity
+*/
+int check_buffer(buffer_t * b)
+{
+	if(b == NULL)
+	{
+		return ERROR_INVALID_ARGUMENT;
+	}
+	if(b->buf == NULL)
+	{
+		return ERROR_INVALID_ARGUMENT;
+	}
+	if(b->size == 0)
+	{
+		return ERROR_INVALID_ARGUMENT;
+	}
+	if(b->len > b->size)
+	{
+		return ERROR_MEMORY_OVERRUN;
+	}
+	return DARTT_PROTOCOL_SUCCESS;
+}
+
+/**
  * @brief Convert a frame-layer message to payload-layer format by removing framing overhead.
  * 
  * This function performs frame-to-payload translation by stripping addressing and CRC
@@ -623,13 +658,26 @@ int dartt_parse_read_reply(payload_layer_msg_t * payload, misc_read_message_t * 
  */
 int dartt_frame_to_payload(buffer_t * ser_msg, serial_message_type_t type, payload_mode_t pld_mode, payload_layer_msg_t * pld)
 {
-    assert(ser_msg != NULL && pld != NULL);
+    assert(pld != NULL);
     assert(type == TYPE_SERIAL_MESSAGE || type == TYPE_ADDR_MESSAGE || type == TYPE_ADDR_CRC_MESSAGE);
-	assert(ser_msg->buf != NULL);
-	assert(ser_msg->size != 0);
-	assert(ser_msg->len != 0);
-	assert((pld->msg.buf == NULL && pld->msg.size == 0) || (pld->msg.buf != NULL && pld->msg.size != 0));
+	
+	//check for payload argument validity
+	if(pld_mode != PAYLOAD_ALIAS)
+	{
+		int cb = check_buffer(&pld->msg);
+		if(cb != DARTT_PROTOCOL_SUCCESS)
+		{
+			return cb;
+		}
+	}
 
+	int cb = check_buffer(ser_msg);
+	if(cb != DARTT_PROTOCOL_SUCCESS)
+	{
+		return cb;
+	}
+
+	
 	if(type == TYPE_SERIAL_MESSAGE)
     {
 		//first step - crc validation on input message
@@ -646,12 +694,13 @@ int dartt_frame_to_payload(buffer_t * ser_msg, serial_message_type_t type, paylo
 		if(pld_mode == PAYLOAD_ALIAS)	//Use pointer arithmetic
 		{
 			pld->msg.buf = ser_msg->buf;
-			pld->msg.size = ser_msg->size;
-			pld->msg.len = ser_msg->len - NUM_BYTES_CHECKSUM;	
+			pld->msg.len = ser_msg->len - NUM_BYTES_CHECKSUM;		//truncate off checksum
+			pld->msg.size = ser_msg->size - NUM_BYTES_CHECKSUM;	//even if size is greater than len, this is safe
 			
 			pld->address = ser_msg->buf[0];
 			pld->msg.buf += NUM_BYTES_ADDRESS;
 			pld->msg.len -= NUM_BYTES_ADDRESS;
+			pld->msg.size -= NUM_BYTES_ADDRESS;
 			//truncate checksum off and use pointer arithmetic to load payload to addr
 		}
 		else if(pld_mode == PAYLOAD_COPY)	//
@@ -787,6 +836,11 @@ int dartt_parse_general_message(payload_layer_msg_t * pld_msg, serial_message_ty
     assert(pld_msg->msg.size != 0 && mem_base->size != 0 && reply->size != 0);
     assert(pld_msg->msg.len <= pld_msg->msg.size && mem_base->len <= mem_base->size && reply->len <= reply->size);   
     assert(type == TYPE_SERIAL_MESSAGE || type == TYPE_ADDR_MESSAGE || type == TYPE_ADDR_CRC_MESSAGE);
+	int cb = check_buffer(reply);
+	if(cb != DARTT_PROTOCOL_SUCCESS)
+	{
+		return cb;
+	}
 	
     if(type == TYPE_SERIAL_MESSAGE)
     {

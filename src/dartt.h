@@ -1,5 +1,5 @@
-#ifndef SERIAL_COMMS_H  
-#define SERIAL_COMMS_H
+#ifndef DARTT_H  
+#define DARTT_H
 #include <stdint.h>
 #include <stddef.h>
 
@@ -144,8 +144,9 @@ int dartt_create_read_frame(misc_read_message_t * msg, serial_message_type_t typ
 int dartt_frame_to_payload(buffer_t * ser_msg, serial_message_type_t type, payload_mode_t pld_mode, payload_layer_msg_t * pld);
 int dartt_parse_base_serial_message(payload_layer_msg_t* pld_msg, buffer_t * mem_base, buffer_t * reply_base);
 int dartt_parse_general_message(payload_layer_msg_t * pld_msg, serial_message_type_t type, buffer_t * mem_base, buffer_t * reply);
+int check_buffer(buffer_t * b);
 int append_crc(buffer_t * input);
-int validate_crc(buffer_t * input);
+int validate_crc(const buffer_t * input);
 int dartt_parse_read_reply(payload_layer_msg_t * payload_msg, misc_read_message_t * original_msg, buffer_t * dest);
 
 #ifdef __cplusplus

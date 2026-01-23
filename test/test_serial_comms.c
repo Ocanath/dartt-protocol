@@ -911,6 +911,62 @@ void setup_payload_msg(payload_mode_t mode, payload_layer_msg_t * pld, unsigned 
 	}
 }
 
+
+void test_check_buffer(void)
+{
+	buffer_t b = {};
+	TEST_ASSERT_EQUAL(ERROR_INVALID_ARGUMENT, check_buffer(NULL));
+	TEST_ASSERT_EQUAL(ERROR_INVALID_ARGUMENT, check_buffer(&b));
+	unsigned char arr[9] = {};
+	b.buf = arr;
+	TEST_ASSERT_EQUAL(ERROR_INVALID_ARGUMENT, check_buffer(&b));
+	b.len = sizeof(arr);
+	TEST_ASSERT_EQUAL(ERROR_INVALID_ARGUMENT, check_buffer(&b));
+	b.size = sizeof(arr);
+	TEST_ASSERT_EQUAL(DARTT_PROTOCOL_SUCCESS, check_buffer(&b));
+}
+
+void test_f2p_memory_overrun_bug(void)
+{
+	{	//warm up - this test case failed in the last master commit
+		buffer_t serial_msg;
+		char buf[7] = {};
+		serial_msg.buf = buf;
+		serial_msg.size = 5;
+		serial_msg.len = sizeof(buf);
+		payload_layer_msg_t pld = {};
+		int rc = dartt_frame_to_payload(&serial_msg, TYPE_SERIAL_MESSAGE, PAYLOAD_ALIAS, &pld);
+		TEST_ASSERT_EQUAL(ERROR_MEMORY_OVERRUN, rc);
+	}
+	{	//
+		buffer_t serial_msg;
+		char buf[7] = {};
+		serial_msg.buf = buf;
+		serial_msg.size = sizeof(buf);
+		serial_msg.len = sizeof(buf)-2;
+		append_crc(&serial_msg);
+		payload_layer_msg_t pld = {};
+		int rc = dartt_frame_to_payload(&serial_msg, TYPE_SERIAL_MESSAGE, PAYLOAD_ALIAS, &pld);
+		TEST_ASSERT_EQUAL(sizeof(buf)-(NUM_BYTES_ADDRESS+NUM_BYTES_CHECKSUM), pld.msg.len);
+		TEST_ASSERT_EQUAL(serial_msg.len - (NUM_BYTES_ADDRESS+NUM_BYTES_CHECKSUM), pld.msg.len);
+		TEST_ASSERT_EQUAL(serial_msg.size - (NUM_BYTES_ADDRESS+NUM_BYTES_CHECKSUM), pld.msg.size);
+	}
+
+		{	//
+		buffer_t serial_msg;
+		char buf[15] = {};
+		serial_msg.buf = buf;
+		serial_msg.size = sizeof(buf);
+		serial_msg.len = 7;
+		append_crc(&serial_msg);
+		payload_layer_msg_t pld = {};
+		int rc = dartt_frame_to_payload(&serial_msg, TYPE_SERIAL_MESSAGE, PAYLOAD_ALIAS, &pld);
+		TEST_ASSERT_EQUAL(serial_msg.len - (NUM_BYTES_ADDRESS+NUM_BYTES_CHECKSUM), pld.msg.len);
+		TEST_ASSERT_EQUAL(serial_msg.size - (NUM_BYTES_ADDRESS+NUM_BYTES_CHECKSUM), pld.msg.size);
+	}
+
+}
+
 // Test happy path scenarios
 void f2p_happy_path_helper(serial_message_type_t type, payload_mode_t mode)
 {
