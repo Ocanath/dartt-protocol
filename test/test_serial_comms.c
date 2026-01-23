@@ -934,7 +934,7 @@ void test_f2p_memory_overrun_bug(void)
 		serial_msg.buf = buf;
 		serial_msg.size = 5;
 		serial_msg.len = sizeof(buf);
-		payload_layer_msg_t pld;
+		payload_layer_msg_t pld = {};
 		int rc = dartt_frame_to_payload(&serial_msg, TYPE_SERIAL_MESSAGE, PAYLOAD_ALIAS, &pld);
 		TEST_ASSERT_EQUAL(ERROR_MEMORY_OVERRUN, rc);
 	}
@@ -945,7 +945,7 @@ void test_f2p_memory_overrun_bug(void)
 		serial_msg.size = sizeof(buf);
 		serial_msg.len = sizeof(buf)-2;
 		append_crc(&serial_msg);
-		payload_layer_msg_t pld;
+		payload_layer_msg_t pld = {};
 		int rc = dartt_frame_to_payload(&serial_msg, TYPE_SERIAL_MESSAGE, PAYLOAD_ALIAS, &pld);
 		TEST_ASSERT_EQUAL(sizeof(buf)-(NUM_BYTES_ADDRESS+NUM_BYTES_CHECKSUM), pld.msg.len);
 		TEST_ASSERT_EQUAL(serial_msg.len - (NUM_BYTES_ADDRESS+NUM_BYTES_CHECKSUM), pld.msg.len);
@@ -959,7 +959,7 @@ void test_f2p_memory_overrun_bug(void)
 		serial_msg.size = sizeof(buf);
 		serial_msg.len = 7;
 		append_crc(&serial_msg);
-		payload_layer_msg_t pld;
+		payload_layer_msg_t pld = {};
 		int rc = dartt_frame_to_payload(&serial_msg, TYPE_SERIAL_MESSAGE, PAYLOAD_ALIAS, &pld);
 		TEST_ASSERT_EQUAL(serial_msg.len - (NUM_BYTES_ADDRESS+NUM_BYTES_CHECKSUM), pld.msg.len);
 		TEST_ASSERT_EQUAL(serial_msg.size - (NUM_BYTES_ADDRESS+NUM_BYTES_CHECKSUM), pld.msg.size);
