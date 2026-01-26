@@ -2,7 +2,7 @@
 #include "checksum.h"
 #include "dartt.h"
 #include "unity.h"
-
+#include <stddef.h>
 
 
 void test_checksum(void)

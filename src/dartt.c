@@ -604,7 +604,7 @@ int dartt_parse_read_reply(payload_layer_msg_t * payload, misc_read_message_t * 
 * 
 * @param b The buffer we are checking for validity
 */
-int check_buffer(buffer_t * b)
+int check_buffer(const buffer_t * b)
 {
 	if(b == NULL)
 	{
