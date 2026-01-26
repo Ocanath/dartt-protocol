@@ -95,6 +95,17 @@ int synctest_rx_blocking(buffer_t * rx, uint32_t timeout)
     return DARTT_PROTOCOL_SUCCESS;
 }
 
+
+int rx_blocking_callback_wronglength(buffer_t * rx, uint32_t timeout)
+{
+    //model peripheral with reply behavior and modifications to periph via alias
+    payload_layer_msg_t rxpld_msg = {};
+    dartt_frame_to_payload(p_sync_tx_buf, TYPE_SERIAL_MESSAGE, PAYLOAD_ALIAS, &rxpld_msg);
+    dartt_parse_general_message(&rxpld_msg, TYPE_SERIAL_MESSAGE, &periph_alias, rx);
+	rx->len += 2;	//evil bit - emulate (for example) a cobs handler that failed to scrub the rx length
+    return DARTT_PROTOCOL_SUCCESS;
+}
+
 int synctest_rx_blocking_fdcan(buffer_t * rx, uint32_t timeout)
 {
     //model peripheral with reply behavior and modifications to periph via alias
@@ -733,8 +744,56 @@ void test_dartt_read_multi(void)
 }
 
 
-
-
+void test_dartt_read_multi_bad_read_callback(void)
+{
+    TEST_ASSERT_EQUAL(0, sizeof(test_struct_t)%sizeof(int32_t));//ensure struct is 32bit word aligned
+    //master structs and aliases
+    test_struct_t ctl_master = {};
+    buffer_t ctl_master_alias;
+    init_struct_buffer(&ctl_master, &ctl_master_alias);
+    test_struct_t periph_master = {};
+    buffer_t periph_master_alias;
+    init_struct_buffer(&periph_master, &periph_master_alias);
+    //sync params
+    dartt_sync_t ctl_sync = {};
+    ctl_sync.address = 3;
+    init_struct_buffer(&ctl_master, &ctl_sync.ctl_base);
+	init_struct_buffer(&periph_master, &ctl_sync.periph_base);
+    ctl_sync.msg_type = TYPE_SERIAL_MESSAGE;
+    int rc = dartt_init_buffer(&ctl_sync.tx_buf, tx_mem, sizeof(tx_mem));
+    TEST_ASSERT_EQUAL(0,rc);
+    rc = dartt_init_buffer(&ctl_sync.rx_buf, rx_mem, sizeof(rx_mem));
+    TEST_ASSERT_EQUAL(0,rc);
+    ctl_sync.blocking_rx_callback = &rx_blocking_callback_wronglength;
+	gl_msg_type = ctl_sync.msg_type;
+    ctl_sync.blocking_tx_callback = &synctest_tx_blocking;
+    ctl_sync.timeout_ms = 10;
+    p_sync_tx_buf = &ctl_sync.tx_buf;   //for unit testing only - set up ref for us to make fake peripheral device in the callbacks
+    //setup test structs
+    for(int i = 0; i < ctl_master_alias.size; i++)
+    {
+        ctl_master_alias.buf[i] = (i % 254) + 1;
+        periph_master_alias.buf[i] = ctl_master_alias.buf[i];
+    }
+    TEST_ASSERT_EQUAL(ctl_master_alias.size, periph_master_alias.size);
+    TEST_ASSERT_EQUAL(ctl_master_alias.size, periph_alias.size);
+    for(int i = 0; i < periph_alias.size; i++)
+    {
+        periph_alias.buf[i] = 0;
+    }
+    for(int i = 0; i < ctl_master_alias.size; i++)
+    {
+        TEST_ASSERT_NOT_EQUAL(ctl_master_alias.buf[i], periph_alias.buf[i]);
+        TEST_ASSERT_EQUAL(ctl_master_alias.buf[i], periph_master_alias.buf[i]);
+        TEST_ASSERT_NOT_EQUAL(0, periph_master_alias.buf[i]);
+    }
+    
+	ctl_master_alias.buf = ctl_sync.ctl_base.buf + sizeof(uint32_t)*3;
+	ctl_master_alias.len = 4;
+	ctl_master_alias.size = 4;
+    rc = dartt_read_multi(&ctl_master_alias, &ctl_sync);
+    TEST_ASSERT_EQUAL(ERROR_CTL_READ_LEN_MISMATCH, rc);
+}
 
 
 

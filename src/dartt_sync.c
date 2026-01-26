@@ -383,6 +383,10 @@ int dartt_ctl_read(buffer_t * ctl, dartt_sync_t * psync)
     {
         return rc;
     }
+	if(pld_msg.msg.len != read_msg.num_bytes)	//simple validation - if the peripheral (or, more likely, the callback function) told us the reply was bigger than it was supposed to be, return an error instead of updating the shadow
+	{
+		return ERROR_CTL_READ_LEN_MISMATCH;	//TODO: ADD A UNIT TEST FOR THIS SPECIFIC SCENARIO (read callback returns a reply message with invalid size, either too large or too small)
+	}
 	int base_bidx = field_index*sizeof(uint32_t);
     if(base_bidx + pld_msg.msg.len > psync->periph_base.size)
     {
