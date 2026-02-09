@@ -590,6 +590,16 @@ int dartt_parse_read_reply(payload_layer_msg_t * payload, misc_read_message_t * 
     reply_index |= (uint16_t)(payload->msg.buf[bidx++]);
     reply_index |= (((uint16_t)(payload->msg.buf[bidx++])) << 8);
 
+    if(payload->msg.len <= NUM_BYTES_INDEX) //this means we have recieved a reply containing only the index
+    {
+        return ERROR_INVALID_ARGUMENT;
+    }
+    dartt_buffer_t raw_data;
+    raw_data.buf = payload->msg.buf + NUM_BYTES_INDEX;
+    raw_data.size = payload->msg.size - NUM_BYTES_INDEX;
+    raw_data.len = payload->msg.len - NUM_BYTES_INDEX;
+
+
     size_t byte_offset = ((size_t)reply_index)*sizeof(uint32_t);
 
     // Validate that the offset and data length don't exceed destination buffer bounds
@@ -597,22 +607,16 @@ int dartt_parse_read_reply(payload_layer_msg_t * payload, misc_read_message_t * 
     {
         return ERROR_MEMORY_OVERRUN;
     }
-    if(byte_offset + payload->msg.len > dest->size)
+    if(byte_offset + raw_data.len > dest->size)
     {
         return ERROR_MEMORY_OVERRUN;
     }
-    
-    // Validate that the reply length matches what we requested
-    if(payload->msg.len != original_msg->num_bytes)
-    {
-        return ERROR_MALFORMED_MESSAGE;
-    }
-    
+        
     // Copy the reply data to the correct offset in the destination buffer
     unsigned char * dest_ptr = dest->buf + byte_offset;
-    for(int i = 0; i < payload->msg.len; i++)
+    for(int i = 0; i < raw_data.len; i++)
     {
-        dest_ptr[i] = payload->msg.buf[i];
+        dest_ptr[i] = raw_data.buf[i];
     }
     
     return DARTT_PROTOCOL_SUCCESS;
