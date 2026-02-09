@@ -45,7 +45,7 @@ static device_config_t motor_config = {
     .firmware_version = 0x010203
 };
 //buffer reference to the block of memory - in this application, a typedef struct
-buffer_t motor_config_ref = {
+dartt_buffer_t motor_config_ref = {
 	.buf = (unsigned char *)(&motor_config),
 	.size = sizeof(device_config_t),
 	.len = 0
@@ -53,7 +53,7 @@ buffer_t motor_config_ref = {
 
 // Simulated device memory (controller) - empty
 static device_config_t controller_config = {};
-buffer_t controller_config_ref = {
+dartt_buffer_t controller_config_ref = {
 	.buf = (unsigned char *)&controller_config,
 	.size = sizeof(device_config_t),
 	.len = 0
@@ -62,7 +62,7 @@ buffer_t controller_config_ref = {
 
 //simulated tx buffer from the controller
 unsigned char controller_tx_mem[64] = {};
-buffer_t controller_tx = {
+dartt_buffer_t controller_tx = {
 	.buf = controller_tx_mem,
 	.size = sizeof(controller_tx_mem),
 	.len = 0
@@ -70,7 +70,7 @@ buffer_t controller_tx = {
 
 //create a buffer for the motor tx/motor reply
 unsigned char motor_tx_mem[64] = {};
-buffer_t motor_tx = {
+dartt_buffer_t motor_tx = {
 	.buf = motor_tx_mem,
 	.size = sizeof(motor_tx_mem),
 	.len = 0
@@ -98,7 +98,7 @@ int create_struct_write_frame(unsigned char address,
 	unsigned char * field, 
 	size_t field_size, 
 	device_config_t * pstruct, 
-	buffer_t * output_frame)
+	dartt_buffer_t * output_frame)
 {
     // Calculate the field index using index_of_field
     int field_index = index_of_field((void*)field, (void*)pstruct, sizeof(device_config_t));
@@ -130,7 +130,7 @@ int create_read_struct_frame(unsigned char address,
 	  size_t field_size,
 	   device_config_t * pstruct, 
 	   misc_read_message_t * read_msg_out,
-	   buffer_t * output_frame)
+	   dartt_buffer_t * output_frame)
 {
     // Calculate the field index using index_of_field
     int field_index = index_of_field((void*)field, (void*)pstruct, sizeof(device_config_t));
@@ -161,9 +161,9 @@ void print_device_config(device_config_t * config)
 }
 
 /*
-    Helper function to print buffer_t with nice formatting
+    Helper function to print dartt_buffer_t with nice formatting
 */
-void print_buffer(buffer_t * buffer)
+void print_buffer(dartt_buffer_t * buffer)
 {
     printf("Buffer (size=%zu, len=%zu): ", buffer->size, buffer->len);
     if (buffer->len == 0) {

@@ -74,13 +74,13 @@ The `ctl` parameter in all functions specifies which region to operate on. It mu
 typedef struct dartt_sync_t
 {
     unsigned char address;           // Target peripheral address
-    buffer_t ctl_base;              // Base of controller structure
-    buffer_t periph_base;           // Base of shadow copy structure
+    dartt_buffer_t ctl_base;              // Base of controller structure
+    dartt_buffer_t periph_base;           // Base of shadow copy structure
     serial_message_type_t msg_type; // Message framing type
-    buffer_t tx_buf;                // Transmission buffer
-    buffer_t rx_buf;                // Reception buffer
-    int (*blocking_tx_callback)(unsigned char, buffer_t*, uint32_t timeout);
-    int (*blocking_rx_callback)(buffer_t*, uint32_t timeout);
+    dartt_buffer_t tx_buf;                // Transmission buffer
+    dartt_buffer_t rx_buf;                // Reception buffer
+    int (*blocking_tx_callback)(unsigned char, dartt_buffer_t*, uint32_t timeout);
+    int (*blocking_rx_callback)(dartt_buffer_t*, uint32_t timeout);
     uint32_t timeout_ms;            // Communication timeout
 }dartt_sync_t;
 ```
@@ -128,7 +128,7 @@ typedef struct dartt_sync_t
 ### 4.1 `dartt_sync()` - Differential Synchronization with Verification
 
 ```c
-int dartt_sync(buffer_t * ctl, dartt_sync_t * psync);
+int dartt_sync(dartt_buffer_t * ctl, dartt_sync_t * psync);
 ```
 
 **Purpose**: Compare controller and shadow, write differences to peripheral, verify with read-back.
@@ -155,7 +155,7 @@ int dartt_sync(buffer_t * ctl, dartt_sync_t * psync);
 ### 4.2 dartt_write_multi() - Write Without Verification
 
 ```c
-int dartt_write_multi(buffer_t * ctl, dartt_sync_t * psync);
+int dartt_write_multi(dartt_buffer_t * ctl, dartt_sync_t * psync);
 ```
 
 **Purpose**: Write data from controller to peripheral without read-back verification.
@@ -178,7 +178,7 @@ int dartt_write_multi(buffer_t * ctl, dartt_sync_t * psync);
 ### 4.3 dartt_read_multi() - Read Into Shadow Copy
 
 ```c
-int dartt_read_multi(buffer_t * ctl, dartt_sync_t * psync);
+int dartt_read_multi(dartt_buffer_t * ctl, dartt_sync_t * psync);
 ```
 
 **Purpose**: Read data from target/peripheral into shadow copy.

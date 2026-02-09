@@ -55,17 +55,17 @@ typedef struct test_struct_t
 }test_struct_t;
 
 uint8_t tx_mem[64] = {};
-buffer_t * p_sync_tx_buf;
+dartt_buffer_t * p_sync_tx_buf;
 uint8_t rx_mem[64] = {};
 
-int init_struct_buffer(test_struct_t * s, buffer_t * buf)
+int init_struct_buffer(test_struct_t * s, dartt_buffer_t * buf)
 {
     buf->buf = (unsigned char *)s;
     buf->size = sizeof(test_struct_t);
     buf->len = 0;
 }
 
-int dartt_init_buffer(buffer_t * b, uint8_t * arr, size_t size)
+int dartt_init_buffer(dartt_buffer_t * b, uint8_t * arr, size_t size)
 {
     if(b == NULL || arr == NULL)
     {
@@ -79,14 +79,14 @@ int dartt_init_buffer(buffer_t * b, uint8_t * arr, size_t size)
 
 //periph copy
 test_struct_t gl_periph = {};
-buffer_t periph_alias = 
+dartt_buffer_t periph_alias = 
 {
     .buf = (unsigned char * )(&gl_periph),
     .size = sizeof(test_struct_t),
     .len = 0
 };
 
-int synctest_rx_blocking(buffer_t * rx, uint32_t timeout)
+int synctest_rx_blocking(dartt_buffer_t * rx, uint32_t timeout)
 {
     //model peripheral with reply behavior and modifications to periph via alias
     payload_layer_msg_t rxpld_msg = {};
@@ -96,7 +96,7 @@ int synctest_rx_blocking(buffer_t * rx, uint32_t timeout)
 }
 
 
-int rx_blocking_callback_wronglength(buffer_t * rx, uint32_t timeout)
+int rx_blocking_callback_wronglength(dartt_buffer_t * rx, uint32_t timeout)
 {
     //model peripheral with reply behavior and modifications to periph via alias
     payload_layer_msg_t rxpld_msg = {};
@@ -106,7 +106,7 @@ int rx_blocking_callback_wronglength(buffer_t * rx, uint32_t timeout)
     return DARTT_PROTOCOL_SUCCESS;
 }
 
-int synctest_rx_blocking_fdcan(buffer_t * rx, uint32_t timeout)
+int synctest_rx_blocking_fdcan(dartt_buffer_t * rx, uint32_t timeout)
 {
     //model peripheral with reply behavior and modifications to periph via alias
     payload_layer_msg_t rxpld_msg = {};
@@ -117,7 +117,7 @@ int synctest_rx_blocking_fdcan(buffer_t * rx, uint32_t timeout)
 
 serial_message_type_t gl_msg_type = TYPE_SERIAL_MESSAGE;
 uint32_t gl_send_count = 0;    //flag to indicate to test software if tx is called. Zero before caller
-int synctest_tx_blocking(unsigned char addr, buffer_t * tx, uint32_t timeout)
+int synctest_tx_blocking(unsigned char addr, dartt_buffer_t * tx, uint32_t timeout)
 {
     // printf("transmitted: a = 0x%X, rx=0x");
     // for(int i = 0; i < tx->len; i++)
@@ -128,7 +128,7 @@ int synctest_tx_blocking(unsigned char addr, buffer_t * tx, uint32_t timeout)
     
     
     unsigned char tx_cpy[sizeof(tx_mem)] = {};
-    buffer_t tx_cpy_alias = {.buf = tx_cpy, .size = sizeof(tx_cpy), .len=tx->len};
+    dartt_buffer_t tx_cpy_alias = {.buf = tx_cpy, .size = sizeof(tx_cpy), .len=tx->len};
     for(int i = 0; i < tx->size; i++)
     {
         tx_cpy_alias.buf[i] = tx->buf[i];
@@ -142,7 +142,7 @@ int synctest_tx_blocking(unsigned char addr, buffer_t * tx, uint32_t timeout)
 }
 
 
-int synctest_tx_blocking_fdcan(unsigned char addr, buffer_t * tx, uint32_t timeout)
+int synctest_tx_blocking_fdcan(unsigned char addr, dartt_buffer_t * tx, uint32_t timeout)
 {
     // printf("transmitted: a = 0x%X, rx=0x");
     // for(int i = 0; i < tx->len; i++)
@@ -153,7 +153,7 @@ int synctest_tx_blocking_fdcan(unsigned char addr, buffer_t * tx, uint32_t timeo
     
     
     unsigned char tx_cpy[sizeof(tx_mem)] = {};
-    buffer_t tx_cpy_alias = {.buf = tx_cpy, .size = sizeof(tx_cpy), .len=tx->len};
+    dartt_buffer_t tx_cpy_alias = {.buf = tx_cpy, .size = sizeof(tx_cpy), .len=tx->len};
     for(int i = 0; i < tx->size; i++)
     {
         tx_cpy_alias.buf[i] = tx->buf[i];
@@ -172,7 +172,7 @@ void test_dartt_sync_full(void)
     TEST_ASSERT_EQUAL(0, sizeof(test_struct_t)%sizeof(int32_t));//ensure struct is 32bit word aligned
     //master structs and aliases
     test_struct_t ctl_master = {};
-    buffer_t ctl_master_alias;
+    dartt_buffer_t ctl_master_alias;
     init_struct_buffer(&ctl_master, &ctl_master_alias);
     test_struct_t periph_master = {};
     //sync params
@@ -302,10 +302,10 @@ void test_dartt_write(void)
     TEST_ASSERT_EQUAL(0, sizeof(test_struct_t)%sizeof(int32_t));//ensure struct is 32bit word aligned
     //master structs and aliases
     test_struct_t ctl_master = {};
-    buffer_t ctl_master_alias;
+    dartt_buffer_t ctl_master_alias;
     init_struct_buffer(&ctl_master, &ctl_master_alias);
     test_struct_t periph_master = {};
-	buffer_t periph_master_alias;
+	dartt_buffer_t periph_master_alias;
 	init_struct_buffer(&periph_master, &periph_master_alias);
 
     //sync params
@@ -341,7 +341,7 @@ void test_dartt_write(void)
         TEST_ASSERT_EQUAL(ctl_master_alias.buf[i], periph_master_alias.buf[i]);
     }
 
-    buffer_t motor_commands = {
+    dartt_buffer_t motor_commands = {
         .buf = (unsigned char *)(&ctl_master.m1_set),
         .size = 2*sizeof(int32_t),  //(&ctl_master.m2_set+sizeof(int32_t)) - &ctl_master.m1_set
         .len = 2*sizeof(int32_t)
@@ -418,7 +418,7 @@ void test_dartt_write(void)
 void test_bad_inputs(void)
 {
 
-    buffer_t b1, b2, b3, b4;
+    dartt_buffer_t b1, b2, b3, b4;
 
     uint8_t b1_mem[4] = {};
     uint8_t b2_mem[4] = {};
@@ -445,7 +445,7 @@ void test_undersized_tx_buffers(void)
 {
     test_struct_t ctl_master = {};
     test_struct_t periph_master = {};
-    buffer_t ctl_alias;
+    dartt_buffer_t ctl_alias;
     init_struct_buffer(&ctl_master, &ctl_alias);
     
 
@@ -491,7 +491,7 @@ void test_minimum_sized_tx_buffers(void)
 {
     test_struct_t ctl_master = {};
     test_struct_t periph_master = {};
-    buffer_t ctl_alias;
+    dartt_buffer_t ctl_alias;
     init_struct_buffer(&ctl_master, &ctl_alias);
     
 
@@ -551,7 +551,7 @@ void test_tx_buffer_edge_cases(void)
 {
     test_struct_t ctl_master = {};
     test_struct_t periph_master = {};
-	buffer_t ctl_alias;
+	dartt_buffer_t ctl_alias;
     init_struct_buffer(&ctl_master, &ctl_alias);
 
     dartt_sync_t ctl_sync = {};
@@ -622,7 +622,7 @@ void test_buffer_alignment_edge_cases(void)
     uint8_t ctl_mem[7] = {}; // 7 bytes - not aligned to 4-byte boundary
     uint8_t periph_mem[7] = {};
 
-    buffer_t ctl_buf = {.buf = ctl_mem, .size = sizeof(ctl_mem), .len = 0};
+    dartt_buffer_t ctl_buf = {.buf = ctl_mem, .size = sizeof(ctl_mem), .len = 0};
 
     dartt_sync_t ctl_sync = {};
     ctl_sync.address = 3;
@@ -652,8 +652,8 @@ void test_buffer_alignment_edge_cases(void)
     uint8_t ctl_mem8[8] = {};
     uint8_t periph_mem8[8] = {};
 
-    buffer_t ctl_buf8 = {.buf = ctl_mem8, .size = sizeof(ctl_mem8), .len = sizeof(ctl_mem8)};
-	buffer_t periph_buf8 = {.buf = periph_mem8, .size = sizeof(periph_mem8), .len = sizeof(periph_mem8)};
+    dartt_buffer_t ctl_buf8 = {.buf = ctl_mem8, .size = sizeof(ctl_mem8), .len = sizeof(ctl_mem8)};
+	dartt_buffer_t periph_buf8 = {.buf = periph_mem8, .size = sizeof(periph_mem8), .len = sizeof(periph_mem8)};
 	
     // Make them different to trigger sync
     ctl_mem8[0] = 1;
@@ -679,10 +679,10 @@ void test_dartt_read_multi(void)
     TEST_ASSERT_EQUAL(0, sizeof(test_struct_t)%sizeof(int32_t));//ensure struct is 32bit word aligned
     //master structs and aliases
     test_struct_t ctl_master = {};
-    buffer_t ctl_master_alias;
+    dartt_buffer_t ctl_master_alias;
     init_struct_buffer(&ctl_master, &ctl_master_alias);
     test_struct_t periph_master = {};
-    buffer_t periph_master_alias;
+    dartt_buffer_t periph_master_alias;
     init_struct_buffer(&periph_master, &periph_master_alias);
     //sync params
     dartt_sync_t ctl_sync = {};
@@ -749,10 +749,10 @@ void test_dartt_read_multi_bad_read_callback(void)
     TEST_ASSERT_EQUAL(0, sizeof(test_struct_t)%sizeof(int32_t));//ensure struct is 32bit word aligned
     //master structs and aliases
     test_struct_t ctl_master = {};
-    buffer_t ctl_master_alias;
+    dartt_buffer_t ctl_master_alias;
     init_struct_buffer(&ctl_master, &ctl_master_alias);
     test_struct_t periph_master = {};
-    buffer_t periph_master_alias;
+    dartt_buffer_t periph_master_alias;
     init_struct_buffer(&periph_master, &periph_master_alias);
     //sync params
     dartt_sync_t ctl_sync = {};
@@ -802,10 +802,10 @@ void test_dartt_read_multi_fdcan(void)
     TEST_ASSERT_EQUAL(0, sizeof(test_struct_t)%sizeof(int32_t));//ensure struct is 32bit word aligned
     //master structs and aliases
     test_struct_t ctl_master = {};
-    buffer_t ctl_master_alias;
+    dartt_buffer_t ctl_master_alias;
     init_struct_buffer(&ctl_master, &ctl_master_alias);
     test_struct_t periph_master = {};
-    buffer_t periph_master_alias;
+    dartt_buffer_t periph_master_alias;
     init_struct_buffer(&periph_master, &periph_master_alias);
     //sync params
     dartt_sync_t ctl_sync = {};
@@ -889,10 +889,10 @@ void test_dartt_sync_full_fdcan(void)
     TEST_ASSERT_EQUAL(0, sizeof(test_struct_t)%sizeof(int32_t));//ensure struct is 32bit word aligned
     //master structs and aliases
     test_struct_t ctl_master = {};
-    buffer_t ctl_master_alias;
+    dartt_buffer_t ctl_master_alias;
     init_struct_buffer(&ctl_master, &ctl_master_alias);
     test_struct_t periph_master = {};
-    buffer_t periph_master_alias;
+    dartt_buffer_t periph_master_alias;
     init_struct_buffer(&periph_master, &periph_master_alias);
     //sync params
     dartt_sync_t ctl_sync = {};
@@ -1029,10 +1029,10 @@ void dartt_write_multi_wrapper(int rbufsize, int tbufsize, serial_message_type_t
     TEST_ASSERT_EQUAL(0, sizeof(test_struct_t)%sizeof(int32_t));//ensure struct is 32bit word aligned
     //master structs and aliases
     test_struct_t ctl_master = {};
-    buffer_t ctl_master_alias;
+    dartt_buffer_t ctl_master_alias;
     init_struct_buffer(&ctl_master, &ctl_master_alias);
     test_struct_t periph_master = {};
-    buffer_t periph_master_alias;
+    dartt_buffer_t periph_master_alias;
     init_struct_buffer(&periph_master, &periph_master_alias);
     //sync params
     dartt_sync_t ctl_sync = {};
@@ -1169,7 +1169,7 @@ void test_dartt_update_controller(void)
 	memcpy(ctl_copy_backup, gl_ds.ctl_base.buf, gl_ds.ctl_base.size);	
 
 	//will overrun the master copy - improper buffer creation
-	buffer_t ctl;
+	dartt_buffer_t ctl;
 	ctl.buf = (unsigned char *)(&gl_master_copy.m2_set);
 	ctl.size = sizeof(test_struct_t);	
 	ctl.len = ctl.size;

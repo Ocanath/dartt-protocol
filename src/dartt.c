@@ -70,7 +70,7 @@ int index_of_field(void * p_field, void * mem, size_t mem_size)
  * @note Both buffers must have identical size fields for the copy to proceed.
  * @note The function copies exactly buffer->size bytes, regardless of the len field.
  */
-int copy_buf_full(buffer_t * in, buffer_t * out)
+int copy_buf_full(dartt_buffer_t * in, dartt_buffer_t * out)
 {
 	int cb = check_buffer(in);
 	if(cb != DARTT_PROTOCOL_SUCCESS)
@@ -133,7 +133,7 @@ unsigned char dartt_get_complementary_address(unsigned char address)
  * @note Call this once during initialization on statically defined memory, use as an assert to reduce function call overhead
  * @note Frame overhead varies by type: SERIAL (addr+idx+crc), ADDR (idx+crc), ADDR_CRC (idx only).
  */
-int check_write_args(misc_write_message_t * msg, serial_message_type_t type, buffer_t * output)
+int check_write_args(misc_write_message_t * msg, serial_message_type_t type, dartt_buffer_t * output)
 {
     if(msg == NULL || output == NULL)
     {
@@ -163,7 +163,7 @@ int check_write_args(misc_write_message_t * msg, serial_message_type_t type, buf
  * @param output Output buffer that will receive the generated frame
  * @return int 
  */
-int check_write_lengths(misc_write_message_t * msg, serial_message_type_t type, buffer_t * output)
+int check_write_lengths(misc_write_message_t * msg, serial_message_type_t type, dartt_buffer_t * output)
 {
     //pre-check lengths for overrun
     if(msg->payload.len == 0)
@@ -220,7 +220,7 @@ int check_write_lengths(misc_write_message_t * msg, serial_message_type_t type, 
  *       - TYPE_ADDR_CRC_MESSAGE: [idx_lo][idx_hi][payload...]
  * @note The MSB of the index is cleared to indicate write operation.
  */
-int dartt_create_write_frame(misc_write_message_t * msg, serial_message_type_t type, buffer_t * output)
+int dartt_create_write_frame(misc_write_message_t * msg, serial_message_type_t type, dartt_buffer_t * output)
 {
     assert(check_write_args(msg,type,output) == DARTT_PROTOCOL_SUCCESS);  //assert to save on runtime execution
     int rc = check_write_lengths(msg,type,output);
@@ -269,7 +269,7 @@ int dartt_create_write_frame(misc_write_message_t * msg, serial_message_type_t t
  * @note Call this once during initialization, then use dartt_create_read_frame() with confidence.
  * @note Read frames have fixed size based on type: address + index + num_bytes + CRC (if applicable).
  */
-int check_read_args(misc_read_message_t * msg, serial_message_type_t type, buffer_t * output)
+int check_read_args(misc_read_message_t * msg, serial_message_type_t type, dartt_buffer_t * output)
 {
     if(msg == NULL || output == NULL)
     {
@@ -335,7 +335,7 @@ int check_read_args(misc_read_message_t * msg, serial_message_type_t type, buffe
  *       - TYPE_ADDR_CRC_MESSAGE: [idx_lo|0x80][idx_hi][bytes_lo][bytes_hi]
  * @note The MSB of the index is set to indicate read operation.
  */
-int dartt_create_read_frame(misc_read_message_t * msg, serial_message_type_t type, buffer_t * output)
+int dartt_create_read_frame(misc_read_message_t * msg, serial_message_type_t type, dartt_buffer_t * output)
 {
     assert(check_read_args(msg,type,output) == DARTT_PROTOCOL_SUCCESS);
     assert(type == TYPE_SERIAL_MESSAGE || type == TYPE_ADDR_MESSAGE || type == TYPE_ADDR_CRC_MESSAGE);
@@ -384,7 +384,7 @@ int dartt_create_read_frame(misc_read_message_t * msg, serial_message_type_t typ
  * @note Caller should reserve space for address framing using pointer arithmetic
  * @note This function is message-type agnostic - framing is handled upstream
  */
-int dartt_parse_base_serial_message(payload_layer_msg_t* pld_msg, buffer_t * mem_base, buffer_t * reply_base)
+int dartt_parse_base_serial_message(payload_layer_msg_t* pld_msg, dartt_buffer_t * mem_base, dartt_buffer_t * reply_base)
 {
     assert(pld_msg != NULL && mem_base != NULL && reply_base != NULL);
     assert(pld_msg->msg.buf != NULL && mem_base->buf != NULL && reply_base->buf != NULL);
@@ -473,7 +473,7 @@ int dartt_parse_base_serial_message(payload_layer_msg_t* pld_msg, buffer_t * mem
  * @note CRC bytes are stored in little-endian format: [crc_low][crc_high]
  * @note Buffer must be at least NUM_BYTES_CHECKSUM + 1 bytes long
  */
-int validate_crc(const buffer_t * input)
+int validate_crc(const dartt_buffer_t * input)
 {
 	int cb = check_buffer(input);
 	if(cb != DARTT_PROTOCOL_SUCCESS)
@@ -519,7 +519,7 @@ int validate_crc(const buffer_t * input)
  * @note Buffer must have at least NUM_BYTES_CHECKSUM free bytes remaining
  * @note The len field is automatically updated to include the CRC bytes
  */
-int append_crc(buffer_t * input)
+int append_crc(dartt_buffer_t * input)
 {
 	int cb = check_buffer(input);
 	if(cb != DARTT_PROTOCOL_SUCCESS)
@@ -560,7 +560,7 @@ int append_crc(buffer_t * input)
  * @note This function is called after dartt_frame_to_payload() has extracted the raw payload
  * @note Used by master devices to reconstruct remote memory after read operations
  */
-int dartt_parse_read_reply(payload_layer_msg_t * payload, misc_read_message_t * original_msg, buffer_t * dest)
+int dartt_parse_read_reply(payload_layer_msg_t * payload, misc_read_message_t * original_msg, dartt_buffer_t * dest)
 {     
     assert(dest != NULL && payload != NULL && original_msg != NULL);
     assert(dest->buf != NULL && payload->msg.buf != NULL);
@@ -604,7 +604,7 @@ int dartt_parse_read_reply(payload_layer_msg_t * payload, misc_read_message_t * 
 * 
 * @param b The buffer we are checking for validity
 */
-int check_buffer(const buffer_t * b)
+int check_buffer(const dartt_buffer_t * b)
 {
 	if(b == NULL)
 	{
@@ -656,7 +656,7 @@ int check_buffer(const buffer_t * b)
  * @note PAYLOAD_COPY mode copies payload data (safe for frame buffer reuse)
  * @note This function only handles framing - payload structure is decoded downstream
  */
-int dartt_frame_to_payload(buffer_t * ser_msg, serial_message_type_t type, payload_mode_t pld_mode, payload_layer_msg_t * pld)
+int dartt_frame_to_payload(dartt_buffer_t * ser_msg, serial_message_type_t type, payload_mode_t pld_mode, payload_layer_msg_t * pld)
 {
     assert(pld != NULL);
     assert(type == TYPE_SERIAL_MESSAGE || type == TYPE_ADDR_MESSAGE || type == TYPE_ADDR_CRC_MESSAGE);
@@ -829,7 +829,7 @@ int dartt_frame_to_payload(buffer_t * ser_msg, serial_message_type_t type, paylo
  * @note This function coordinates payload processing with frame formatting
  * @note Typically called after dartt_frame_to_payload() and address range validation
  */
-int dartt_parse_general_message(payload_layer_msg_t * pld_msg, serial_message_type_t type, buffer_t * mem_base, buffer_t * reply)
+int dartt_parse_general_message(payload_layer_msg_t * pld_msg, serial_message_type_t type, dartt_buffer_t * mem_base, dartt_buffer_t * reply)
 {
     assert(pld_msg != NULL && mem_base != NULL && reply != NULL);
     assert(pld_msg->msg.buf != NULL && mem_base->buf != NULL && reply->buf != NULL);
@@ -844,7 +844,7 @@ int dartt_parse_general_message(payload_layer_msg_t * pld_msg, serial_message_ty
 	
     if(type == TYPE_SERIAL_MESSAGE)
     {
-        buffer_t reply_cpy = {
+        dartt_buffer_t reply_cpy = {
             .buf = reply->buf + NUM_BYTES_ADDRESS,     //make room for the address, which we will load after if necessary
             .size = reply->size - 1,
             .len = 0

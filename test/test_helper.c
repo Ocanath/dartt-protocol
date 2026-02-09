@@ -135,12 +135,12 @@ void test_copy_buf_full(void)
 	{
 		unsigned char in_data[8] = {0x01, 0x02, 0x03, 0x04, 0x05, 0x06, 0x07, 0x08};
 		unsigned char out_data[8] = {};
-		buffer_t in_buf = {
+		dartt_buffer_t in_buf = {
 			.buf = in_data,
 			.size = sizeof(in_data),
 			.len = sizeof(in_data)
 		};
-		buffer_t out_buf = {
+		dartt_buffer_t out_buf = {
 			.buf = out_data,
 			.size = sizeof(out_data),
 			.len = 0
@@ -158,7 +158,7 @@ void test_copy_buf_full(void)
 	// Test NULL input buffer
 	{
 		unsigned char out_data[8] = {};
-		buffer_t out_buf = {
+		dartt_buffer_t out_buf = {
 			.buf = out_data,
 			.size = sizeof(out_data),
 			.len = 0
@@ -171,7 +171,7 @@ void test_copy_buf_full(void)
 	// Test NULL output buffer
 	{
 		unsigned char in_data[8] = {0x01, 0x02, 0x03, 0x04, 0x05, 0x06, 0x07, 0x08};
-		buffer_t in_buf = {
+		dartt_buffer_t in_buf = {
 			.buf = in_data,
 			.size = sizeof(in_data),
 			.len = sizeof(in_data)
@@ -191,12 +191,12 @@ void test_copy_buf_full(void)
 	{
 		unsigned char in_data[8] = {0x01, 0x02, 0x03, 0x04, 0x05, 0x06, 0x07, 0x08};
 		unsigned char out_data[4] = {};
-		buffer_t in_buf = {
+		dartt_buffer_t in_buf = {
 			.buf = in_data,
 			.size = sizeof(in_data),
 			.len = sizeof(in_data)
 		};
-		buffer_t out_buf = {
+		dartt_buffer_t out_buf = {
 			.buf = out_data,
 			.size = sizeof(out_data),
 			.len = 0
@@ -210,12 +210,12 @@ void test_copy_buf_full(void)
 	{
 		unsigned char in_data[4] = {0x01, 0x02, 0x03, 0x04};
 		unsigned char out_data[8] = {};
-		buffer_t in_buf = {
+		dartt_buffer_t in_buf = {
 			.buf = in_data,
 			.size = sizeof(in_data),
 			.len = sizeof(in_data)
 		};
-		buffer_t out_buf = {
+		dartt_buffer_t out_buf = {
 			.buf = out_data,
 			.size = sizeof(out_data),
 			.len = 0
@@ -227,12 +227,12 @@ void test_copy_buf_full(void)
 	
 	// Test zero-sized buffers
 	{
-		buffer_t in_buf = {
+		dartt_buffer_t in_buf = {
 			.buf = NULL,
 			.size = 0,
 			.len = 0
 		};
-		buffer_t out_buf = {
+		dartt_buffer_t out_buf = {
 			.buf = NULL,
 			.size = 0,
 			.len = 0
@@ -246,12 +246,12 @@ void test_copy_buf_full(void)
 	{
 		unsigned char in_data[1] = {0xAB};
 		unsigned char out_data[1] = {};
-		buffer_t in_buf = {
+		dartt_buffer_t in_buf = {
 			.buf = in_data,
 			.size = sizeof(in_data),
 			.len = sizeof(in_data)
 		};
-		buffer_t out_buf = {
+		dartt_buffer_t out_buf = {
 			.buf = out_data,
 			.size = sizeof(out_data),
 			.len = 0
@@ -272,12 +272,12 @@ void test_copy_buf_full(void)
 			in_data[i] = (unsigned char)(i % 256);
 		}
 		
-		buffer_t in_buf = {
+		dartt_buffer_t in_buf = {
 			.buf = in_data,
 			.size = sizeof(in_data),
 			.len = sizeof(in_data)
 		};
-		buffer_t out_buf = {
+		dartt_buffer_t out_buf = {
 			.buf = out_data,
 			.size = sizeof(out_data),
 			.len = 0

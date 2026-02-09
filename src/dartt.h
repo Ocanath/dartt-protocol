@@ -64,12 +64,12 @@ typedef enum {
 	PAYLOAD_COPY	//copy the relevant parts of the frame to the pld buffer
 } payload_mode_t;	
 
-typedef struct buffer_t
+typedef struct dartt_buffer_t
 {
 	unsigned char * buf;
 	size_t size;	//size of the buffer
 	size_t len;	//length of the current message in the buffer, referenced to the zero index
-} buffer_t;
+} dartt_buffer_t;
 
 /*
 	Containter struct for base protocol messages.
@@ -77,12 +77,12 @@ typedef struct buffer_t
 	msg: the base message, stripped of any address and crc information.
 		-if a motor message, this is a custom format designed to be very tight/fast
 		-if a general message, this follows the [r][index][nbytes]/[w][index][payload] pattern.
-	reply: if there is a reply, it will be contained in this buffer_t
+	reply: if there is a reply, it will be contained in this dartt_buffer_t
 */
 typedef struct payload_layer_msg_t
 {
 	unsigned char address;
-	buffer_t msg;
+	dartt_buffer_t msg;
 } payload_layer_msg_t;
 
 /*
@@ -95,7 +95,7 @@ typedef struct payload_layer_msg_t
 // typedef struct frame_layer_msg_t
 // {
 // 	serial_message_type_t type;
-// 	buffer_t * ser_msg;
+// 	dartt_buffer_t * ser_msg;
 // }frame_layer_msg_t;
 
 /*
@@ -105,7 +105,7 @@ typedef struct misc_write_message_t
 {
 	unsigned char address;		//slave destination address
 	uint16_t index;		//32bit-aligned index offset, where we want the payload to start writing to
-	buffer_t payload;	//the content of the message, bytewise, which we will be writing
+	dartt_buffer_t payload;	//the content of the message, bytewise, which we will be writing
 	//the checksum is computed in the message loader function, iff the hardware doesn't support it inherently. Therefore it is considered 'user alterable' data and not part of the message structure.
 }misc_write_message_t;
 
@@ -125,7 +125,7 @@ Slave reply message
 typedef struct misc_reply_t
 {
 	unsigned char address;	
-	buffer_t reply;
+	dartt_buffer_t reply;
 }misc_reply_t;
 
 // // Consider: Context struct
@@ -133,21 +133,21 @@ typedef struct misc_reply_t
 // {
 // 	unsigned char address;
 // 	serial_message_type_t type;
-// 	buffer_t * mem_base;
+// 	dartt_buffer_t * mem_base;
 // } protocol_context_t;
 
 int index_of_field(void * p_field, void * mem, size_t mem_size);
-int copy_buf_full(buffer_t * in, buffer_t * out);
+int copy_buf_full(dartt_buffer_t * in, dartt_buffer_t * out);
 unsigned char dartt_get_complementary_address(unsigned char address);
-int dartt_create_write_frame(misc_write_message_t * msg, serial_message_type_t type, buffer_t * output);
-int dartt_create_read_frame(misc_read_message_t * msg, serial_message_type_t type, buffer_t * output);
-int dartt_frame_to_payload(buffer_t * ser_msg, serial_message_type_t type, payload_mode_t pld_mode, payload_layer_msg_t * pld);
-int dartt_parse_base_serial_message(payload_layer_msg_t* pld_msg, buffer_t * mem_base, buffer_t * reply_base);
-int dartt_parse_general_message(payload_layer_msg_t * pld_msg, serial_message_type_t type, buffer_t * mem_base, buffer_t * reply);
-int check_buffer(const buffer_t * b);
-int append_crc(buffer_t * input);
-int validate_crc(const buffer_t * input);
-int dartt_parse_read_reply(payload_layer_msg_t * payload_msg, misc_read_message_t * original_msg, buffer_t * dest);
+int dartt_create_write_frame(misc_write_message_t * msg, serial_message_type_t type, dartt_buffer_t * output);
+int dartt_create_read_frame(misc_read_message_t * msg, serial_message_type_t type, dartt_buffer_t * output);
+int dartt_frame_to_payload(dartt_buffer_t * ser_msg, serial_message_type_t type, payload_mode_t pld_mode, payload_layer_msg_t * pld);
+int dartt_parse_base_serial_message(payload_layer_msg_t* pld_msg, dartt_buffer_t * mem_base, dartt_buffer_t * reply_base);
+int dartt_parse_general_message(payload_layer_msg_t * pld_msg, serial_message_type_t type, dartt_buffer_t * mem_base, dartt_buffer_t * reply);
+int check_buffer(const dartt_buffer_t * b);
+int append_crc(dartt_buffer_t * input);
+int validate_crc(const dartt_buffer_t * input);
+int dartt_parse_read_reply(payload_layer_msg_t * payload_msg, misc_read_message_t * original_msg, dartt_buffer_t * dest);
 
 #ifdef __cplusplus
 }

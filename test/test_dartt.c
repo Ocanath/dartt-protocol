@@ -53,7 +53,7 @@ void test_check_write_args(void)
 			}
 		};
 		unsigned char output_buf[3] = {};
-		buffer_t output = {
+		dartt_buffer_t output = {
 			.buf = output_buf,
 			.size = sizeof(output_buf),
 			.len = 0
@@ -66,7 +66,7 @@ void test_check_write_args(void)
 	// Test NULL argument validation
 	{
 		misc_write_message_t msg = {};
-		buffer_t output = {};
+		dartt_buffer_t output = {};
 		rc = check_write_args(&msg, 5, &output);
 		TEST_ASSERT_EQUAL(ERROR_INVALID_ARGUMENT, rc);
 		rc = check_write_args(NULL, 0, &output);
@@ -88,7 +88,7 @@ void test_check_write_args(void)
 			}
 		};
 		unsigned char output_buf[10] = {};
-		buffer_t output = {
+		dartt_buffer_t output = {
 			.buf = output_buf,
 			.size = sizeof(output_buf),
 			.len = 0
@@ -111,7 +111,7 @@ void test_check_write_args(void)
 			}
 		};
 		unsigned char output_buf[10] = {};
-		buffer_t output = {
+		dartt_buffer_t output = {
 			.buf = output_buf,
 			.size = sizeof(output_buf),
 			.len = 0
@@ -133,7 +133,7 @@ void test_check_write_args(void)
 			}
 		};
 		unsigned char output_buf[10] = {};
-		buffer_t output = {
+		dartt_buffer_t output = {
 			.buf = output_buf,
 			.size = sizeof(output_buf),
 			.len = 0
@@ -155,7 +155,7 @@ void test_check_write_args(void)
 				.len = sizeof(wpld)
 			}
 		};
-		buffer_t output = {
+		dartt_buffer_t output = {
 			.buf = NULL,  // NULL output buffer
 			.size = 10,
 			.len = 0
@@ -178,7 +178,7 @@ void test_check_write_args(void)
 			}
 		};
 		unsigned char output_buf[10] = {};  // 4 + 1 + 2 + 2 = 9 bytes needed, 10 available
-		buffer_t output = {
+		dartt_buffer_t output = {
 			.buf = output_buf,
 			.size = sizeof(output_buf),
 			.len = 0
@@ -201,7 +201,7 @@ void test_check_write_args(void)
 			}
 		};
 		unsigned char output_buf[8] = {};  // 6 + 2 + 2 = 10 bytes needed, only 8 available
-		buffer_t output = {
+		dartt_buffer_t output = {
 			.buf = output_buf,
 			.size = sizeof(output_buf),
 			.len = 0
@@ -224,7 +224,7 @@ void test_check_write_args(void)
 			}
 		};
 		unsigned char output_buf[8] = {};  // 4 + 2 + 2 = 8 bytes needed
-		buffer_t output = {
+		dartt_buffer_t output = {
 			.buf = output_buf,
 			.size = sizeof(output_buf),
 			.len = 0
@@ -247,7 +247,7 @@ void test_check_write_args(void)
 			}
 		};
 		unsigned char output_buf[7] = {};  // 6 + 2 = 8 bytes needed, only 7 available
-		buffer_t output = {
+		dartt_buffer_t output = {
 			.buf = output_buf,
 			.size = sizeof(output_buf),
 			.len = 0
@@ -270,7 +270,7 @@ void test_check_write_args(void)
 			}
 		};
 		unsigned char output_buf[8] = {};  // 4 + 2 = 6 bytes needed, 8 available
-		buffer_t output = {
+		dartt_buffer_t output = {
 			.buf = output_buf,
 			.size = sizeof(output_buf),
 			.len = 0
@@ -295,7 +295,7 @@ void test_check_write_args(void)
 			}
 		};
 		unsigned char output_buf[8] = {};  // 1 + 1 + 2 + 2 = 6 bytes needed
-		buffer_t output = {
+		dartt_buffer_t output = {
 			.buf = output_buf,
 			.size = sizeof(output_buf),
 			.len = 0
@@ -312,7 +312,7 @@ void test_check_read_args(void)
 	
 	// Test NULL argument validation - msg == NULL
 	{
-		buffer_t output = {
+		dartt_buffer_t output = {
 			.buf = (unsigned char[10]){},
 			.size = 10,
 			.len = 0
@@ -341,7 +341,7 @@ void test_check_read_args(void)
 			.index = 0,
 			.num_bytes = 4
 		};
-		buffer_t output = {
+		dartt_buffer_t output = {
 			.buf = NULL,
 			.size = 10,
 			.len = 0
@@ -358,7 +358,7 @@ void test_check_read_args(void)
 			.index = 0,
 			.num_bytes = 4
 		};
-		buffer_t output = {
+		dartt_buffer_t output = {
 			.buf = (unsigned char[4]){},
 			.size = 4,  // Need 1 + 2 + 2 + 2 = 7 bytes, only have 4
 			.len = 0
@@ -375,7 +375,7 @@ void test_check_read_args(void)
 			.index = 0,
 			.num_bytes = 4
 		};
-		buffer_t output = {
+		dartt_buffer_t output = {
 			.buf = (unsigned char[10]){},
 			.size = 10,  // 1 + 2 + 2 + 2 = 7 bytes needed, 10 available
 			.len = 0
@@ -392,7 +392,7 @@ void test_check_read_args(void)
 			.index = 0,
 			.num_bytes = 4
 		};
-		buffer_t output = {
+		dartt_buffer_t output = {
 			.buf = (unsigned char[5]){},
 			.size = 5,  // Need 2 + 2 + 2 = 6 bytes, only have 5
 			.len = 0
@@ -409,7 +409,7 @@ void test_check_read_args(void)
 			.index = 0,
 			.num_bytes = 4
 		};
-		buffer_t output = {
+		dartt_buffer_t output = {
 			.buf = (unsigned char[8]){},
 			.size = 8,  // 2 + 2 + 2 = 6 bytes needed, 8 available
 			.len = 0
@@ -426,7 +426,7 @@ void test_check_read_args(void)
 			.index = 0,
 			.num_bytes = 4
 		};
-		buffer_t output = {
+		dartt_buffer_t output = {
 			.buf = (unsigned char[3]){},
 			.size = 3,  // Need 2 + 2 = 4 bytes, only have 3
 			.len = 0
@@ -443,7 +443,7 @@ void test_check_read_args(void)
 			.index = 0,
 			.num_bytes = 4
 		};
-		buffer_t output = {
+		dartt_buffer_t output = {
 			.buf = (unsigned char[6]){},
 			.size = 6,  // 2 + 2 = 4 bytes needed, 6 available
 			.len = 0
@@ -460,7 +460,7 @@ void test_check_read_args(void)
 			.index = 0,
 			.num_bytes = 4
 		};
-		buffer_t output = {
+		dartt_buffer_t output = {
 			.buf = (unsigned char[10]){},
 			.size = 10,
 			.len = 0
@@ -477,7 +477,7 @@ void test_check_read_args(void)
 			.index = 0,
 			.num_bytes = 1
 		};
-		buffer_t output = {
+		dartt_buffer_t output = {
 			.buf = (unsigned char[7]){},
 			.size = 7,  // Exactly 1 + 2 + 2 + 2 = 7 bytes needed
 			.len = 0
@@ -494,7 +494,7 @@ void test_check_read_args(void)
 			.index = 0,
 			.num_bytes = 1
 		};
-		buffer_t output = {
+		dartt_buffer_t output = {
 			.buf = (unsigned char[6]){},
 			.size = 6,  // Exactly 2 + 2 + 2 = 6 bytes needed
 			.len = 0
@@ -511,7 +511,7 @@ void test_check_read_args(void)
 			.index = 0,
 			.num_bytes = 1
 		};
-		buffer_t output = {
+		dartt_buffer_t output = {
 			.buf = (unsigned char[4]){},
 			.size = 4,  // Exactly 2 + 2 = 4 bytes needed
 			.len = 0
@@ -528,7 +528,7 @@ void test_check_read_args(void)
 			.index = 0,
 			.num_bytes = 1000
 		};
-		buffer_t output = {
+		dartt_buffer_t output = {
 			.buf = (unsigned char[1010]){},
 			.size = 1010,  // 1000 + 1 + 2 + 2 + 2 = 1007 bytes needed, 1010 available
 			.len = 0
@@ -545,7 +545,7 @@ void test_check_read_args(void)
 			.index = 0,
 			.num_bytes = 0
 		};
-		buffer_t output = {
+		dartt_buffer_t output = {
 			.buf = (unsigned char[10]){},
 			.size = 10,
 			.len = 0
@@ -559,7 +559,7 @@ void test_check_read_args(void)
 /*Test-scope only - helper functions to parse frames back into structs 
 Reciprocal test function to dartt_create_write_frame - primary use case is testing dartt_create_write_frame.
 */
-int write_frame_to_struct(buffer_t * input, serial_message_type_t type, misc_write_message_t * msg)
+int write_frame_to_struct(dartt_buffer_t * input, serial_message_type_t type, misc_write_message_t * msg)
 {
 	if(input == NULL || msg == NULL || input->buf == NULL)
 	{
@@ -636,7 +636,7 @@ int write_frame_to_struct(buffer_t * input, serial_message_type_t type, misc_wri
 void test_write_frame_to_struct(void)
 {
 	unsigned char sermsg_buf[] = {0x12,2,3,4,5,6,0,0};
-	buffer_t buf = {
+	dartt_buffer_t buf = {
 		.buf = sermsg_buf,
 		.size = sizeof(sermsg_buf),
 		.len = 6
@@ -665,7 +665,7 @@ void test_write_frame_to_struct(void)
 /*
 Reciprocal test function to dartt_create_read_frame - primary use case is testing dartt_create_read_frame.
  */
-int read_frame_to_struct(buffer_t * input, serial_message_type_t type, misc_read_message_t * msg)
+int read_frame_to_struct(dartt_buffer_t * input, serial_message_type_t type, misc_read_message_t * msg)
 {
 	if(input == NULL || msg == NULL || input->buf == NULL)
 	{
@@ -730,7 +730,7 @@ void test_append_crc(void)
 {
 	{	//happy path 1
 		unsigned char mem[] = {1,2,3,4,0,0};
-		buffer_t buf = 
+		dartt_buffer_t buf = 
 		{
 			.buf = mem,
 			.size = sizeof(mem),
@@ -744,7 +744,7 @@ void test_append_crc(void)
 	}
 	{	//sad path 1
 		unsigned char mem[] = {1,2,3,4, 0, 0};
-		buffer_t buf = 
+		dartt_buffer_t buf = 
 		{
 			.buf = mem,
 			.size = sizeof(mem),
@@ -759,7 +759,7 @@ void test_validate_crc(void)
 {
 	{	//happy path 1
 		unsigned char mem[] = {1,2,3,4,0,0};
-		buffer_t buf = 
+		dartt_buffer_t buf = 
 		{
 			.buf = mem,
 			.size = sizeof(mem),
@@ -773,7 +773,7 @@ void test_validate_crc(void)
 	}
 	{	//sad path 1
 		unsigned char mem[] = {1,2,3,4,0,0};
-		buffer_t buf = 
+		dartt_buffer_t buf = 
 		{
 			.buf = mem,
 			.size = sizeof(mem),
@@ -814,7 +814,7 @@ void test_dartt_create_write_frame(void)
 		TEST_ASSERT_GREATER_THAN(1, msg.payload.len);
 
 		unsigned char msg_buf[256] = {};	//more than enough memory
-		buffer_t output = {
+		dartt_buffer_t output = {
 			.buf = msg_buf,
 			.size = sizeof(msg),
 			.len = 0
@@ -875,7 +875,7 @@ void test_dartt_create_read_frame(void)
 }
 
 // Helper function to create a test message and generate frame
-void create_test_message_and_frame(serial_message_type_t type, misc_write_message_t * msg, buffer_t * frame, unsigned char * payload_buf)
+void create_test_message_and_frame(serial_message_type_t type, misc_write_message_t * msg, dartt_buffer_t * frame, unsigned char * payload_buf)
 {
 	// Initialize test payload
 	unsigned char test_payload[] = {0x12, 0x34, 0x56, 0x78, 0xAB, 0xCD};
@@ -914,7 +914,7 @@ void setup_payload_msg(payload_mode_t mode, payload_layer_msg_t * pld, unsigned 
 
 void test_check_buffer(void)
 {
-	buffer_t b = {};
+	dartt_buffer_t b = {};
 	TEST_ASSERT_EQUAL(ERROR_INVALID_ARGUMENT, check_buffer(NULL));
 	TEST_ASSERT_EQUAL(ERROR_INVALID_ARGUMENT, check_buffer(&b));
 	unsigned char arr[9] = {};
@@ -929,7 +929,7 @@ void test_check_buffer(void)
 void test_f2p_memory_overrun_bug(void)
 {
 	{	//warm up - this test case failed in the last master commit
-		buffer_t serial_msg;
+		dartt_buffer_t serial_msg;
 		char buf[7] = {};
 		serial_msg.buf = buf;
 		serial_msg.size = 5;
@@ -939,7 +939,7 @@ void test_f2p_memory_overrun_bug(void)
 		TEST_ASSERT_EQUAL(ERROR_MEMORY_OVERRUN, rc);
 	}
 	{	//
-		buffer_t serial_msg;
+		dartt_buffer_t serial_msg;
 		char buf[7] = {};
 		serial_msg.buf = buf;
 		serial_msg.size = sizeof(buf);
@@ -953,7 +953,7 @@ void test_f2p_memory_overrun_bug(void)
 	}
 
 		{	//
-		buffer_t serial_msg;
+		dartt_buffer_t serial_msg;
 		char buf[15] = {};
 		serial_msg.buf = buf;
 		serial_msg.size = sizeof(buf);
@@ -973,7 +973,7 @@ void f2p_happy_path_helper(serial_message_type_t type, payload_mode_t mode)
 	unsigned char payload_buf[16] = {};
 	unsigned char frame_buf[32] = {};
 	misc_write_message_t msg = {};
-	buffer_t frame = {.buf = frame_buf, .size = sizeof(frame_buf), .len = 0};
+	dartt_buffer_t frame = {.buf = frame_buf, .size = sizeof(frame_buf), .len = 0};
 	
 	create_test_message_and_frame(type, &msg, &frame, payload_buf);
 	
@@ -1030,7 +1030,7 @@ void f2p_checksum_mismatch_helper(serial_message_type_t type, payload_mode_t mod
 	unsigned char payload_buf[16] = {};
 	unsigned char frame_buf[32] = {};
 	misc_write_message_t msg = {};
-	buffer_t frame = {.buf = frame_buf, .size = sizeof(frame_buf), .len = 0};
+	dartt_buffer_t frame = {.buf = frame_buf, .size = sizeof(frame_buf), .len = 0};
 	
 	create_test_message_and_frame(type, &msg, &frame, payload_buf);
 	
@@ -1051,7 +1051,7 @@ void f2p_memory_overrun_helper(serial_message_type_t type, payload_mode_t mode)
 	unsigned char payload_buf[16] = {};
 	unsigned char frame_buf[32] = {};
 	misc_write_message_t msg = {};
-	buffer_t frame = {.buf = frame_buf, .size = sizeof(frame_buf), .len = 0};
+	dartt_buffer_t frame = {.buf = frame_buf, .size = sizeof(frame_buf), .len = 0};
 	
 	create_test_message_and_frame(type, &msg, &frame, payload_buf);
 	
@@ -1068,7 +1068,7 @@ void f2p_memory_overrun_helper(serial_message_type_t type, payload_mode_t mode)
 void f2p_malformed_input_helper(serial_message_type_t type, payload_mode_t mode)
 {
 	unsigned char frame_buf[32] = {};
-	buffer_t frame = {.buf = frame_buf, .size = sizeof(frame_buf), .len = 0};
+	dartt_buffer_t frame = {.buf = frame_buf, .size = sizeof(frame_buf), .len = 0};
 	
 	// Create a frame that's too short
 	size_t min_len = 0;
@@ -1101,7 +1101,7 @@ void f2p_invalid_args_helper(serial_message_type_t type, payload_mode_t mode)
 	unsigned char payload_buf[16] = {};
 	unsigned char frame_buf[32] = {};
 	misc_write_message_t msg = {};
-	buffer_t frame = {.buf = frame_buf, .size = sizeof(frame_buf), .len = 0};
+	dartt_buffer_t frame = {.buf = frame_buf, .size = sizeof(frame_buf), .len = 0};
 	
 	create_test_message_and_frame(type, &msg, &frame, payload_buf);
 	
@@ -1176,7 +1176,7 @@ void test_dartt_frame_to_payload(void)
 	msg.payload.len = 8;
 	
 	unsigned char msg_buf[256] = {};
-	buffer_t output = {
+	dartt_buffer_t output = {
 		.buf = msg_buf,
 		.size = sizeof(msg_buf),
 		.len = 0

@@ -27,7 +27,7 @@ static device_config_t motor_config = {
     .firmware_version = 0x010203
 };
 //buffer reference to the block of memory - in this application, a typedef struct
-buffer_t motor_config_ref = {
+dartt_buffer_t motor_config_ref = {
 	.buf = (unsigned char *)(&motor_config),
 	.size = sizeof(device_config_t),
 	.len = 0
@@ -35,7 +35,7 @@ buffer_t motor_config_ref = {
 
 // Simulated device memory (controller) - empty
 static device_config_t controller_config = {};
-buffer_t controller_config_ref = {
+dartt_buffer_t controller_config_ref = {
 	.buf = (unsigned char * )(&controller_config),
 	.size = sizeof(device_config_t),
 	.len = 0
@@ -43,7 +43,7 @@ buffer_t controller_config_ref = {
 
 //simulated tx buffer from the controller
 unsigned char controller_tx_mem[64] = {};
-buffer_t controller_tx = {
+dartt_buffer_t controller_tx = {
 	.buf = controller_tx_mem,
 	.size = sizeof(controller_tx_mem),
 	.len = 0
@@ -51,7 +51,7 @@ buffer_t controller_tx = {
 
 //create a buffer for the motor tx/motor reply
 unsigned char motor_tx_mem[64] = {};
-buffer_t motor_tx = {
+dartt_buffer_t motor_tx = {
 	.buf = motor_tx_mem,
 	.size = sizeof(motor_tx_mem),
 	.len = 0
@@ -78,7 +78,7 @@ int create_struct_write_frame(unsigned char address,
 	unsigned char * field, 
 	size_t field_size, 
 	device_config_t * pstruct, 
-	buffer_t * output_frame)
+	dartt_buffer_t * output_frame)
 {
     // Calculate the field index using index_of_field
     int field_index = index_of_field((void*)field, (void*)pstruct, sizeof(device_config_t));
@@ -110,7 +110,7 @@ int create_read_struct_frame(unsigned char address,
 	  size_t field_size,
 	   device_config_t * pstruct, 
 	   misc_read_message_t * read_msg_out,
-	   buffer_t * output_frame)
+	   dartt_buffer_t * output_frame)
 {
     // Calculate the field index using index_of_field
     int field_index = index_of_field((void*)field, (void*)pstruct, sizeof(device_config_t));
@@ -125,7 +125,7 @@ int create_read_struct_frame(unsigned char address,
 	return dartt_create_read_frame(read_msg_out, TYPE_SERIAL_MESSAGE, output_frame);
 }
 
-int parse_read_struct_reply(buffer_t* reply_frame, misc_read_message_t* original_msg, device_config_t* pstruct)
+int parse_read_struct_reply(dartt_buffer_t* reply_frame, misc_read_message_t* original_msg, device_config_t* pstruct)
 {
     // First use dartt_frame_to_payload to strip address/CRC and get payload data
     payload_layer_msg_t payload_msg = {
@@ -139,7 +139,7 @@ int parse_read_struct_reply(buffer_t* reply_frame, misc_read_message_t* original
     }
     
     // Now use dartt_parse_read_reply on the clean payload data
-    buffer_t dest_buffer = {
+    dartt_buffer_t dest_buffer = {
         .buf = (unsigned char*)pstruct,
         .size = sizeof(device_config_t),
         .len = 0
@@ -148,7 +148,7 @@ int parse_read_struct_reply(buffer_t* reply_frame, misc_read_message_t* original
     return dartt_parse_read_reply(&payload_msg, original_msg, &dest_buffer);
 }
 
-int create_struct_ref(device_config_t * cfg, buffer_t * ref)
+int create_struct_ref(device_config_t * cfg, dartt_buffer_t * ref)
 {
 	if(cfg == NULL || ref == NULL){return -1;};
 	ref->buf = (unsigned char *)cfg;
@@ -172,7 +172,7 @@ void test_struct_block_read(void)
 		controller_config_ref.buf[i] = 0;
 	}
 	device_config_t motor_cfg_backup;
-	buffer_t motor_cfg_backup_ref;
+	dartt_buffer_t motor_cfg_backup_ref;
 	create_struct_ref(&motor_cfg_backup, &motor_cfg_backup_ref);
 	copy_buf_full(&motor_config_ref, &motor_cfg_backup_ref);
 	

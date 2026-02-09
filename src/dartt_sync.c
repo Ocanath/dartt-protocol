@@ -15,7 +15,7 @@
  *              periph_base (shadow copy), and communication buffers.
  * @return DARTT_PROTOCOL_SUCCESS on success, error code on failure
  * */
-int dartt_sync(buffer_t * ctl, dartt_sync_t * psync)
+int dartt_sync(dartt_buffer_t * ctl, dartt_sync_t * psync)
 {
     assert(psync != NULL && ctl != NULL);
     assert(psync->blocking_rx_callback != NULL && psync->blocking_tx_callback != NULL && psync->ctl_base.buf != NULL && psync->ctl_base.size != 0);
@@ -240,7 +240,7 @@ int dartt_sync(buffer_t * ctl, dartt_sync_t * psync)
  * the master control structure
  * @param psync Sync structure defining the control memory base, blocking read/write callbacks and memory structures 
  */
-int dartt_ctl_write(buffer_t * ctl, dartt_sync_t * psync)
+int dartt_ctl_write(dartt_buffer_t * ctl, dartt_sync_t * psync)
 {
     assert(ctl != NULL && psync != NULL);
     assert(ctl->buf != NULL && psync->ctl_base.buf != NULL && psync->blocking_tx_callback != NULL && psync->tx_buf.buf != NULL);
@@ -300,7 +300,7 @@ int dartt_ctl_write(buffer_t * ctl, dartt_sync_t * psync)
  *              blocking read/write callbacks and memory structures.
  * @return DARTT_PROTOCOL_SUCCESS on success, error code on failure
  */
-int dartt_ctl_read(buffer_t * ctl, dartt_sync_t * psync)
+int dartt_ctl_read(dartt_buffer_t * ctl, dartt_sync_t * psync)
 {
     assert(psync != NULL && ctl != NULL);
 	assert(psync->ctl_base.size == psync->periph_base.size);
@@ -412,7 +412,7 @@ int dartt_ctl_read(buffer_t * ctl, dartt_sync_t * psync)
  * @param psync Sync structure with ctl_base, periph_base, callbacks, and buffers.
  * @return DARTT_PROTOCOL_SUCCESS on success, error code on failure
  */
-int dartt_read_multi(buffer_t * ctl, dartt_sync_t * psync)
+int dartt_read_multi(dartt_buffer_t * ctl, dartt_sync_t * psync)
 {
     assert(ctl != NULL && psync != NULL);
 	assert(psync->ctl_base.buf != NULL && psync->periph_base.buf != NULL);
@@ -450,7 +450,7 @@ int dartt_read_multi(buffer_t * ctl, dartt_sync_t * psync)
     int i = 0;
     for(i = 0; i < num_full_reads_required; i++)
     {
-        buffer_t ctl_chunk = 
+        dartt_buffer_t ctl_chunk = 
         {
             .buf = ctl->buf + rsize * i,
             .size = rsize,
@@ -465,7 +465,7 @@ int dartt_read_multi(buffer_t * ctl, dartt_sync_t * psync)
 	size_t last_read_size = ctl->len % rsize;
 	if(last_read_size != 0)
 	{
-		buffer_t ctl_last_chunk = 
+		dartt_buffer_t ctl_last_chunk = 
 		{
 			.buf = ctl->buf + rsize * i,
 			.size = last_read_size,
@@ -489,7 +489,7 @@ int dartt_read_multi(buffer_t * ctl, dartt_sync_t * psync)
  * @param psync Sync structure with ctl_base, periph_base, callbacks, and buffers.
  * @return DARTT_PROTOCOL_SUCCESS on success, error code on failure
  */
-int dartt_write_multi(buffer_t * ctl, dartt_sync_t * psync)
+int dartt_write_multi(dartt_buffer_t * ctl, dartt_sync_t * psync)
 {
 	assert(psync != NULL && ctl != NULL);
 	
@@ -522,7 +522,7 @@ int dartt_write_multi(buffer_t * ctl, dartt_sync_t * psync)
 	int i = 0;
 	for(i = 0; i < num_undersized_writes; i++)
 	{
-		buffer_t ctl_chunk = 
+		dartt_buffer_t ctl_chunk = 
         {
             .buf = ctl->buf + wsize * i,
             .size = wsize,
@@ -538,7 +538,7 @@ int dartt_write_multi(buffer_t * ctl, dartt_sync_t * psync)
 	int last_write_pld_size = ctl->len % wsize;
 	if(last_write_pld_size != 0)			//last write
 	{
-		buffer_t ctl_last_chunk = 
+		dartt_buffer_t ctl_last_chunk = 
 		{
 			.buf = ctl->buf + wsize * i,
 			.size = last_write_pld_size,
@@ -564,7 +564,7 @@ int dartt_write_multi(buffer_t * ctl, dartt_sync_t * psync)
  * @param psync Sync structure with ctl_base, periph_base, callbacks, and buffers.
  * @return DARTT_PROTOCOL_SUCCESS on success, error code on failure
  */
-int dartt_update_controller(buffer_t * ctl, dartt_sync_t * psync)
+int dartt_update_controller(dartt_buffer_t * ctl, dartt_sync_t * psync)
 {
 	assert(ctl != NULL && psync != NULL);
 	assert(ctl->buf != NULL);
