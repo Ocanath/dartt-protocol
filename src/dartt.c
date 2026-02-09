@@ -571,7 +571,7 @@ int dartt_parse_read_reply(payload_layer_msg_t * payload, misc_read_message_t * 
     {
         return cb;
     }
-    cb = check_buffer((const dartt_buffer_t*)&dest->buf);
+    cb = check_buffer(dest);
     if(cb != DARTT_PROTOCOL_SUCCESS)
     {
         return cb;
