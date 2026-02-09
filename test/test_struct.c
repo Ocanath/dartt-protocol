@@ -198,7 +198,7 @@ void test_struct_block_read(void)
 	TEST_ASSERT_EQUAL(DARTT_PROTOCOL_SUCCESS, rc);	
 	TEST_ASSERT_EQUAL(MASTER_MISC_ADDRESS, motor_tx.buf[0]);
 	TEST_ASSERT_EQUAL(DARTT_PROTOCOL_SUCCESS, validate_crc(&motor_tx));
-	TEST_ASSERT_EQUAL(NUM_BYTES_ADDRESS + NUM_BYTES_CHECKSUM + read_msg.num_bytes, motor_tx.len);
+	TEST_ASSERT_EQUAL(NUM_BYTES_ADDRESS + NUM_BYTES_CHECKSUM + read_msg.num_bytes + NUM_BYTES_INDEX, motor_tx.len);
 
 
 	rc = dartt_frame_to_payload(&motor_tx, TYPE_SERIAL_MESSAGE, PAYLOAD_ALIAS, &pld_msg);

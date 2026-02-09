@@ -402,7 +402,8 @@ int dartt_parse_base_serial_message(payload_layer_msg_t* pld_msg, dartt_buffer_t
     rw_index |= (uint16_t)(pld_msg->msg.buf[bidx++]);
     rw_index |= (((uint16_t)(pld_msg->msg.buf[bidx++])) << 8);
     uint16_t rw_bit = rw_index & READ_WRITE_BITMASK;  //omit the shift and perform zero comparison for speed
-    size_t word_offset = ((size_t)(rw_index & (~READ_WRITE_BITMASK)))*sizeof(uint32_t); 
+    uint16_t index_arg = rw_index & (~READ_WRITE_BITMASK);
+    size_t word_offset = ((size_t)(index_arg))*sizeof(uint32_t); 
     if(rw_bit != 0) //read
     {
         if(pld_msg->msg.len != NUM_BYTES_INDEX + NUM_BYTES_NUMWORDS_READREQUEST)  //read messages must have precisely this content (once addr and crc are removed, if relevant)
@@ -425,8 +426,8 @@ int dartt_parse_base_serial_message(payload_layer_msg_t* pld_msg, dartt_buffer_t
         }
 
         reply_base->len = 0;
-        reply_base->buf[reply_base->len++] = (unsigned char)(word_offset & 0x00FF);     //prepend the word offset
-        reply_base->buf[reply_base->len++] = (unsigned char)((word_offset & 0xFF00) >> 8);  //prepend the word offset
+        reply_base->buf[reply_base->len++] = (unsigned char)(index_arg & 0x00FF);     //prepend the word offset
+        reply_base->buf[reply_base->len++] = (unsigned char)((index_arg & 0xFF00) >> 8);  //prepend the word offset
         for(int i = 0; i < num_bytes; i++)
         {
             reply_base->buf[reply_base->len++] = cpy_ptr[i];
@@ -572,7 +573,7 @@ int dartt_parse_read_reply(payload_layer_msg_t * payload, misc_read_message_t * 
     {
         return cb;
     }
-    cb = check_buffer(&dest->buf);
+    cb = check_buffer(dest);
     if(cb != DARTT_PROTOCOL_SUCCESS)
     {
         return cb;
