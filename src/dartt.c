@@ -2,6 +2,7 @@
 #include <assert.h>
 #include "dartt.h"
 #include "checksum.h"
+#include "dartt_check_buffer.h"
 
 /**
  * @brief Calculate the 32-bit word index of a field within a memory structure.
@@ -424,12 +425,11 @@ int dartt_parse_base_serial_message(payload_layer_msg_t* pld_msg, dartt_buffer_t
             return ERROR_MEMORY_OVERRUN;
         }
 
-        uint16_t i;
-        for(i = 0; i < num_bytes; i++)
+        reply_base->len = 0;
+        for(int i = 0; i < num_bytes; i++)
         {
-            reply_base->buf[i] = cpy_ptr[i];
+            reply_base->buf[reply_base->len++] = cpy_ptr[i];
         }
-        reply_base->len = i;
         return DARTT_PROTOCOL_SUCCESS; //caller needs to finish the reply formatting
     }
     else    //write
@@ -561,12 +561,26 @@ int append_crc(dartt_buffer_t * input)
  * @note Used by master devices to reconstruct remote memory after read operations
  */
 int dartt_parse_read_reply(payload_layer_msg_t * payload, misc_read_message_t * original_msg, dartt_buffer_t * dest)
-{     
-    assert(dest != NULL && payload != NULL && original_msg != NULL);
-    assert(dest->buf != NULL && payload->msg.buf != NULL);
-    assert(dest->size > 0 && payload->msg.size > 0);
-    assert(dest->len <= dest->size && payload->msg.len <= payload->msg.size);
-    
+{   
+    if(dest == NULL || payload == NULL || original_msg == NULL)
+    {
+        return ERROR_INVALID_ARGUMENT;
+    }  
+    int cb = check_buffer(&payload->msg);
+    if(cb != DARTT_PROTOCOL_SUCCESS)
+    {
+        return cb;
+    }
+    cb = check_buffer((const dartt_buffer_t*)&dest->buf);
+    if(cb != DARTT_PROTOCOL_SUCCESS)
+    {
+        return cb;
+    }
+    if(payload->msg.len != original_msg->num_bytes)
+    {
+        return ERROR_CTL_READ_LEN_MISMATCH;
+    }
+
     // Calculate the offset into the destination buffer based on the original read index
     size_t byte_offset = ((size_t)original_msg->index) * sizeof(uint32_t);
 
@@ -594,35 +608,6 @@ int dartt_parse_read_reply(payload_layer_msg_t * payload, misc_read_message_t * 
     }
     
     return DARTT_PROTOCOL_SUCCESS;
-}
-
-/**
-* @brief Helper function to validate buffer.
-* 
-* This function checks the three basic conditions for a buffer - non-null pointer arguments, 
-* and overrun guard based on len/size. 
-* 
-* @param b The buffer we are checking for validity
-*/
-int check_buffer(const dartt_buffer_t * b)
-{
-	if(b == NULL)
-	{
-		return ERROR_INVALID_ARGUMENT;
-	}
-	if(b->buf == NULL)
-	{
-		return ERROR_INVALID_ARGUMENT;
-	}
-	if(b->size == 0)
-	{
-		return ERROR_INVALID_ARGUMENT;
-	}
-	if(b->len > b->size)
-	{
-		return ERROR_MEMORY_OVERRUN;
-	}
-	return DARTT_PROTOCOL_SUCCESS;
 }
 
 /**
