@@ -577,7 +577,6 @@ int dartt_parse_read_reply(payload_layer_msg_t * payload, misc_read_message_t * 
     {
         return cb;
     }
-    
     if(payload->msg.len != original_msg->num_bytes + NUM_BYTES_READ_REPLY_OVERHEAD_PLD)
     {
         return ERROR_CTL_READ_LEN_MISMATCH;
