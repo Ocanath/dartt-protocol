@@ -208,7 +208,7 @@ int dartt_sync(dartt_buffer_t * ctl, dartt_sync_t * psync)
 
             for(int i = 0; i < write_msg.payload.len; i++)
             {
-                if(write_msg.payload.buf[i] != pld_msg.msg.buf[i])
+                if(write_msg.payload.buf[i] != pld_msg.msg.buf[i + NUM_BYTES_INDEX])
                 {
                     return ERROR_SYNC_MISMATCH;
                 }

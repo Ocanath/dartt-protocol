@@ -90,9 +90,12 @@ int synctest_rx_blocking(dartt_buffer_t * rx, uint32_t timeout)
 {
     //model peripheral with reply behavior and modifications to periph via alias
     payload_layer_msg_t rxpld_msg = {};
-    dartt_frame_to_payload(p_sync_tx_buf, TYPE_SERIAL_MESSAGE, PAYLOAD_ALIAS, &rxpld_msg);
-    dartt_parse_general_message(&rxpld_msg, TYPE_SERIAL_MESSAGE, &periph_alias, rx);
-    return DARTT_PROTOCOL_SUCCESS;
+    int rc = dartt_frame_to_payload(p_sync_tx_buf, TYPE_SERIAL_MESSAGE, PAYLOAD_ALIAS, &rxpld_msg);
+    if(rc != DARTT_PROTOCOL_SUCCESS)
+    {
+        return rc;
+    }
+    return dartt_parse_general_message(&rxpld_msg, TYPE_SERIAL_MESSAGE, &periph_alias, rx);
 }
 
 
