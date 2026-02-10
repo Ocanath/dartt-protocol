@@ -586,20 +586,20 @@ int dartt_parse_read_reply(payload_layer_msg_t * payload, misc_read_message_t * 
     }
 
     // Calculate the offset into the destination buffer based on the original read index
-    size_t requested_byte_offset = ((size_t)original_msg->index) * sizeof(uint32_t);
+    // size_t requested_byte_offset = ((size_t)original_msg->index) * sizeof(uint32_t);
 
     size_t bidx = 0;
     uint16_t reply_index = 0;
     reply_index |= (uint16_t)(payload->msg.buf[bidx++]);
     reply_index |= (((uint16_t)(payload->msg.buf[bidx++])) << 8);
-    if(payload->msg.len <= NUM_BYTES_INDEX) //this means we have recieved a reply containing only the index
+    if(payload->msg.len <= NUM_BYTES_READ_REPLY_OVERHEAD_PLD) //this means we have recieved a reply containing only the index
     {
         return ERROR_INVALID_ARGUMENT;
     }
     dartt_buffer_t raw_data;
-    raw_data.buf = payload->msg.buf + NUM_BYTES_INDEX;
-    raw_data.size = payload->msg.size - NUM_BYTES_INDEX;
-    raw_data.len = payload->msg.len - NUM_BYTES_INDEX;
+    raw_data.buf = payload->msg.buf + NUM_BYTES_READ_REPLY_OVERHEAD_PLD;
+    raw_data.size = payload->msg.size - NUM_BYTES_READ_REPLY_OVERHEAD_PLD;  //this is overflow protected because size is guaranteed to be greater than or equal to len, and len is guaranteed to be greater than the reply overhead from the above check
+    raw_data.len = payload->msg.len - NUM_BYTES_READ_REPLY_OVERHEAD_PLD;
 
 
     size_t byte_offset = ((size_t)reply_index)*sizeof(uint32_t);
