@@ -2,6 +2,7 @@
 #include <assert.h>
 #include "dartt.h"
 #include "checksum.h"
+#include "dartt_check_buffer.h"
 
 /**
  * @brief Calculate the 32-bit word index of a field within a memory structure.
@@ -621,35 +622,6 @@ int dartt_parse_read_reply(payload_layer_msg_t * payload, misc_read_message_t * 
     }
     
     return DARTT_PROTOCOL_SUCCESS;
-}
-
-/**
-* @brief Helper function to validate buffer.
-* 
-* This function checks the three basic conditions for a buffer - non-null pointer arguments, 
-* and overrun guard based on len/size. 
-* 
-* @param b The buffer we are checking for validity
-*/
-int check_buffer(const dartt_buffer_t * b)
-{
-	if(b == NULL)
-	{
-		return ERROR_INVALID_ARGUMENT;
-	}
-	if(b->buf == NULL)
-	{
-		return ERROR_INVALID_ARGUMENT;
-	}
-	if(b->size == 0)
-	{
-		return ERROR_INVALID_ARGUMENT;
-	}
-	if(b->len > b->size)
-	{
-		return ERROR_MEMORY_OVERRUN;
-	}
-	return DARTT_PROTOCOL_SUCCESS;
 }
 
 /**

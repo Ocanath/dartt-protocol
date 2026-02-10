@@ -144,7 +144,6 @@ int dartt_create_read_frame(misc_read_message_t * msg, serial_message_type_t typ
 int dartt_frame_to_payload(dartt_buffer_t * ser_msg, serial_message_type_t type, payload_mode_t pld_mode, payload_layer_msg_t * pld);
 int dartt_parse_base_serial_message(payload_layer_msg_t* pld_msg, dartt_buffer_t * mem_base, dartt_buffer_t * reply_base);
 int dartt_parse_general_message(payload_layer_msg_t * pld_msg, serial_message_type_t type, dartt_buffer_t * mem_base, dartt_buffer_t * reply);
-int check_buffer(const dartt_buffer_t * b);
 int append_crc(dartt_buffer_t * input);
 int validate_crc(const dartt_buffer_t * input);
 int dartt_parse_read_reply(payload_layer_msg_t * payload_msg, misc_read_message_t * original_msg, dartt_buffer_t * dest);
