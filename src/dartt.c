@@ -584,8 +584,6 @@ int dartt_parse_read_reply(payload_layer_msg_t * payload, misc_read_message_t * 
     }
 
     // Calculate the offset into the destination buffer based on the original read index
-    size_t requested_byte_offset = ((size_t)original_msg->index) * sizeof(uint32_t);
-
     dartt_buffer_t raw_data;
     raw_data.buf = payload->msg.buf;
     raw_data.size = payload->msg.size;
