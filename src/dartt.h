@@ -37,7 +37,7 @@ extern "C" {
 #define NUM_BYTES_NON_PAYLOAD (NUM_BYTES_ADDRESS + NUM_BYTES_INDEX + NUM_BYTES_CHECKSUM)
 #define MINIMUM_MESSAGE_LENGTH NUM_BYTES_NON_PAYLOAD
 //
-#define NUM_BYTES_READ_REPLY_OVERHEAD_PLD NUM_BYTES_INDEX	//non frame layer overhead in read replies. 
+#define NUM_BYTES_READ_REPLY_OVERHEAD_PLD 0	//non frame layer overhead in read replies. 
 
 //This is a fixed address that always corresponds
 #define MASTER_MOTOR_ADDRESS	0x7F

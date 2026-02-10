@@ -427,8 +427,6 @@ int dartt_parse_base_serial_message(payload_layer_msg_t* pld_msg, dartt_buffer_t
         }
 
         reply_base->len = 0;
-        reply_base->buf[reply_base->len++] = (unsigned char)(index_arg & 0x00FF);     //prepend the word offset
-        reply_base->buf[reply_base->len++] = (unsigned char)((index_arg & 0xFF00) >> 8);  //prepend the word offset
         for(int i = 0; i < num_bytes; i++)
         {
             reply_base->buf[reply_base->len++] = cpy_ptr[i];
@@ -588,21 +586,12 @@ int dartt_parse_read_reply(payload_layer_msg_t * payload, misc_read_message_t * 
     // Calculate the offset into the destination buffer based on the original read index
     size_t requested_byte_offset = ((size_t)original_msg->index) * sizeof(uint32_t);
 
-    size_t bidx = 0;
-    uint16_t reply_index = 0;
-    reply_index |= (uint16_t)(payload->msg.buf[bidx++]);
-    reply_index |= (((uint16_t)(payload->msg.buf[bidx++])) << 8);
-    if(payload->msg.len <= NUM_BYTES_INDEX) //this means we have recieved a reply containing only the index
-    {
-        return ERROR_INVALID_ARGUMENT;
-    }
     dartt_buffer_t raw_data;
-    raw_data.buf = payload->msg.buf + NUM_BYTES_INDEX;
-    raw_data.size = payload->msg.size - NUM_BYTES_INDEX;
-    raw_data.len = payload->msg.len - NUM_BYTES_INDEX;
+    raw_data.buf = payload->msg.buf;
+    raw_data.size = payload->msg.size;
+    raw_data.len = payload->msg.len;
 
-
-    size_t byte_offset = ((size_t)reply_index)*sizeof(uint32_t);
+    size_t byte_offset = ((size_t)original_msg->index)*sizeof(uint32_t);
 
     // Validate that the offset and data length don't exceed destination buffer bounds
     if(byte_offset >= dest->size)
