@@ -414,7 +414,7 @@ int dartt_parse_base_serial_message(payload_layer_msg_t* pld_msg, dartt_buffer_t
         uint16_t num_bytes = 0;
         num_bytes |= (uint16_t)(pld_msg->msg.buf[bidx++]);
         num_bytes |= (((uint16_t)(pld_msg->msg.buf[bidx++])) << 8);
-        if(num_bytes > (reply_base->size + NUM_BYTES_INDEX))    //ensure there is room for the memory block and the word_offset
+        if(num_bytes + NUM_BYTES_READ_REPLY_OVERHEAD_PLD > reply_base->size)    //ensure there is room for the memory block and the word_offset
         {
             return ERROR_MEMORY_OVERRUN;
         }
@@ -579,7 +579,8 @@ int dartt_parse_read_reply(payload_layer_msg_t * payload, misc_read_message_t * 
     {
         return cb;
     }
-    if(payload->msg.len != original_msg->num_bytes + NUM_BYTES_INDEX)
+    
+    if(payload->msg.len != original_msg->num_bytes + NUM_BYTES_READ_REPLY_OVERHEAD_PLD)
     {
         return ERROR_CTL_READ_LEN_MISMATCH;
     }
@@ -591,7 +592,6 @@ int dartt_parse_read_reply(payload_layer_msg_t * payload, misc_read_message_t * 
     uint16_t reply_index = 0;
     reply_index |= (uint16_t)(payload->msg.buf[bidx++]);
     reply_index |= (((uint16_t)(payload->msg.buf[bidx++])) << 8);
-
     if(payload->msg.len <= NUM_BYTES_INDEX) //this means we have recieved a reply containing only the index
     {
         return ERROR_INVALID_ARGUMENT;

@@ -208,7 +208,7 @@ int dartt_sync(dartt_buffer_t * ctl, dartt_sync_t * psync)
 
             for(int i = 0; i < write_msg.payload.len; i++)
             {
-                if(write_msg.payload.buf[i] != pld_msg.msg.buf[i + NUM_BYTES_INDEX])
+                if(write_msg.payload.buf[i] != pld_msg.msg.buf[i + NUM_BYTES_READ_REPLY_OVERHEAD_PLD])
                 {
                     return ERROR_SYNC_MISMATCH;
                 }
@@ -413,14 +413,14 @@ int dartt_read_multi(dartt_buffer_t * ctl, dartt_sync_t * psync)
     {
         return ERROR_MEMORY_OVERRUN;
     }
-    size_t nbytes_read_overhead = 0;
+    size_t nbytes_read_overhead = NUM_BYTES_READ_REPLY_OVERHEAD_PLD;  //
     if(psync->msg_type == TYPE_SERIAL_MESSAGE)
     {
-		nbytes_read_overhead = (NUM_BYTES_ADDRESS + NUM_BYTES_CHECKSUM);
+		nbytes_read_overhead += (NUM_BYTES_ADDRESS + NUM_BYTES_CHECKSUM);
     }
     else if(psync->msg_type == TYPE_ADDR_MESSAGE)
     {
-        nbytes_read_overhead = NUM_BYTES_CHECKSUM;
+        nbytes_read_overhead += NUM_BYTES_CHECKSUM;
     }
     else if(psync->msg_type != TYPE_ADDR_CRC_MESSAGE)
     {
