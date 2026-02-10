@@ -206,6 +206,11 @@ int dartt_sync(dartt_buffer_t * ctl, dartt_sync_t * psync)
 				return rc;
 			}
 
+            if(write_msg.payload.len + NUM_BYTES_READ_REPLY_OVERHEAD_PLD > pld_msg.msg.size)    //overrun guard for the comparison below. May be protected but I think that is non-obvious
+            {
+                return ERROR_MEMORY_OVERRUN;
+            }
+
             for(int i = 0; i < write_msg.payload.len; i++)
             {
                 if(write_msg.payload.buf[i] != pld_msg.msg.buf[i + NUM_BYTES_READ_REPLY_OVERHEAD_PLD])
