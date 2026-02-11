@@ -7,29 +7,6 @@
 extern "C" {
 #endif
 
-/*
-	TODO: put the information in this comment into the README
-	
-	WE ARE ALWAYS LITTLE ENDIAN.
-	This library is meant to be C-standard compliant, but to be used in a way which is technically NOT standard compliant (type punning).
-	Specifically, if you are targeting little-endian 32bit architectures, such as an ARM STM32, you *can* set this up so that the generic memory
-	regions you are reading and writing to are typedef structs (with the packed attribute if desired). This means you don't need any additional
-	parsing layer - once you load the memory from an incoming write request frame, it is immediately accessible via the struct.
-
-	The rationale is that:
-		1. if you control the target architecture and it never changes, this optimization will always work
-		2. DX improves drastically if you don't have to implement explicit parsing. Laying out your memory as a struct means you never have to write parsers for general settings messages - 
-			only for very tight and specific message types!
-*/
-
-/*
-	TODO:
-		unit test set_rw and set_index. Make sure they are order independent as desired
-		unit test the forward and reverse functions (msg to buf and buf to msg)
-		refactor the parse function to use the above
-		refactor the unit tests to use only the new functions; remove create_msic_write, create_misc_read, and parse_misc_command. Keep parse_general and index_of_field. Fix warnings in index_of_field - ensure casting is explicit
-*/
-
 #define NUM_BYTES_ADDRESS sizeof(unsigned char)
 #define NUM_BYTES_INDEX sizeof(uint16_t)
 #define NUM_BYTES_NUMWORDS_READREQUEST	sizeof(uint16_t)	//for a read struct request, we send a fixed 16bit integer argument in the payload section for the readsize request

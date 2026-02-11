@@ -416,6 +416,16 @@ int dartt_parse_base_serial_message(payload_layer_msg_t* pld_msg, dartt_buffer_t
         num_bytes |= (((uint16_t)(pld_msg->msg.buf[bidx++])) << 8);
         if(num_bytes + NUM_BYTES_READ_REPLY_OVERHEAD_PLD > reply_base->size)    //ensure there is room for the memory block and the word_offset
         {
+            /*
+            TODO (NEXT STEPS/GOOD FEATURES): now that the reply frame structure mirrors the write frame structure, we can service this request
+            rather than error out here.
+
+            I.e. we implement the same logic as in 'read_multi', where we send out multiple reply frames in response to a request that 
+            we can't cover with a single reply.
+
+            ERROR CODE RETURN: We can also implement logic where other out of bounds errors trigger the loading of a reply frame consisting of only the 
+            index, rather than being silent. This requires more unit testing and refactoring but it's an elegant solution to some of the problems I had with the first pass of the protocol.
+            */
             return ERROR_MEMORY_OVERRUN;
         }
 
