@@ -30,7 +30,7 @@ For protocols with no built-in arbitration or error handling, `TYPE_SERIAL_MESSA
 DARTT generic block memory access relies on three different basic frame structures.
 1. Write frame, consisting of a 16-bit index word where the MSB is a read/write bit (R = 0), followed by an array of N bytes
 1. Read request frame, consisting of a 16-bit index word where the MSB is a read/write bit (R = 0), followed by a 16-bit 'number of bytes' argument
-1. Read reply frame, consisting of an N-byte array containing the requested data from the Read request frame.
+1. Read reply frame, consisting of a 16-bit index word where the MSB is a read/write bit, and it is always configured in read mode, followed by an N-byte array containing the requested data from the Read request frame. I.e., same format as a write frame.
 
 Indexes are 32-bit aligned. I.e. a DARTT write frame with index argument `2` would begin writing data at byte offset `8`.
 
@@ -92,23 +92,23 @@ When a peripheral responds to a read request, the frame format varies by message
 ### TYPE_SERIAL_MESSAGE (Type 0) - Read Reply
 The reply contains the requested data block with a prepended address and appended CRC:
 
-| Byte 0  | Bytes 1-N            | Bytes N+1 to N+2 |
-|---------|----------------------|------------------|
-| Address | Requested Data Block | CRC              |
+| Byte 0  |       Bytes 1-2         |       Bytes 3-N       | Bytes N+1 to N+2 |
+|---------|-------------------------|-----------------------|------------------|
+| Address |   Index (no R/W bit)    | Requested Data Block  | CRC              |
 
 ### TYPE_ADDR_MESSAGE (Type 1) - Read Reply
 The reply contains the requested data block with an appended CRC:
 
-| Bytes 0-N            | Bytes N+1 to N+2 |
-|----------------------|------------------|
-| Requested Data Block | CRC              |
+|     Bytes 0-1     | Bytes 2-N            | Bytes N+1 to N+2 |
+|-------------------|----------------------|------------------|
+| Index (no R/W bit)| Requested Data Block | CRC              |
 
 ### TYPE_ADDR_CRC_MESSAGE (Type 2) - Read Reply
 The reply contains only the requested data block with no additional data:
 
-| Bytes 0-N            |
-|----------------------|
-| Requested Data Block |
+|     Bytes 0-1     | Bytes 0-N            |
+|-------------------|----------------------|
+| Index (no R/W bit)| Requested Data Block |
 
 ## Field Descriptions
 
