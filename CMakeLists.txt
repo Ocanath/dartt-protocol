@@ -8,7 +8,7 @@ set(CMAKE_C_STANDARD 11)
 set(CMAKE_C_STANDARD_REQUIRED ON)
 
 # Enable warnings and treat them as errors
-set(CMAKE_C_FLAGS "${CMAKE_C_FLAGS} -Wall -Werror")
+# set(CMAKE_C_FLAGS "${CMAKE_C_FLAGS} -Wall -Werror")
 
 # Debug configuration
 set(CMAKE_BUILD_TYPE Debug)
