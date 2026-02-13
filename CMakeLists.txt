@@ -7,6 +7,9 @@ project(dartt_protocol C)
 set(CMAKE_C_STANDARD 11)
 set(CMAKE_C_STANDARD_REQUIRED ON)
 
+# Enable warnings and treat them as errors
+set(CMAKE_C_FLAGS "${CMAKE_C_FLAGS} -Wall -Werror")
+
 # Debug configuration
 set(CMAKE_BUILD_TYPE Debug)
 set(CMAKE_C_FLAGS_DEBUG "${CMAKE_C_FLAGS_DEBUG} -g -O0")

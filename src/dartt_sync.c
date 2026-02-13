@@ -332,7 +332,7 @@ int dartt_ctl_read(dartt_buffer_t * ctl, dartt_sync_t * psync)
         return ERROR_MEMORY_OVERRUN;
     }
     //ensure the read reply we're requesting won't overrun the read buffer
-    size_t nb_overhead_read_reply = 0;
+    size_t nb_overhead_read_reply = NUM_BYTES_READ_REPLY_OVERHEAD_PLD;
     if(psync->msg_type == TYPE_SERIAL_MESSAGE)
     {
     	nb_overhead_read_reply = NUM_BYTES_ADDRESS + NUM_BYTES_CHECKSUM;

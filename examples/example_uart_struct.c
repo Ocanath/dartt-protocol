@@ -203,9 +203,16 @@ int main(void)
 		&read_msg,
 		&controller_tx
 	);
-	printf("Message: ");
-	print_buffer(&controller_tx);
-	printf("Controller sends message to motor\r\n");
+    if(rc != 0)
+    {
+        printf("Failed to build message\n");
+    }
+    else
+    {
+        printf("Message: ");
+        print_buffer(&controller_tx);
+        printf("Controller sends message to motor\r\n");
+    }
 	
 	printf("Motor recieved the message\r\n");
 	payload_layer_msg_t pld_msg ={};	//can be statically allocated, or local and initialized to zero
