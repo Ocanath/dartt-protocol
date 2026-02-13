@@ -44,4 +44,5 @@ static inline int check_mem_base(const dartt_mem_t * m)
 	{
 		return ERROR_INVALID_ARGUMENT;
 	}
+	return DARTT_PROTOCOL_SUCCESS;
 }

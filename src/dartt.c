@@ -573,7 +573,7 @@ int append_crc(dartt_buffer_t * input)
  * @note This function is called after dartt_frame_to_payload() has extracted the raw payload
  * @note Used by master devices to reconstruct remote memory after read operations
  */
-int dartt_parse_read_reply(payload_layer_msg_t * payload, misc_read_message_t * original_msg, dartt_buffer_t * dest)
+int dartt_parse_read_reply(payload_layer_msg_t * payload, misc_read_message_t * original_msg, const dartt_mem_t * dest)
 {   
     if(dest == NULL || payload == NULL || original_msg == NULL)
     {
@@ -584,7 +584,7 @@ int dartt_parse_read_reply(payload_layer_msg_t * payload, misc_read_message_t * 
     {
         return cb;
     }
-    cb = check_buffer(dest);
+    cb = check_mem_base(dest);
     if(cb != DARTT_PROTOCOL_SUCCESS)
     {
         return cb;

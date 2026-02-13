@@ -147,7 +147,7 @@ int dartt_parse_base_serial_message(payload_layer_msg_t* pld_msg, const dartt_me
 int dartt_parse_general_message(payload_layer_msg_t * pld_msg, serial_message_type_t type, const dartt_mem_t * mem_base, dartt_buffer_t * reply);
 int append_crc(dartt_buffer_t * input);
 int validate_crc(const dartt_buffer_t * input);
-int dartt_parse_read_reply(payload_layer_msg_t * payload_msg, misc_read_message_t * original_msg, dartt_buffer_t * dest);
+int dartt_parse_read_reply(payload_layer_msg_t * payload, misc_read_message_t * original_msg, const dartt_mem_t * dest);
 
 #ifdef __cplusplus
 }
