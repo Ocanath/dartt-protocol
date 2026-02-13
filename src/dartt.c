@@ -88,7 +88,7 @@ int copy_buf_full(dartt_buffer_t * in, dartt_buffer_t * out)
 	{
 		return ERROR_MEMORY_OVERRUN;
 	}
-	for(int i = 0; i < in->size; i++)
+	for(size_t i = 0; i < in->size; i++)
 	{
 		out->buf[i] = in->buf[i];
 	}
@@ -239,7 +239,7 @@ int dartt_create_write_frame(misc_write_message_t * msg, serial_message_type_t t
     uint16_t rw_index = (msg->index & (~READ_WRITE_BITMASK));   //MSB = 0 for write, low 15 for index
     output->buf[output->len++] = (unsigned char)(rw_index & 0x00FF);
     output->buf[output->len++] = (unsigned char)((rw_index & 0xFF00) >> 8);
-    for(int i = 0; i < msg->payload.len; i++)
+    for(size_t i = 0; i < msg->payload.len; i++)
     {
         output->buf[output->len++] = msg->payload.buf[i];
     }
@@ -439,7 +439,7 @@ int dartt_parse_base_serial_message(payload_layer_msg_t* pld_msg, const dartt_me
         reply_base->len = 0;
         reply_base->buf[reply_base->len++] = (unsigned char)(index_arg & 0x00FF);     //prepend the word offset
         reply_base->buf[reply_base->len++] = (unsigned char)((index_arg & 0xFF00) >> 8);  //prepend the word offset
-        for(int i = 0; i < num_bytes; i++)
+        for(uint16_t i = 0; i < num_bytes; i++)
         {
             reply_base->buf[reply_base->len++] = cpy_ptr[i];
         }
@@ -458,7 +458,7 @@ int dartt_parse_base_serial_message(payload_layer_msg_t* pld_msg, const dartt_me
             return ERROR_MEMORY_OVERRUN;
         }
         unsigned char * mem_ptr = mem_base->buf + word_offset;
-        for(int i = 0; i < nbytes_to_write; i++)
+        for(size_t i = 0; i < nbytes_to_write; i++)
         {
             mem_ptr[i] = write_ptr[i];  //perform the copy
         }
@@ -615,10 +615,6 @@ int dartt_parse_read_reply(payload_layer_msg_t * payload, misc_read_message_t * 
     size_t byte_offset = ((size_t)reply_index)*sizeof(uint32_t);
 
     // Validate that the offset and data length don't exceed destination buffer bounds
-    if(byte_offset >= dest->size)
-    {
-        return ERROR_MEMORY_OVERRUN;
-    }
     if(byte_offset + raw_data.len > dest->size)
     {
         return ERROR_MEMORY_OVERRUN;
@@ -626,7 +622,7 @@ int dartt_parse_read_reply(payload_layer_msg_t * payload, misc_read_message_t * 
         
     // Copy the reply data to the correct offset in the destination buffer
     unsigned char * dest_ptr = dest->buf + byte_offset;
-    for(int i = 0; i < raw_data.len; i++)
+    for(size_t i = 0; i < raw_data.len; i++)
     {
         dest_ptr[i] = raw_data.buf[i];
     }
@@ -726,7 +722,7 @@ int dartt_frame_to_payload(dartt_buffer_t * ser_msg, serial_message_type_t type,
 			pld->address = ser_msg->buf[0];
 			unsigned char * sm_start = ser_msg->buf + NUM_BYTES_ADDRESS; //skip address
 			
-			for(int i = 0; i < newlen; i++)
+			for(size_t i = 0; i < newlen; i++)
 			{
 				pld->msg.buf[i] = sm_start[i];
 			}
@@ -766,7 +762,7 @@ int dartt_frame_to_payload(dartt_buffer_t * ser_msg, serial_message_type_t type,
 			{
 				return ERROR_MEMORY_OVERRUN;
 			}
-			for(int i = 0; i < newlen; i++)
+			for(size_t i = 0; i < newlen; i++)
 			{
 				pld->msg.buf[i] = ser_msg->buf[i];
 			}
@@ -796,7 +792,7 @@ int dartt_frame_to_payload(dartt_buffer_t * ser_msg, serial_message_type_t type,
 			{
 				return ERROR_MEMORY_OVERRUN;
 			}
-			for(int i = 0; i < ser_msg->len; i++)
+			for(size_t i = 0; i < ser_msg->len; i++)
 			{
 				pld->msg.buf[i] = ser_msg->buf[i];
 			}

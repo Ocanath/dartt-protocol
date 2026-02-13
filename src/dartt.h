@@ -87,19 +87,6 @@ typedef struct payload_layer_msg_t
 } payload_layer_msg_t;
 
 /*
-	Contatiner struct for frame layer messages.
-	Depending on type, these will have:
-		TYPE_SERIAL_MESSAGE: address (byte 0) - crc (last two bytes)
-		TYPE_ADDR_MESSAGE: crc (last two bytes)
-		TYPE_ADDR_CRC_MESSAGE: neither address nor crc - the frame_msg contents are equal to the payload layer contents
-*/
-// typedef struct frame_layer_msg_t
-// {
-// 	serial_message_type_t type;
-// 	dartt_buffer_t * ser_msg;
-// }frame_layer_msg_t;
-
-/*
 Master write message/write request
  */
 typedef struct misc_write_message_t
@@ -119,23 +106,6 @@ typedef struct misc_read_message_t
 	uint16_t index;		//32bit-aligned index offset, where we want the payload to start reading from
 	uint16_t num_bytes;	//2^16 byte read requests at a time maximum. Not recommended to use buffers this large. 
 }misc_read_message_t;
-
-/*
-Slave reply message
- */
-typedef struct misc_reply_t
-{
-	unsigned char address;	
-	dartt_buffer_t reply;
-}misc_reply_t;
-
-// // Consider: Context struct
-// typedef struct 
-// {
-// 	unsigned char address;
-// 	serial_message_type_t type;
-// 	dartt_buffer_t * mem_base;
-// } protocol_context_t;
 
 int index_of_field(void * p_field, void * mem, size_t mem_size);
 int copy_buf_full(dartt_buffer_t * in, dartt_buffer_t * out);
