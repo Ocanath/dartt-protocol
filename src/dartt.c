@@ -391,7 +391,12 @@ int dartt_parse_base_serial_message(payload_layer_msg_t* pld_msg, const dartt_me
     assert(pld_msg->msg.buf != NULL && mem_base->buf != NULL && reply_base->buf != NULL);
     assert(pld_msg->msg.size > NUM_BYTES_INDEX && mem_base->size > 0 && reply_base->size > 0);
     assert(pld_msg->msg.len <= pld_msg->msg.size && reply_base->len <= reply_base->size);
-
+    int cb = check_buffer(reply_base);
+    if(cb != DARTT_PROTOCOL_SUCCESS)
+    {
+        return cb;
+    }
+    
     //critical check - keep as runtime since this is data-dependent
     if(pld_msg->msg.len <= NUM_BYTES_INDEX)   //if write, it must contain at least one byte of payload. If read, it must contain exactly two additional bytes of read size
     {
