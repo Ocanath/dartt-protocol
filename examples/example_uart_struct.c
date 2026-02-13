@@ -45,18 +45,16 @@ static device_config_t motor_config = {
     .firmware_version = 0x010203
 };
 //buffer reference to the block of memory - in this application, a typedef struct
-dartt_buffer_t motor_config_ref = {
+dartt_mem_t motor_config_ref = {
 	.buf = (unsigned char *)(&motor_config),
-	.size = sizeof(device_config_t),
-	.len = 0
+	.size = sizeof(device_config_t)
 };
 
 // Simulated device memory (controller) - empty
 static device_config_t controller_config = {};
-dartt_buffer_t controller_config_ref = {
+dartt_mem_t controller_config_ref = {
 	.buf = (unsigned char *)&controller_config,
-	.size = sizeof(device_config_t),
-	.len = 0
+	.size = sizeof(device_config_t)
 };
 
 
@@ -140,7 +138,7 @@ int create_read_struct_frame(unsigned char address,
     }
 	read_msg_out->address = address;
 	read_msg_out->index = field_index;
-	read_msg_out->num_bytes = field_size;
+	read_msg_out->num_bytes = (uint16_t)field_size;
 	
 	return dartt_create_read_frame(read_msg_out, TYPE_SERIAL_MESSAGE, output_frame);
 }
