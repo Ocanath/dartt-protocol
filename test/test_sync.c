@@ -1211,12 +1211,22 @@ void test_dartt_update_controller(void)
 	TEST_ASSERT_EQUAL(ERROR_MEMORY_OVERRUN, rc);
 
 	//improper buffer creation - misaligned (not 32bit aligned)
+	ctl.len = ctl.size - 1;
+	ctl.buf = (unsigned char *)(&gl_master_copy);
+	ctl.buf += 1;
+	ctl.size = sizeof(test_struct_t) - 1;	
+	rc = dartt_update_controller(&ctl, &gl_ds);
+	TEST_ASSERT_EQUAL(ERROR_INVALID_ARGUMENT, rc);
+
+    //check for ctl validity
 	ctl.len = ctl.size;
 	ctl.buf = (unsigned char *)(&gl_master_copy);
 	ctl.buf += 1;
 	ctl.size = sizeof(test_struct_t);	
 	rc = dartt_update_controller(&ctl, &gl_ds);
-	TEST_ASSERT_EQUAL(ERROR_INVALID_ARGUMENT, rc);
+	TEST_ASSERT_EQUAL(ERROR_MEMORY_OVERRUN, rc);
+
+    
 
 
 	//happy path

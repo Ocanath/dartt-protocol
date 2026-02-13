@@ -1,4 +1,5 @@
 #include "dartt_sync.h"
+#include "dartt_check_buffer.h"
 #include <assert.h>
 
 
@@ -561,6 +562,15 @@ int dartt_update_controller(dartt_buffer_t * ctl, dartt_sync_t * psync)
 	assert(ctl != NULL && psync != NULL);
 	assert(ctl->buf != NULL);
 	assert(psync->ctl_base.buf != NULL && psync->periph_base.buf != NULL);
+    int cb = check_buffer(ctl);
+    if(cb != DARTT_PROTOCOL_SUCCESS)
+    {
+        return cb;
+    }
+    if(ctl->buf < psync->ctl_base.buf || ( (ctl->buf + ctl->size) > (psync->ctl_base.buf + psync->ctl_base.size) ))
+    {
+        return ERROR_MEMORY_OVERRUN;
+    }
 
 	int field_offset = 	index_of_field(ctl->buf, psync->ctl_base.buf, psync->ctl_base.size);	//inherit ctl parameter validation from index_of_field
 	if(field_offset < 0)
