@@ -140,7 +140,7 @@ int dartt_sync(dartt_buffer_t * ctl, dartt_sync_t * psync);
 3. For each difference:
    - Writes controller copy content to the target device
    - Reads back from target device into shadow copy
-   - Checks shadow copy for discrepancies with controller copy. Returns `ERROR_SYNC_MISMATCH` if there is any mismatch.
+   - Checks shadow copy for discrepancies with controller copy. Returns `DARTT_ERROR_SYNC_MISMATCH` if there is any mismatch.
 
 **Automatic chunking**: If a mismatch region exceeds `tx_buf` capacity, it's automatically split into multiple write/read operations.
 
@@ -239,7 +239,7 @@ This behavior has to be maintained specifically for `dartt_read_multi`, because 
 
 ## 7. Troubleshooting
 
-### ERROR_INVALID_ARGUMENT
+### DARTT_ERROR_INVALID_ARGUMENT
 
 **Possible causes**:
 
@@ -247,7 +247,7 @@ This behavior has to be maintained specifically for `dartt_read_multi`, because 
 - Pointer not 32-bit aligned
 - `ctl->size` not a multiple of 4
 
-### ERROR_MEMORY_OVERRUN
+### DARTT_ERROR_MEMORY_OVERRUN
 
 **Possible causes**:
 
@@ -256,7 +256,7 @@ This behavior has to be maintained specifically for `dartt_read_multi`, because 
 - `tx_buf` or `rx_buf` too small for message overhead
 - Calculated write would exceed `periph_base` bounds
 
-### ERROR_SYNC_MISMATCH
+### DARTT_ERROR_SYNC_MISMATCH
 
 **Cause**: Read-back verification failed - peripheral didn't store the written value correctly.
 
@@ -269,7 +269,7 @@ This behavior has to be maintained specifically for `dartt_read_multi`, because 
 
 The application is responsible for managing this error - can be ignored, trigger a retransmission pattern if due to a physical error, etc.
 
-### ERROR_MALFORMED_MESSAGE / ERROR_TIMEOUT
+### DARTT_ERROR_MALFORMED_MESSAGE / ERROR_TIMEOUT
 
 **Cause**: No response from peripheral, or response couldn't be parsed.
 

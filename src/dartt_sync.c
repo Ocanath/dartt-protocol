@@ -26,24 +26,24 @@ int dartt_sync(dartt_buffer_t * ctl, dartt_sync_t * psync)
     
     if(psync->ctl_base.size != psync->periph_base.size)
 	{
-		return ERROR_MEMORY_OVERRUN;
+		return DARTT_ERROR_MEMORY_OVERRUN;
 	}
 	if(ctl->size % sizeof(int32_t) != 0)
 	{
-		return ERROR_INVALID_ARGUMENT;	//make sure you're 32 bit aligned in all refs
+		return DARTT_ERROR_INVALID_ARGUMENT;	//make sure you're 32 bit aligned in all refs
 	}
         // Runtime checks for buffer bounds - these could be caused by developer error in ctl configuration
     if (ctl->buf < psync->ctl_base.buf || ctl->buf >= (psync->ctl_base.buf + psync->ctl_base.size)) 
     {
-        return ERROR_INVALID_ARGUMENT;
+        return DARTT_ERROR_INVALID_ARGUMENT;
     }
     if (ctl->buf + ctl->len > psync->ctl_base.buf + psync->ctl_base.size) 
     {
-        return ERROR_MEMORY_OVERRUN;
+        return DARTT_ERROR_MEMORY_OVERRUN;
     }
     if (ctl->buf + ctl->size > psync->ctl_base.buf + psync->ctl_base.size) 
     {
-        return ERROR_MEMORY_OVERRUN;
+        return DARTT_ERROR_MEMORY_OVERRUN;
     }
 
     size_t nbytes_writemsg_overhead = 0;
@@ -61,7 +61,7 @@ int dartt_sync(dartt_buffer_t * ctl, dartt_sync_t * psync)
     }
     else
     {
-    	return ERROR_INVALID_ARGUMENT;
+    	return DARTT_ERROR_INVALID_ARGUMENT;
     }
 
 
@@ -69,11 +69,11 @@ int dartt_sync(dartt_buffer_t * ctl, dartt_sync_t * psync)
 	size_t base_bidx = ctl->buf - psync->ctl_base.buf;	//safe due to guards at beginning of function
 	if(base_bidx + ctl->size > psync->periph_base.size)
 	{
-		return ERROR_MEMORY_OVERRUN;
+		return DARTT_ERROR_MEMORY_OVERRUN;
 	}
 	if(base_bidx % sizeof(int32_t) != 0)
 	{
-		return ERROR_INVALID_ARGUMENT;
+		return DARTT_ERROR_INVALID_ARGUMENT;
 	}
 
     int start_bidx = -1;
@@ -118,23 +118,23 @@ int dartt_sync(dartt_buffer_t * ctl, dartt_sync_t * psync)
 					}
 					if(stop_bidx <= start_bidx)
                     {
-                        return ERROR_MEMORY_OVERRUN;
+                        return DARTT_ERROR_MEMORY_OVERRUN;
                     }
                 }
                 else if( ((next_field - start_bidx) + nbytes_writemsg_overhead) >= psync->tx_buf.size )    //check to see if we're overrunning the tx buffer. This is how we manage splitting large syncs into many writes
                 {
                     if(psync->tx_buf.size <= nbytes_writemsg_overhead)
                     {
-                        return ERROR_MEMORY_OVERRUN;    //technically an overflow error guard, but it's not terribly inappropriate to return this
+                        return DARTT_ERROR_MEMORY_OVERRUN;    //technically an overflow error guard, but it's not terribly inappropriate to return this
                     }
                     stop_bidx = (int)((((psync->tx_buf.size-nbytes_writemsg_overhead)/sizeof(int32_t))) * sizeof(int32_t) + start_bidx);   //we know we've overrun tx buf, so set stop bidx to the maximum possible size the tx buffer will allow via floor division and reinflation with mutiplication
                     if(stop_bidx <= start_bidx)
                     {
-                        return ERROR_MEMORY_OVERRUN;
+                        return DARTT_ERROR_MEMORY_OVERRUN;
                     }
                     if(stop_bidx < sizeof(int32_t)) //if stop_bidx is equal to 4, we will set field_bidx to 4 on the next iteration and start there on the next rotation thru
                     {
-                        return ERROR_MEMORY_OVERRUN;
+                        return DARTT_ERROR_MEMORY_OVERRUN;
                     }
                     field_bidx = stop_bidx - sizeof(int32_t); //we have to step backwards
                 }
@@ -198,7 +198,7 @@ int dartt_sync(dartt_buffer_t * ctl, dartt_sync_t * psync)
 			}
             if(psync->rx_buf.len == 0)  //check for failure to reply. rx blocking should return 0 length if 0 length was obtained
             {
-                return ERROR_MALFORMED_MESSAGE;
+                return DARTT_ERROR_MALFORMED_MESSAGE;
             }
 			payload_layer_msg_t pld_msg = {};
 			rc = dartt_frame_to_payload(&psync->rx_buf, psync->msg_type, PAYLOAD_ALIAS, &pld_msg);
@@ -209,19 +209,19 @@ int dartt_sync(dartt_buffer_t * ctl, dartt_sync_t * psync)
 
             if(write_msg.payload.len + NUM_BYTES_READ_REPLY_OVERHEAD_PLD > pld_msg.msg.size)    //overrun guard for the comparison below. May be protected but I think that is non-obvious
             {
-                return ERROR_MEMORY_OVERRUN;
+                return DARTT_ERROR_MEMORY_OVERRUN;
             }
 
             for(int i = 0; i < write_msg.payload.len; i++)
             {
                 if(write_msg.payload.buf[i] != pld_msg.msg.buf[i + NUM_BYTES_READ_REPLY_OVERHEAD_PLD])
                 {
-                    return ERROR_SYNC_MISMATCH;
+                    return DARTT_ERROR_SYNC_MISMATCH;
                 }
             }
 			if(write_msg.payload.len + base_bidx + start_bidx > psync->periph_base.size)
 			{
-				return ERROR_MEMORY_OVERRUN;
+				return DARTT_ERROR_MEMORY_OVERRUN;
 			}
             for(int i = 0; i < write_msg.payload.len; i++)
             {
@@ -253,15 +253,15 @@ int dartt_ctl_write(dartt_buffer_t * ctl, dartt_sync_t * psync)
 
     // Runtime checks for buffer bounds - these could be caused by developer error in ctl configuration
     if (ctl->buf < psync->ctl_base.buf || ctl->buf >= (psync->ctl_base.buf + psync->ctl_base.size)) {
-        return ERROR_INVALID_ARGUMENT;
+        return DARTT_ERROR_INVALID_ARGUMENT;
     }
     if (ctl->buf + ctl->len > psync->ctl_base.buf + psync->ctl_base.size) 
 	{
-        return ERROR_MEMORY_OVERRUN;
+        return DARTT_ERROR_MEMORY_OVERRUN;
     }
     if (ctl->buf + ctl->size > psync->ctl_base.buf + psync->ctl_base.size) 
 	{
-        return ERROR_MEMORY_OVERRUN;
+        return DARTT_ERROR_MEMORY_OVERRUN;
     }
 
     int field_index = index_of_field( (void*)(&ctl->buf[0]), (void*)(&psync->ctl_base.buf[0]), psync->ctl_base.size );
@@ -318,19 +318,19 @@ int dartt_ctl_read(dartt_buffer_t * ctl, dartt_sync_t * psync)
     // Runtime checks for buffer bounds - these could be caused by developer error in ctl configuration
     if(ctl->len == 0)
     {
-        return ERROR_INVALID_ARGUMENT;
+        return DARTT_ERROR_INVALID_ARGUMENT;
     }
     if (ctl->buf < psync->ctl_base.buf || ctl->buf >= (psync->ctl_base.buf + psync->ctl_base.size)) 
     {
-        return ERROR_MEMORY_OVERRUN;
+        return DARTT_ERROR_MEMORY_OVERRUN;
     }
     if (ctl->buf + ctl->len > psync->ctl_base.buf + psync->ctl_base.size) 
     {
-        return ERROR_MEMORY_OVERRUN;
+        return DARTT_ERROR_MEMORY_OVERRUN;
     }
     if (ctl->buf + ctl->size > psync->ctl_base.buf + psync->ctl_base.size) 
     {
-        return ERROR_MEMORY_OVERRUN;
+        return DARTT_ERROR_MEMORY_OVERRUN;
     }
     //ensure the read reply we're requesting won't overrun the read buffer
     size_t nb_overhead_read_reply = NUM_BYTES_READ_REPLY_OVERHEAD_PLD;
@@ -344,7 +344,7 @@ int dartt_ctl_read(dartt_buffer_t * ctl, dartt_sync_t * psync)
     }
 	if(ctl->len + nb_overhead_read_reply > psync->rx_buf.size)
 	{
-		return ERROR_MEMORY_OVERRUN;
+		return DARTT_ERROR_MEMORY_OVERRUN;
 	}
 
 
@@ -381,7 +381,7 @@ int dartt_ctl_read(dartt_buffer_t * ctl, dartt_sync_t * psync)
     }
     if(psync->rx_buf.len == 0)  //check for failure to reply. rx blocking should return 0 length if 0 length was obtained
     {
-        return ERROR_MALFORMED_MESSAGE;
+        return DARTT_ERROR_MALFORMED_MESSAGE;
     }
     payload_layer_msg_t pld_msg = {};
     rc = dartt_frame_to_payload(&psync->rx_buf, psync->msg_type, PAYLOAD_ALIAS, &pld_msg);
@@ -413,11 +413,11 @@ int dartt_read_multi(dartt_buffer_t * ctl, dartt_sync_t * psync)
 
 	if(psync->ctl_base.size != psync->periph_base.size)
 	{
-		return ERROR_MEMORY_OVERRUN;
+		return DARTT_ERROR_MEMORY_OVERRUN;
 	}
     if(!(ctl->buf >= psync->ctl_base.buf && ctl->buf < psync->ctl_base.buf + psync->ctl_base.size))
     {
-        return ERROR_MEMORY_OVERRUN;
+        return DARTT_ERROR_MEMORY_OVERRUN;
     }
     size_t nbytes_read_overhead = NUM_BYTES_READ_REPLY_OVERHEAD_PLD;  //
     if(psync->msg_type == TYPE_SERIAL_MESSAGE)
@@ -430,11 +430,11 @@ int dartt_read_multi(dartt_buffer_t * ctl, dartt_sync_t * psync)
     }
     else if(psync->msg_type != TYPE_ADDR_CRC_MESSAGE)
     {
-        return ERROR_INVALID_ARGUMENT;
+        return DARTT_ERROR_INVALID_ARGUMENT;
     }
 	if(psync->rx_buf.size < nbytes_read_overhead + sizeof(int32_t))
 	{
-		return ERROR_MEMORY_OVERRUN;
+		return DARTT_ERROR_MEMORY_OVERRUN;
 	}
 	size_t rsize = psync->rx_buf.size - nbytes_read_overhead;
     rsize -= rsize % sizeof(uint32_t); //after making sure the dartt framing bytes are removed, you must ensure that the read size is 32 bit aligned for index_of_field
@@ -501,11 +501,11 @@ int dartt_write_multi(dartt_buffer_t * ctl, dartt_sync_t * psync)
     }
     else
     {
-    	return ERROR_INVALID_ARGUMENT;
+    	return DARTT_ERROR_INVALID_ARGUMENT;
     }
 	if(psync->tx_buf.size < nbytes_writemsg_overhead + sizeof(int32_t)) 	//for completeness, due to DARTT indexing every 4 bytes, you must at minimum be able to write out one full 4 byte word for complete write access
 	{
-		return ERROR_MEMORY_OVERRUN;
+		return DARTT_ERROR_MEMORY_OVERRUN;
 	}
 	
 	size_t wsize = psync->tx_buf.size - nbytes_writemsg_overhead;	
@@ -569,7 +569,7 @@ int dartt_update_controller(dartt_buffer_t * ctl, dartt_sync_t * psync)
     }
     if(ctl->buf < psync->ctl_base.buf || ( (ctl->buf + ctl->size) > (psync->ctl_base.buf + psync->ctl_base.size) ))
     {
-        return ERROR_MEMORY_OVERRUN;
+        return DARTT_ERROR_MEMORY_OVERRUN;
     }
 
 	int field_offset = 	index_of_field(ctl->buf, psync->ctl_base.buf, psync->ctl_base.size);	//inherit ctl parameter validation from index_of_field
@@ -580,7 +580,7 @@ int dartt_update_controller(dartt_buffer_t * ctl, dartt_sync_t * psync)
 	size_t base_bidx = (size_t)(field_offset*sizeof(uint32_t));	//index_of_field ensures 32bit alignment
 	if(base_bidx + ctl->size > psync->periph_base.size)	
 	{
-		return ERROR_MEMORY_OVERRUN;	//memory overrun guard for the copy op we're about to do
+		return DARTT_ERROR_MEMORY_OVERRUN;	//memory overrun guard for the copy op we're about to do
 	}
 	for(int i = 0; i < ctl->size; i++)
 	{

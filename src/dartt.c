@@ -16,7 +16,7 @@
  * @param mem_size Size of the memory structure in bytes
  * 
  * @return Word index of the field (offset / sizeof(int32_t)), or error code:
- *         - ERROR_INVALID_ARGUMENT if pointers are NULL, field is out of bounds,
+ *         - DARTT_ERROR_INVALID_ARGUMENT if pointers are NULL, field is out of bounds,
  *           or field is not aligned to 32-bit boundaries
  * 
  * @note The field must be aligned to 32-bit (4-byte) boundaries.
@@ -27,7 +27,7 @@ int index_of_field(void * p_field, void * mem, size_t mem_size)
     //null pointer checks
     if(p_field == NULL || mem == NULL)
     {
-        return ERROR_INVALID_ARGUMENT;
+        return DARTT_ERROR_INVALID_ARGUMENT;
     }
 	// Ensure p_field is within the bounds of the comms struct
     unsigned char * pbase = (unsigned char *)(mem);
@@ -35,7 +35,7 @@ int index_of_field(void * p_field, void * mem, size_t mem_size)
 
     if(p_field_nonvoid < pbase || p_field_nonvoid >= (pbase + mem_size))	//checks if pointer is in-range. also an integer underflow guard for unsigned offset calculation
     {
-        return ERROR_MEMORY_OVERRUN;
+        return DARTT_ERROR_MEMORY_OVERRUN;
     }
 
     size_t offset = p_field_nonvoid - pbase;
@@ -43,13 +43,13 @@ int index_of_field(void * p_field, void * mem, size_t mem_size)
     // Check if the field is actually within the struct (overrun check)
     if(offset >= mem_size)
     {
-        return ERROR_MEMORY_OVERRUN;
+        return DARTT_ERROR_MEMORY_OVERRUN;
     }
     
     // Ensure the offset is aligned to 32-bit boundaries
     if(offset % sizeof(int32_t) != 0)
     {
-        return ERROR_INVALID_ARGUMENT;
+        return DARTT_ERROR_INVALID_ARGUMENT;
     }
     
     return (int)(offset / sizeof(int32_t));
@@ -65,8 +65,8 @@ int index_of_field(void * p_field, void * mem, size_t mem_size)
  * @param out Destination buffer to receive copied data
  * 
  * @return DARTT_PROTOCOL_SUCCESS on success, or error code:
- *         - ERROR_INVALID_ARGUMENT if any buffer pointer is NULL
- *         - ERROR_MEMORY_OVERRUN if buffer sizes don't match
+ *         - DARTT_ERROR_INVALID_ARGUMENT if any buffer pointer is NULL
+ *         - DARTT_ERROR_MEMORY_OVERRUN if buffer sizes don't match
  * 
  * @note Both buffers must have identical size fields for the copy to proceed.
  * @note The function copies exactly buffer->size bytes, regardless of the len field.
@@ -86,7 +86,7 @@ int copy_buf_full(dartt_buffer_t * in, dartt_buffer_t * out)
 
 	if(in->size != out->size)
 	{
-		return ERROR_MEMORY_OVERRUN;
+		return DARTT_ERROR_MEMORY_OVERRUN;
 	}
 	for(size_t i = 0; i < in->size; i++)
 	{
@@ -129,7 +129,7 @@ unsigned char dartt_get_complementary_address(unsigned char address)
  * @param output Output buffer that will receive the generated frame
  * 
  * @return DARTT_PROTOCOL_SUCCESS if validation passes, or error code:
- *         - ERROR_INVALID_ARGUMENT if parameters are NULL, invalid type, or empty payload
+ *         - DARTT_ERROR_INVALID_ARGUMENT if parameters are NULL, invalid type, or empty payload
  * 
  * @note Call this once during initialization on statically defined memory, use as an assert to reduce function call overhead
  * @note Frame overhead varies by type: SERIAL (addr+idx+crc), ADDR (idx+crc), ADDR_CRC (idx only).
@@ -138,19 +138,19 @@ int check_write_args(misc_write_message_t * msg, serial_message_type_t type, dar
 {
     if(msg == NULL || output == NULL)
     {
-        return ERROR_INVALID_ARGUMENT;
+        return DARTT_ERROR_INVALID_ARGUMENT;
     }
 	if(!(type == TYPE_SERIAL_MESSAGE || type == TYPE_ADDR_MESSAGE || type == TYPE_ADDR_CRC_MESSAGE))
 	{
-		return ERROR_INVALID_ARGUMENT;
+		return DARTT_ERROR_INVALID_ARGUMENT;
 	}
     if(msg->payload.buf == NULL || output->buf == NULL)
     {
-        return ERROR_INVALID_ARGUMENT;  
+        return DARTT_ERROR_INVALID_ARGUMENT;  
     }
     if(msg->payload.size == 0 || output->size == 0)
     {
-        return ERROR_INVALID_ARGUMENT;
+        return DARTT_ERROR_INVALID_ARGUMENT;
     }
     return DARTT_PROTOCOL_SUCCESS;
 }
@@ -169,32 +169,32 @@ int check_write_lengths(misc_write_message_t * msg, serial_message_type_t type, 
     //pre-check lengths for overrun
     if(msg->payload.len == 0)
     {
-        return ERROR_INVALID_ARGUMENT;
+        return DARTT_ERROR_INVALID_ARGUMENT;
     }
     if(type == TYPE_SERIAL_MESSAGE)
     {
         if( (msg->payload.len + (NUM_BYTES_ADDRESS + NUM_BYTES_INDEX + NUM_BYTES_CHECKSUM) ) > output->size)
         {
-            return ERROR_MEMORY_OVERRUN;
+            return DARTT_ERROR_MEMORY_OVERRUN;
         }
     }
     else if(type == TYPE_ADDR_MESSAGE)
     {
         if(msg->payload.len + (NUM_BYTES_INDEX + NUM_BYTES_CHECKSUM) > output->size)
         {
-            return ERROR_MEMORY_OVERRUN;
+            return DARTT_ERROR_MEMORY_OVERRUN;
         }
     }
     else if (type == TYPE_ADDR_CRC_MESSAGE)
     {
         if( (msg->payload.len + NUM_BYTES_INDEX) > output->size)
         {
-            return ERROR_MEMORY_OVERRUN;
+            return DARTT_ERROR_MEMORY_OVERRUN;
         }
     }
     else
     {
-        return ERROR_INVALID_ARGUMENT;
+        return DARTT_ERROR_INVALID_ARGUMENT;
     }
     return DARTT_PROTOCOL_SUCCESS;
 }
@@ -264,8 +264,8 @@ int dartt_create_write_frame(misc_write_message_t * msg, serial_message_type_t t
  * @param output Output buffer that will receive the generated frame
  * 
  * @return DARTT_PROTOCOL_SUCCESS if validation passes, or error code:
- *         - ERROR_INVALID_ARGUMENT if parameters are NULL or invalid type
- *         - ERROR_MEMORY_OVERRUN if output buffer is too small for the resulting frame
+ *         - DARTT_ERROR_INVALID_ARGUMENT if parameters are NULL or invalid type
+ *         - DARTT_ERROR_MEMORY_OVERRUN if output buffer is too small for the resulting frame
  * 
  * @note Call this once during initialization, then use dartt_create_read_frame() with confidence.
  * @note Read frames have fixed size based on type: address + index + num_bytes + CRC (if applicable).
@@ -274,15 +274,15 @@ int check_read_args(misc_read_message_t * msg, serial_message_type_t type, dartt
 {
     if(msg == NULL || output == NULL)
     {
-        return ERROR_INVALID_ARGUMENT;
+        return DARTT_ERROR_INVALID_ARGUMENT;
     }
 	if(!(type == TYPE_SERIAL_MESSAGE || type == TYPE_ADDR_MESSAGE || type == TYPE_ADDR_CRC_MESSAGE))
 	{
-		return ERROR_INVALID_ARGUMENT;
+		return DARTT_ERROR_INVALID_ARGUMENT;
 	}
     if(output->buf == NULL)
     {
-        return ERROR_INVALID_ARGUMENT;  
+        return DARTT_ERROR_INVALID_ARGUMENT;  
     }
 
     //pre-check lengths for overrun
@@ -290,26 +290,26 @@ int check_read_args(misc_read_message_t * msg, serial_message_type_t type, dartt
     {
         if( ( (NUM_BYTES_ADDRESS + NUM_BYTES_INDEX + NUM_BYTES_NUMWORDS_READREQUEST + NUM_BYTES_CHECKSUM) ) > output->size)
         {
-            return ERROR_MEMORY_OVERRUN;
+            return DARTT_ERROR_MEMORY_OVERRUN;
         }
     }
     else if(type == TYPE_ADDR_MESSAGE)
     {
         if( (NUM_BYTES_INDEX + NUM_BYTES_NUMWORDS_READREQUEST + NUM_BYTES_CHECKSUM) > output->size)
         {
-            return ERROR_MEMORY_OVERRUN;
+            return DARTT_ERROR_MEMORY_OVERRUN;
         }
     }
     else if (type == TYPE_ADDR_CRC_MESSAGE)
     {
         if( (NUM_BYTES_INDEX + NUM_BYTES_NUMWORDS_READREQUEST) > output->size)
         {
-            return ERROR_MEMORY_OVERRUN;
+            return DARTT_ERROR_MEMORY_OVERRUN;
         }
     }
     else
     {
-        return ERROR_INVALID_ARGUMENT;
+        return DARTT_ERROR_INVALID_ARGUMENT;
     }
     return DARTT_PROTOCOL_SUCCESS;
 }
@@ -375,8 +375,8 @@ int dartt_create_read_frame(misc_read_message_t * msg, serial_message_type_t typ
  * @param reply_base Buffer for read reply data (raw payload, no framing)
  * 
  * @return DARTT_PROTOCOL_SUCCESS on successful operation, or error code:
- *         - ERROR_MALFORMED_MESSAGE if message structure is invalid
- *         - ERROR_MEMORY_OVERRUN if operation would exceed buffer bounds
+ *         - DARTT_ERROR_MALFORMED_MESSAGE if message structure is invalid
+ *         - DARTT_ERROR_MEMORY_OVERRUN if operation would exceed buffer bounds
  * 
  * @note Input message format: [idx_lo][idx_hi][payload...] for writes
  *                             [idx_lo|0x80][idx_hi][num_bytes_lo][num_bytes_hi] for reads
@@ -400,7 +400,7 @@ int dartt_parse_base_serial_message(payload_layer_msg_t* pld_msg, const dartt_me
     //critical check - keep as runtime since this is data-dependent
     if(pld_msg->msg.len <= NUM_BYTES_INDEX)   //if write, it must contain at least one byte of payload. If read, it must contain exactly two additional bytes of read size
     {
-        return ERROR_MALFORMED_MESSAGE;
+        return DARTT_ERROR_MALFORMED_MESSAGE;
     }
 
     size_t bidx = 0;
@@ -414,7 +414,7 @@ int dartt_parse_base_serial_message(payload_layer_msg_t* pld_msg, const dartt_me
     {
         if(pld_msg->msg.len != NUM_BYTES_INDEX + NUM_BYTES_NUMWORDS_READREQUEST)  //read messages must have precisely this content (once addr and crc are removed, if relevant)
         {
-            return ERROR_MALFORMED_MESSAGE;
+            return DARTT_ERROR_MALFORMED_MESSAGE;
         }
         uint16_t num_bytes = 0;
         num_bytes |= (uint16_t)(pld_msg->msg.buf[bidx++]);
@@ -431,14 +431,14 @@ int dartt_parse_base_serial_message(payload_layer_msg_t* pld_msg, const dartt_me
             ERROR CODE RETURN: We can also implement logic where other out of bounds errors trigger the loading of a reply frame consisting of only the 
             index, rather than being silent. This requires more unit testing and refactoring but it's an elegant solution to some of the problems I had with the first pass of the protocol.
             */
-            return ERROR_MEMORY_OVERRUN;
+            return DARTT_ERROR_MEMORY_OVERRUN;
         }
 
         
         unsigned char * cpy_ptr = mem_base->buf + word_offset;
         if(word_offset + num_bytes > mem_base->size)
         {
-            return ERROR_MEMORY_OVERRUN;
+            return DARTT_ERROR_MEMORY_OVERRUN;
         }
 
         reply_base->len = 0;
@@ -460,7 +460,7 @@ int dartt_parse_base_serial_message(payload_layer_msg_t* pld_msg, const dartt_me
         
         if(word_offset + nbytes_to_write > mem_base->size)
         {
-            return ERROR_MEMORY_OVERRUN;
+            return DARTT_ERROR_MEMORY_OVERRUN;
         }
         unsigned char * mem_ptr = mem_base->buf + word_offset;
         for(size_t i = 0; i < nbytes_to_write; i++)
@@ -484,8 +484,8 @@ int dartt_parse_base_serial_message(payload_layer_msg_t* pld_msg, const dartt_me
  * @param input Buffer containing message data with appended CRC
  * 
  * @return DARTT_PROTOCOL_SUCCESS if CRC is valid, or error code:
- *         - ERROR_INVALID_ARGUMENT if buffer is too short to contain CRC
- *         - ERROR_CHECKSUM_MISMATCH if calculated CRC doesn't match stored CRC
+ *         - DARTT_ERROR_INVALID_ARGUMENT if buffer is too short to contain CRC
+ *         - DARTT_ERROR_CHECKSUM_MISMATCH if calculated CRC doesn't match stored CRC
  * 
  * @note CRC is calculated over all bytes except the last two (the CRC itself)
  * @note CRC bytes are stored in little-endian format: [crc_low][crc_high]
@@ -501,7 +501,7 @@ int validate_crc(const dartt_buffer_t * input)
 
     if(input->len <= NUM_BYTES_CHECKSUM)
     {
-        return ERROR_INVALID_ARGUMENT;
+        return DARTT_ERROR_INVALID_ARGUMENT;
     }
     uint16_t crc = get_crc16(input->buf, input->len - NUM_BYTES_CHECKSUM);
     uint16_t m_crc = 0;
@@ -514,7 +514,7 @@ int validate_crc(const dartt_buffer_t * input)
     }
     else
     {
-        return ERROR_CHECKSUM_MISMATCH;
+        return DARTT_ERROR_CHECKSUM_MISMATCH;
     }
 }
 
@@ -530,7 +530,7 @@ int validate_crc(const dartt_buffer_t * input)
  * @param input Buffer containing message data (len will be increased by 2)
  * 
  * @return DARTT_PROTOCOL_SUCCESS on success, or error code:
- *         - ERROR_MEMORY_OVERRUN if buffer doesn't have space for CRC bytes
+ *         - DARTT_ERROR_MEMORY_OVERRUN if buffer doesn't have space for CRC bytes
  * 
  * @note CRC is calculated over the current buffer contents (0 to len-1)
  * @note CRC bytes are appended in little-endian format: [crc_low][crc_high]
@@ -547,7 +547,7 @@ int append_crc(dartt_buffer_t * input)
 
     if(input->len + NUM_BYTES_CHECKSUM > input->size)
     {
-        return ERROR_MEMORY_OVERRUN;
+        return DARTT_ERROR_MEMORY_OVERRUN;
     }
     uint16_t crc = get_crc16(input->buf, input->len);
     input->buf[input->len++] = (unsigned char)(crc & 0x00FF);
@@ -570,8 +570,8 @@ int append_crc(dartt_buffer_t * input)
  * @param dest Destination memory buffer to receive the reply data
  * 
  * @return DARTT_PROTOCOL_SUCCESS on successful parsing, or error code:
- *         - ERROR_MEMORY_OVERRUN if calculated offset exceeds destination bounds
- *         - ERROR_MALFORMED_MESSAGE if reply length doesn't match requested length
+ *         - DARTT_ERROR_MEMORY_OVERRUN if calculated offset exceeds destination bounds
+ *         - DARTT_ERROR_MALFORMED_MESSAGE if reply length doesn't match requested length
  * 
  * @note The destination offset is calculated as: original_msg->index * sizeof(uint32_t)
  * @note Reply length must exactly match original_msg->num_bytes
@@ -582,7 +582,7 @@ int dartt_parse_read_reply(payload_layer_msg_t * payload, misc_read_message_t * 
 {   
     if(dest == NULL || payload == NULL || original_msg == NULL)
     {
-        return ERROR_INVALID_ARGUMENT;
+        return DARTT_ERROR_INVALID_ARGUMENT;
     }  
     int cb = check_buffer(&payload->msg);
     if(cb != DARTT_PROTOCOL_SUCCESS)
@@ -597,7 +597,7 @@ int dartt_parse_read_reply(payload_layer_msg_t * payload, misc_read_message_t * 
     
     if(payload->msg.len != original_msg->num_bytes + NUM_BYTES_READ_REPLY_OVERHEAD_PLD)
     {
-        return ERROR_CTL_READ_LEN_MISMATCH;
+        return DARTT_ERROR_CTL_READ_LEN_MISMATCH;
     }
 
     // Calculate the offset into the destination buffer based on the original read index
@@ -609,7 +609,7 @@ int dartt_parse_read_reply(payload_layer_msg_t * payload, misc_read_message_t * 
     reply_index |= (((uint16_t)(payload->msg.buf[bidx++])) << 8);
     if(payload->msg.len <= NUM_BYTES_READ_REPLY_OVERHEAD_PLD) //this means we have recieved a reply containing only the index
     {
-        return ERROR_INVALID_ARGUMENT;
+        return DARTT_ERROR_INVALID_ARGUMENT;
     }
     dartt_buffer_t raw_data;
     raw_data.buf = payload->msg.buf + NUM_BYTES_READ_REPLY_OVERHEAD_PLD;
@@ -622,7 +622,7 @@ int dartt_parse_read_reply(payload_layer_msg_t * payload, misc_read_message_t * 
     // Validate that the offset and data length don't exceed destination buffer bounds
     if(byte_offset + raw_data.len > dest->size)
     {
-        return ERROR_MEMORY_OVERRUN;
+        return DARTT_ERROR_MEMORY_OVERRUN;
     }
         
     // Copy the reply data to the correct offset in the destination buffer
@@ -653,10 +653,10 @@ int dartt_parse_read_reply(payload_layer_msg_t * payload, misc_read_message_t * 
  * @param pld Output payload-layer message structure
  * 
  * @return DARTT_PROTOCOL_SUCCESS on successful conversion, or error code:
- *         - ERROR_MALFORMED_MESSAGE if frame is too short or malformed
- *         - ERROR_CHECKSUM_MISMATCH if CRC validation fails
- *         - ERROR_INVALID_ARGUMENT if pld_mode is invalid or copy buffer is NULL
- *         - ERROR_MEMORY_OVERRUN if payload doesn't fit in copy buffer
+ *         - DARTT_ERROR_MALFORMED_MESSAGE if frame is too short or malformed
+ *         - DARTT_ERROR_CHECKSUM_MISMATCH if CRC validation fails
+ *         - DARTT_ERROR_INVALID_ARGUMENT if pld_mode is invalid or copy buffer is NULL
+ *         - DARTT_ERROR_MEMORY_OVERRUN if payload doesn't fit in copy buffer
  * 
  * @note Frame processing by type:
  *       - TYPE_SERIAL_MESSAGE: Validates CRC, extracts address, removes both from payload
@@ -693,7 +693,7 @@ int dartt_frame_to_payload(dartt_buffer_t * ser_msg, serial_message_type_t type,
 		//first step - crc validation on input message
         if(ser_msg->len <= (NUM_BYTES_ADDRESS + NUM_BYTES_CHECKSUM))    //message has to have room for a checksum, an index, and at least one additional byte
         {
-            return ERROR_MALFORMED_MESSAGE;
+            return DARTT_ERROR_MALFORMED_MESSAGE;
         }
         int rc = validate_crc(ser_msg);
         if(rc != DARTT_PROTOCOL_SUCCESS)
@@ -717,12 +717,12 @@ int dartt_frame_to_payload(dartt_buffer_t * ser_msg, serial_message_type_t type,
 		{
 			if(pld->msg.buf == NULL)
 			{
-				return ERROR_INVALID_ARGUMENT;
+				return DARTT_ERROR_INVALID_ARGUMENT;
 			}
 			size_t newlen  = ser_msg->len - (NUM_BYTES_ADDRESS + NUM_BYTES_CHECKSUM);
 			if(newlen > pld->msg.size)
 			{
-				return ERROR_MEMORY_OVERRUN;
+				return DARTT_ERROR_MEMORY_OVERRUN;
 			}
 			pld->address = ser_msg->buf[0];
 			unsigned char * sm_start = ser_msg->buf + NUM_BYTES_ADDRESS; //skip address
@@ -735,7 +735,7 @@ int dartt_frame_to_payload(dartt_buffer_t * ser_msg, serial_message_type_t type,
 		}
 		else
 		{
-			return ERROR_INVALID_ARGUMENT;
+			return DARTT_ERROR_INVALID_ARGUMENT;
 		}
         return DARTT_PROTOCOL_SUCCESS;
     }
@@ -743,7 +743,7 @@ int dartt_frame_to_payload(dartt_buffer_t * ser_msg, serial_message_type_t type,
     {
         if(ser_msg->len <= NUM_BYTES_CHECKSUM)    //message has to have room for a checksum, an index, and at least one additional byte
         {
-            return ERROR_MALFORMED_MESSAGE;
+            return DARTT_ERROR_MALFORMED_MESSAGE;
         }
         int rc = validate_crc(ser_msg);
         if(rc != DARTT_PROTOCOL_SUCCESS)
@@ -760,12 +760,12 @@ int dartt_frame_to_payload(dartt_buffer_t * ser_msg, serial_message_type_t type,
 		{
 			if(pld->msg.buf == NULL)
 			{
-				return ERROR_INVALID_ARGUMENT;
+				return DARTT_ERROR_INVALID_ARGUMENT;
 			}
 			size_t newlen  = ser_msg->len - NUM_BYTES_CHECKSUM;
 			if(newlen > pld->msg.size)
 			{
-				return ERROR_MEMORY_OVERRUN;
+				return DARTT_ERROR_MEMORY_OVERRUN;
 			}
 			for(size_t i = 0; i < newlen; i++)
 			{
@@ -775,7 +775,7 @@ int dartt_frame_to_payload(dartt_buffer_t * ser_msg, serial_message_type_t type,
 		}
 		else
 		{
-			return ERROR_INVALID_ARGUMENT;
+			return DARTT_ERROR_INVALID_ARGUMENT;
 		}
         return DARTT_PROTOCOL_SUCCESS;
     }
@@ -791,11 +791,11 @@ int dartt_frame_to_payload(dartt_buffer_t * ser_msg, serial_message_type_t type,
 		{
 			if(pld->msg.buf == NULL)
 			{
-				return ERROR_INVALID_ARGUMENT;
+				return DARTT_ERROR_INVALID_ARGUMENT;
 			}
 			if(ser_msg->len > pld->msg.size)
 			{
-				return ERROR_MEMORY_OVERRUN;
+				return DARTT_ERROR_MEMORY_OVERRUN;
 			}
 			for(size_t i = 0; i < ser_msg->len; i++)
 			{
@@ -805,11 +805,11 @@ int dartt_frame_to_payload(dartt_buffer_t * ser_msg, serial_message_type_t type,
 		}
 		else
 		{
-			return ERROR_INVALID_ARGUMENT;
+			return DARTT_ERROR_INVALID_ARGUMENT;
 		}
 		return DARTT_PROTOCOL_SUCCESS;
 	}
-	return ERROR_INVALID_ARGUMENT;
+	return DARTT_ERROR_INVALID_ARGUMENT;
 }
 
 /**
@@ -901,7 +901,7 @@ int dartt_parse_general_message(payload_layer_msg_t * pld_msg, serial_message_ty
     }
     else
     {
-        return ERROR_INVALID_ARGUMENT;  //should never end up here - assert should catch this. Can only happen in release builds untested in debug
+        return DARTT_ERROR_INVALID_ARGUMENT;  //should never end up here - assert should catch this. Can only happen in release builds untested in debug
     }
 }
 

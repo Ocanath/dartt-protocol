@@ -60,7 +60,7 @@ void test_check_write_args(void)
 		};
 
 		rc = check_write_lengths(&msg, TYPE_SERIAL_MESSAGE, &output);
-		TEST_ASSERT_EQUAL(ERROR_MEMORY_OVERRUN, rc);
+		TEST_ASSERT_EQUAL(DARTT_ERROR_MEMORY_OVERRUN, rc);
 	}
 	
 	// Test NULL argument validation
@@ -68,11 +68,11 @@ void test_check_write_args(void)
 		misc_write_message_t msg = {};
 		dartt_buffer_t output = {};
 		rc = check_write_args(&msg, 5, &output);
-		TEST_ASSERT_EQUAL(ERROR_INVALID_ARGUMENT, rc);
+		TEST_ASSERT_EQUAL(DARTT_ERROR_INVALID_ARGUMENT, rc);
 		rc = check_write_args(NULL, 0, &output);
-		TEST_ASSERT_EQUAL(ERROR_INVALID_ARGUMENT, rc);
+		TEST_ASSERT_EQUAL(DARTT_ERROR_INVALID_ARGUMENT, rc);
 		rc = check_write_args(&msg, 0, NULL);
-		TEST_ASSERT_EQUAL(ERROR_INVALID_ARGUMENT, rc);
+		TEST_ASSERT_EQUAL(DARTT_ERROR_INVALID_ARGUMENT, rc);
 	}
 	
 	// Test invalid message type
@@ -95,7 +95,7 @@ void test_check_write_args(void)
 		};
 		
 		rc = check_write_args(&msg, 99, &output);
-		TEST_ASSERT_EQUAL(ERROR_INVALID_ARGUMENT, rc);
+		TEST_ASSERT_EQUAL(DARTT_ERROR_INVALID_ARGUMENT, rc);
 	}
 	
 	// Test payload.len == 0
@@ -118,7 +118,7 @@ void test_check_write_args(void)
 		};
 		
 		rc = check_write_lengths(&msg, TYPE_SERIAL_MESSAGE, &output);
-		TEST_ASSERT_EQUAL(ERROR_INVALID_ARGUMENT, rc);
+		TEST_ASSERT_EQUAL(DARTT_ERROR_INVALID_ARGUMENT, rc);
 	}
 	
 	// Test payload.buf == NULL
@@ -140,7 +140,7 @@ void test_check_write_args(void)
 		};
 		
 		rc = check_write_args(&msg, TYPE_SERIAL_MESSAGE, &output);
-		TEST_ASSERT_EQUAL(ERROR_INVALID_ARGUMENT, rc);
+		TEST_ASSERT_EQUAL(DARTT_ERROR_INVALID_ARGUMENT, rc);
 	}
 	
 	// Test output.buf == NULL
@@ -162,7 +162,7 @@ void test_check_write_args(void)
 		};
 		
 		rc = check_write_args(&msg, TYPE_SERIAL_MESSAGE, &output);
-		TEST_ASSERT_EQUAL(ERROR_INVALID_ARGUMENT, rc);
+		TEST_ASSERT_EQUAL(DARTT_ERROR_INVALID_ARGUMENT, rc);
 	}
 	
 	// Test successful TYPE_SERIAL_MESSAGE (address + index + checksum overhead)
@@ -208,7 +208,7 @@ void test_check_write_args(void)
 		};
 		
 		rc = check_write_lengths(&msg, TYPE_ADDR_MESSAGE, &output);
-		TEST_ASSERT_EQUAL(ERROR_MEMORY_OVERRUN, rc);
+		TEST_ASSERT_EQUAL(DARTT_ERROR_MEMORY_OVERRUN, rc);
 	}
 	
 	// Test successful TYPE_ADDR_MESSAGE
@@ -254,7 +254,7 @@ void test_check_write_args(void)
 		};
 		
 		rc = check_write_lengths(&msg, TYPE_ADDR_CRC_MESSAGE, &output);
-		TEST_ASSERT_EQUAL(ERROR_MEMORY_OVERRUN, rc);
+		TEST_ASSERT_EQUAL(DARTT_ERROR_MEMORY_OVERRUN, rc);
 	}
 	
 	// Test successful TYPE_ADDR_CRC_MESSAGE
@@ -319,7 +319,7 @@ void test_check_read_args(void)
 		};
 		
 		rc = check_read_args(NULL, TYPE_SERIAL_MESSAGE, &output);
-		TEST_ASSERT_EQUAL(ERROR_INVALID_ARGUMENT, rc);
+		TEST_ASSERT_EQUAL(DARTT_ERROR_INVALID_ARGUMENT, rc);
 	}
 	
 	// Test NULL argument validation - output == NULL
@@ -331,7 +331,7 @@ void test_check_read_args(void)
 		};
 		
 		rc = check_read_args(&msg, TYPE_SERIAL_MESSAGE, NULL);
-		TEST_ASSERT_EQUAL(ERROR_INVALID_ARGUMENT, rc);
+		TEST_ASSERT_EQUAL(DARTT_ERROR_INVALID_ARGUMENT, rc);
 	}
 	
 	// Test output.buf == NULL
@@ -348,7 +348,7 @@ void test_check_read_args(void)
 		};
 		
 		rc = check_read_args(&msg, TYPE_SERIAL_MESSAGE, &output);
-		TEST_ASSERT_EQUAL(ERROR_INVALID_ARGUMENT, rc);
+		TEST_ASSERT_EQUAL(DARTT_ERROR_INVALID_ARGUMENT, rc);
 	}
 	
 	// Test memory overrun for TYPE_SERIAL_MESSAGE (address + index + num_bytes + checksum)
@@ -365,7 +365,7 @@ void test_check_read_args(void)
 		};
 		
 		rc = check_read_args(&msg, TYPE_SERIAL_MESSAGE, &output);
-		TEST_ASSERT_EQUAL(ERROR_MEMORY_OVERRUN, rc);
+		TEST_ASSERT_EQUAL(DARTT_ERROR_MEMORY_OVERRUN, rc);
 	}
 	
 	// Test successful TYPE_SERIAL_MESSAGE
@@ -399,7 +399,7 @@ void test_check_read_args(void)
 		};
 		
 		rc = check_read_args(&msg, TYPE_ADDR_MESSAGE, &output);
-		TEST_ASSERT_EQUAL(ERROR_MEMORY_OVERRUN, rc);
+		TEST_ASSERT_EQUAL(DARTT_ERROR_MEMORY_OVERRUN, rc);
 	}
 	
 	// Test successful TYPE_ADDR_MESSAGE
@@ -433,7 +433,7 @@ void test_check_read_args(void)
 		};
 		
 		rc = check_read_args(&msg, TYPE_ADDR_CRC_MESSAGE, &output);
-		TEST_ASSERT_EQUAL(ERROR_MEMORY_OVERRUN, rc);
+		TEST_ASSERT_EQUAL(DARTT_ERROR_MEMORY_OVERRUN, rc);
 	}
 	
 	// Test successful TYPE_ADDR_CRC_MESSAGE
@@ -467,7 +467,7 @@ void test_check_read_args(void)
 		};
 		
 		rc = check_read_args(&msg, 99, &output);
-		TEST_ASSERT_EQUAL(ERROR_INVALID_ARGUMENT, rc);
+		TEST_ASSERT_EQUAL(DARTT_ERROR_INVALID_ARGUMENT, rc);
 	}
 	
 	// Test edge case: minimum output buffer for TYPE_SERIAL_MESSAGE
@@ -563,11 +563,11 @@ int write_frame_to_struct(dartt_buffer_t * input, serial_message_type_t type, mi
 {
 	if(input == NULL || msg == NULL || input->buf == NULL)
 	{
-		return ERROR_INVALID_ARGUMENT;
+		return DARTT_ERROR_INVALID_ARGUMENT;
 	}
 	if(!(type == TYPE_SERIAL_MESSAGE || type == TYPE_ADDR_MESSAGE || type == TYPE_ADDR_CRC_MESSAGE))
 	{
-		return ERROR_INVALID_ARGUMENT;
+		return DARTT_ERROR_INVALID_ARGUMENT;
 	}
 	
 	size_t bidx = 0;
@@ -577,7 +577,7 @@ int write_frame_to_struct(dartt_buffer_t * input, serial_message_type_t type, mi
 	{
 		if(input->len < NUM_BYTES_ADDRESS)
 		{
-			return ERROR_MALFORMED_MESSAGE;
+			return DARTT_ERROR_MALFORMED_MESSAGE;
 		}
 		msg->address = input->buf[bidx++];
 	}
@@ -589,7 +589,7 @@ int write_frame_to_struct(dartt_buffer_t * input, serial_message_type_t type, mi
 	// Parse index (always present)
 	if(input->len < bidx + NUM_BYTES_INDEX)
 	{
-		return ERROR_MALFORMED_MESSAGE;
+		return DARTT_ERROR_MALFORMED_MESSAGE;
 	}
 	uint16_t rw_index = 0;
 	rw_index |= (uint16_t)(input->buf[bidx++]);
@@ -598,7 +598,7 @@ int write_frame_to_struct(dartt_buffer_t * input, serial_message_type_t type, mi
 	// Check if this is actually a write frame (MSB should be 0)
 	if(rw_index & READ_WRITE_BITMASK)
 	{
-		return ERROR_MALFORMED_MESSAGE; // This is a read frame, not write
+		return DARTT_ERROR_MALFORMED_MESSAGE; // This is a read frame, not write
 	}
 	msg->index = rw_index;
 	
@@ -611,7 +611,7 @@ int write_frame_to_struct(dartt_buffer_t * input, serial_message_type_t type, mi
 	
 	if(input->len < expected_overhead)
 	{
-		return ERROR_MALFORMED_MESSAGE;
+		return DARTT_ERROR_MALFORMED_MESSAGE;
 	}
 	
 	// Calculate payload length
@@ -620,7 +620,7 @@ int write_frame_to_struct(dartt_buffer_t * input, serial_message_type_t type, mi
 	// Validate payload fits in msg structure
 	if(payload_len > msg->payload.size)
 	{
-		return ERROR_MEMORY_OVERRUN;
+		return DARTT_ERROR_MEMORY_OVERRUN;
 	}
 	
 	// Copy payload
@@ -669,11 +669,11 @@ int read_frame_to_struct(dartt_buffer_t * input, serial_message_type_t type, mis
 {
 	if(input == NULL || msg == NULL || input->buf == NULL)
 	{
-		return ERROR_INVALID_ARGUMENT;
+		return DARTT_ERROR_INVALID_ARGUMENT;
 	}
 	if(!(type == TYPE_SERIAL_MESSAGE || type == TYPE_ADDR_MESSAGE || type == TYPE_ADDR_CRC_MESSAGE))
 	{
-		return ERROR_INVALID_ARGUMENT;
+		return DARTT_ERROR_INVALID_ARGUMENT;
 	}
 	
 	size_t bidx = 0;
@@ -683,7 +683,7 @@ int read_frame_to_struct(dartt_buffer_t * input, serial_message_type_t type, mis
 	{
 		if(input->len < NUM_BYTES_ADDRESS)
 		{
-			return ERROR_MALFORMED_MESSAGE;
+			return DARTT_ERROR_MALFORMED_MESSAGE;
 		}
 		msg->address = input->buf[bidx++];
 	}
@@ -701,7 +701,7 @@ int read_frame_to_struct(dartt_buffer_t * input, serial_message_type_t type, mis
 	
 	if(input->len != expected_size)
 	{
-		return ERROR_MALFORMED_MESSAGE;
+		return DARTT_ERROR_MALFORMED_MESSAGE;
 	}
 	
 	// Parse index
@@ -712,7 +712,7 @@ int read_frame_to_struct(dartt_buffer_t * input, serial_message_type_t type, mis
 	// Check if this is actually a read frame (MSB should be 1)
 	if(!(rw_index & READ_WRITE_BITMASK))
 	{
-		return ERROR_MALFORMED_MESSAGE; // This is a write frame, not read
+		return DARTT_ERROR_MALFORMED_MESSAGE; // This is a write frame, not read
 	}
 	msg->index = rw_index & (~READ_WRITE_BITMASK); // Remove read bit
 	
@@ -751,7 +751,7 @@ void test_append_crc(void)
 			.len = sizeof(mem)
 		};
 		int rc = append_crc(&buf);
-		TEST_ASSERT_EQUAL(ERROR_MEMORY_OVERRUN, rc);
+		TEST_ASSERT_EQUAL(DARTT_ERROR_MEMORY_OVERRUN, rc);
 	}
 }
 
@@ -780,7 +780,7 @@ void test_validate_crc(void)
 			.len = 4
 		};
 		int rc = validate_crc(&buf);
-		TEST_ASSERT_EQUAL(ERROR_CHECKSUM_MISMATCH, rc);
+		TEST_ASSERT_EQUAL(DARTT_ERROR_CHECKSUM_MISMATCH, rc);
 	}
 }
 
@@ -915,13 +915,13 @@ void setup_payload_msg(payload_mode_t mode, payload_layer_msg_t * pld, unsigned 
 void test_check_buffer(void)
 {
 	dartt_buffer_t b = {};
-	TEST_ASSERT_EQUAL(ERROR_INVALID_ARGUMENT, check_buffer(NULL));
-	TEST_ASSERT_EQUAL(ERROR_INVALID_ARGUMENT, check_buffer(&b));
+	TEST_ASSERT_EQUAL(DARTT_ERROR_INVALID_ARGUMENT, check_buffer(NULL));
+	TEST_ASSERT_EQUAL(DARTT_ERROR_INVALID_ARGUMENT, check_buffer(&b));
 	unsigned char arr[9] = {};
 	b.buf = arr;
-	TEST_ASSERT_EQUAL(ERROR_INVALID_ARGUMENT, check_buffer(&b));
+	TEST_ASSERT_EQUAL(DARTT_ERROR_INVALID_ARGUMENT, check_buffer(&b));
 	b.len = sizeof(arr);
-	TEST_ASSERT_EQUAL(ERROR_INVALID_ARGUMENT, check_buffer(&b));
+	TEST_ASSERT_EQUAL(DARTT_ERROR_INVALID_ARGUMENT, check_buffer(&b));
 	b.size = sizeof(arr);
 	TEST_ASSERT_EQUAL(DARTT_PROTOCOL_SUCCESS, check_buffer(&b));
 }
@@ -936,7 +936,7 @@ void test_f2p_memory_overrun_bug(void)
 		serial_msg.len = sizeof(buf);
 		payload_layer_msg_t pld = {};
 		int rc = dartt_frame_to_payload(&serial_msg, TYPE_SERIAL_MESSAGE, PAYLOAD_ALIAS, &pld);
-		TEST_ASSERT_EQUAL(ERROR_MEMORY_OVERRUN, rc);
+		TEST_ASSERT_EQUAL(DARTT_ERROR_MEMORY_OVERRUN, rc);
 	}
 	{	//
 		dartt_buffer_t serial_msg;
@@ -1042,7 +1042,7 @@ void f2p_checksum_mismatch_helper(serial_message_type_t type, payload_mode_t mod
 	setup_payload_msg(mode, &pld, copy_buf, sizeof(copy_buf));
 	
 	int rc = dartt_frame_to_payload(&frame, type, mode, &pld);
-	TEST_ASSERT_EQUAL(ERROR_CHECKSUM_MISMATCH, rc);
+	TEST_ASSERT_EQUAL(DARTT_ERROR_CHECKSUM_MISMATCH, rc);
 }
 
 // Test memory overrun scenarios (PAYLOAD_COPY only)
@@ -1061,7 +1061,7 @@ void f2p_memory_overrun_helper(serial_message_type_t type, payload_mode_t mode)
 	setup_payload_msg(mode, &pld, copy_buf, sizeof(copy_buf));
 	
 	int rc = dartt_frame_to_payload(&frame, type, mode, &pld);
-	TEST_ASSERT_EQUAL(ERROR_MEMORY_OVERRUN, rc);
+	TEST_ASSERT_EQUAL(DARTT_ERROR_MEMORY_OVERRUN, rc);
 }
 
 // Test malformed input scenarios
@@ -1091,7 +1091,7 @@ void f2p_malformed_input_helper(serial_message_type_t type, payload_mode_t mode)
 		// TYPE_ADDR_CRC_MESSAGE with len=1 should actually work
 		TEST_ASSERT_EQUAL(DARTT_PROTOCOL_SUCCESS, rc);
 	} else {
-		TEST_ASSERT_EQUAL(ERROR_MALFORMED_MESSAGE, rc);
+		TEST_ASSERT_EQUAL(DARTT_ERROR_MALFORMED_MESSAGE, rc);
 	}
 }
 
@@ -1112,7 +1112,7 @@ void f2p_invalid_args_helper(serial_message_type_t type, payload_mode_t mode)
 	if(mode == PAYLOAD_COPY) {
 		setup_payload_msg(mode, &pld, NULL, 0); // NULL buffer
 		int rc = dartt_frame_to_payload(&frame, type, mode, &pld);
-		TEST_ASSERT_EQUAL(ERROR_INVALID_ARGUMENT, rc);
+		TEST_ASSERT_EQUAL(DARTT_ERROR_INVALID_ARGUMENT, rc);
 	}
 }
 
@@ -1191,7 +1191,7 @@ void test_parse_base_read_reply_overhead(void)
 			.len = 0
 		};
 		int rc = dartt_parse_base_serial_message(&pld_msg, &mem_base, &reply);
-		TEST_ASSERT_EQUAL(ERROR_MEMORY_OVERRUN, rc);
+		TEST_ASSERT_EQUAL(DARTT_ERROR_MEMORY_OVERRUN, rc);
 	}
 
 	// SAD PATH: reply buffer one byte short of full overhead
@@ -1203,7 +1203,7 @@ void test_parse_base_read_reply_overhead(void)
 			.len = 0
 		};
 		int rc = dartt_parse_base_serial_message(&pld_msg, &mem_base, &reply);
-		TEST_ASSERT_EQUAL(ERROR_MEMORY_OVERRUN, rc);
+		TEST_ASSERT_EQUAL(DARTT_ERROR_MEMORY_OVERRUN, rc);
 	}
 
 	// HAPPY PATH: reply buffer exactly num_bytes + NUM_BYTES_READ_REPLY_OVERHEAD_PLD

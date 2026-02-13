@@ -43,45 +43,45 @@ void test_index_of_field_comprehensive(void)
 	comms_t comms = {};
 
 	// Test 1: NULL p_field pointer
-	TEST_ASSERT_EQUAL(ERROR_INVALID_ARGUMENT,
+	TEST_ASSERT_EQUAL(DARTT_ERROR_INVALID_ARGUMENT,
 	                  index_of_field(NULL, (void*)&comms, sizeof(comms_t)));
 
 	// Test 2: NULL mem pointer
-	TEST_ASSERT_EQUAL(ERROR_INVALID_ARGUMENT,
+	TEST_ASSERT_EQUAL(DARTT_ERROR_INVALID_ARGUMENT,
 	                  index_of_field(&comms.gl_iq, NULL, sizeof(comms_t)));
 
 	// Test 3: Both NULL
-	TEST_ASSERT_EQUAL(ERROR_INVALID_ARGUMENT, index_of_field(NULL, NULL, 0));
+	TEST_ASSERT_EQUAL(DARTT_ERROR_INVALID_ARGUMENT, index_of_field(NULL, NULL, 0));
 
 	// Test 4: Pointer below base (create pointer arithmetic below base)
 	unsigned char* below_base = (unsigned char*)&comms - 4;
-	TEST_ASSERT_EQUAL(ERROR_MEMORY_OVERRUN,
+	TEST_ASSERT_EQUAL(DARTT_ERROR_MEMORY_OVERRUN,
 	                  index_of_field(below_base, (void*)&comms, sizeof(comms_t)));
 
 	// Test 5: OFF-BY-ONE BUG - Pointer exactly at base+size (CRITICAL REGRESSION TEST)
 	// This test captures the bug fixed where p_field_nonvoid >= (pbase + mem_size) was changed to use >=
 	unsigned char* at_end = (unsigned char*)&comms + sizeof(comms_t);
-	TEST_ASSERT_EQUAL(ERROR_MEMORY_OVERRUN,
+	TEST_ASSERT_EQUAL(DARTT_ERROR_MEMORY_OVERRUN,
 	                  index_of_field(at_end, (void*)&comms, sizeof(comms_t)));
 
 	// Test 6: Pointer beyond base+size
 	unsigned char* beyond_end = (unsigned char*)&comms + sizeof(comms_t) + 4;
-	TEST_ASSERT_EQUAL(ERROR_MEMORY_OVERRUN,
+	TEST_ASSERT_EQUAL(DARTT_ERROR_MEMORY_OVERRUN,
 	                  index_of_field(beyond_end, (void*)&comms, sizeof(comms_t)));
 
 	// Test 7: Misaligned pointer (not 4-byte aligned) - +1 byte
 	unsigned char* misaligned1 = (unsigned char*)&comms + 1;
-	TEST_ASSERT_EQUAL(ERROR_INVALID_ARGUMENT,
+	TEST_ASSERT_EQUAL(DARTT_ERROR_INVALID_ARGUMENT,
 	                  index_of_field(misaligned1, (void*)&comms, sizeof(comms_t)));
 
 	// Test 8: Misaligned pointer - +2 bytes
 	unsigned char* misaligned2 = (unsigned char*)&comms + 2;
-	TEST_ASSERT_EQUAL(ERROR_INVALID_ARGUMENT,
+	TEST_ASSERT_EQUAL(DARTT_ERROR_INVALID_ARGUMENT,
 	                  index_of_field(misaligned2, (void*)&comms, sizeof(comms_t)));
 
 	// Test 9: Misaligned pointer - +3 bytes
 	unsigned char* misaligned3 = (unsigned char*)&comms + 3;
-	TEST_ASSERT_EQUAL(ERROR_INVALID_ARGUMENT,
+	TEST_ASSERT_EQUAL(DARTT_ERROR_INVALID_ARGUMENT,
 	                  index_of_field(misaligned3, (void*)&comms, sizeof(comms_t)));
 
 	// Test 10: Valid boundary case - last valid field
@@ -165,7 +165,7 @@ void test_copy_buf_full(void)
 		};
 		
 		int rc = copy_buf_full(NULL, &out_buf);
-		TEST_ASSERT_EQUAL(ERROR_INVALID_ARGUMENT, rc);
+		TEST_ASSERT_EQUAL(DARTT_ERROR_INVALID_ARGUMENT, rc);
 	}
 	
 	// Test NULL output buffer
@@ -178,13 +178,13 @@ void test_copy_buf_full(void)
 		};
 		
 		int rc = copy_buf_full(&in_buf, NULL);
-		TEST_ASSERT_EQUAL(ERROR_INVALID_ARGUMENT, rc);
+		TEST_ASSERT_EQUAL(DARTT_ERROR_INVALID_ARGUMENT, rc);
 	}
 	
 	// Test NULL both buffers
 	{
 		int rc = copy_buf_full(NULL, NULL);
-		TEST_ASSERT_EQUAL(ERROR_INVALID_ARGUMENT, rc);
+		TEST_ASSERT_EQUAL(DARTT_ERROR_INVALID_ARGUMENT, rc);
 	}
 	
 	// Test size mismatch - output buffer smaller
@@ -203,7 +203,7 @@ void test_copy_buf_full(void)
 		};
 		
 		int rc = copy_buf_full(&in_buf, &out_buf);
-		TEST_ASSERT_EQUAL(ERROR_MEMORY_OVERRUN, rc);
+		TEST_ASSERT_EQUAL(DARTT_ERROR_MEMORY_OVERRUN, rc);
 	}
 	
 	// Test size mismatch - output buffer larger
@@ -222,7 +222,7 @@ void test_copy_buf_full(void)
 		};
 		
 		int rc = copy_buf_full(&in_buf, &out_buf);
-		TEST_ASSERT_EQUAL(ERROR_MEMORY_OVERRUN, rc);
+		TEST_ASSERT_EQUAL(DARTT_ERROR_MEMORY_OVERRUN, rc);
 	}
 	
 	// Test zero-sized buffers
@@ -239,7 +239,7 @@ void test_copy_buf_full(void)
 		};
 		
 		int rc = copy_buf_full(&in_buf, &out_buf);
-		TEST_ASSERT_EQUAL(ERROR_INVALID_ARGUMENT, rc);
+		TEST_ASSERT_EQUAL(DARTT_ERROR_INVALID_ARGUMENT, rc);
 	}
 	
 	// Test single byte copy

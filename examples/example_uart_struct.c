@@ -105,7 +105,7 @@ int create_struct_write_frame(unsigned char address,
     }
     if(field_size > sizeof(device_config_t))
 	{
-		return ERROR_MEMORY_OVERRUN;
+		return DARTT_ERROR_MEMORY_OVERRUN;
 	}
 
     // Create the write message

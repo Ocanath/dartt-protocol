@@ -75,7 +75,7 @@ int dartt_init_buffer(dartt_buffer_t * b, uint8_t * arr, size_t size)
 {
     if(b == NULL || arr == NULL)
     {
-        return ERROR_INVALID_ARGUMENT;
+        return DARTT_ERROR_INVALID_ARGUMENT;
     }
     b->buf = (unsigned char *)arr;
     b->size = size;
@@ -88,7 +88,7 @@ int dartt_init_mem(dartt_mem_t * b, uint8_t * arr, size_t size)
 {
     if(b == NULL || arr == NULL)
     {
-        return ERROR_INVALID_ARGUMENT;
+        return DARTT_ERROR_INVALID_ARGUMENT;
     }
     b->buf = (unsigned char *)arr;
     b->size = size;
@@ -153,7 +153,7 @@ int synctest_tx_blocking(unsigned char addr, dartt_buffer_t * tx, uint32_t timeo
     dartt_buffer_t tx_cpy_alias = {.buf = tx_cpy, .size = sizeof(tx_cpy), .len=tx->len};
     if(tx->size > tx_cpy_alias.size)
     {
-        return ERROR_MEMORY_OVERRUN;
+        return DARTT_ERROR_MEMORY_OVERRUN;
     }
     for(int i = 0; i < tx->size; i++)
     {
@@ -497,21 +497,21 @@ void test_undersized_tx_buffers(void)
     periph_master.m1_set = 0;
 
     int rc = dartt_sync(&ctl_alias, &ctl_sync);
-    TEST_ASSERT_EQUAL(ERROR_MEMORY_OVERRUN, rc);
+    TEST_ASSERT_EQUAL(DARTT_ERROR_MEMORY_OVERRUN, rc);
 
     // Test 2: Buffer exactly at minimum non-payload size (5 bytes) - should fail
     uint8_t min_tx_mem[5] = {};
     dartt_init_buffer(&ctl_sync.tx_buf, min_tx_mem, sizeof(min_tx_mem));
 
     rc = dartt_sync(&ctl_alias, &ctl_sync);
-    TEST_ASSERT_EQUAL(ERROR_MEMORY_OVERRUN, rc);
+    TEST_ASSERT_EQUAL(DARTT_ERROR_MEMORY_OVERRUN, rc);
 
     // Test 3: Buffer with 4 bytes (less than minimum) - should fail
     uint8_t small_tx_mem[4] = {};
     dartt_init_buffer(&ctl_sync.tx_buf, small_tx_mem, sizeof(small_tx_mem));
 
     rc = dartt_sync(&ctl_alias, &ctl_sync);
-    TEST_ASSERT_EQUAL(ERROR_MEMORY_OVERRUN, rc);
+    TEST_ASSERT_EQUAL(DARTT_ERROR_MEMORY_OVERRUN, rc);
 }
 
 void test_minimum_sized_tx_buffers(void)
@@ -546,7 +546,7 @@ void test_minimum_sized_tx_buffers(void)
     periph_master.m1_set = 0;
 
     int rc = dartt_sync(&ctl_alias, &ctl_sync);
-    TEST_ASSERT_EQUAL(ERROR_MEMORY_OVERRUN, rc);
+    TEST_ASSERT_EQUAL(DARTT_ERROR_MEMORY_OVERRUN, rc);
 
     // Test 2: Buffer with exactly 9 bytes (5 + 4 payload bytes) - should work for single int32_t
     uint8_t min9_tx_mem[9] = {};
@@ -675,7 +675,7 @@ void test_buffer_alignment_edge_cases(void)
 
     // This should fail due to non-32-bit alignment
     int rc = dartt_sync(&ctl_buf, &ctl_sync);
-    TEST_ASSERT_EQUAL(ERROR_INVALID_ARGUMENT, rc);
+    TEST_ASSERT_EQUAL(DARTT_ERROR_INVALID_ARGUMENT, rc);
 
     // Test with 8-byte aligned buffer (should work)
     uint8_t ctl_mem8[8] = {};
@@ -689,12 +689,12 @@ void test_buffer_alignment_edge_cases(void)
     periph_mem8[0] = 0;
 
     rc = dartt_sync(&ctl_buf8, &ctl_sync);	
-    TEST_ASSERT_EQUAL(ERROR_INVALID_ARGUMENT, rc);	//we reassigned the ctl pointer without reassigning the base - this is invalid argument (or potentially memory overrun) error, so return with a code
+    TEST_ASSERT_EQUAL(DARTT_ERROR_INVALID_ARGUMENT, rc);	//we reassigned the ctl pointer without reassigning the base - this is invalid argument (or potentially memory overrun) error, so return with a code
 
 	ctl_sync.ctl_base.buf = ctl_buf8.buf;
 	ctl_sync.ctl_base.size = ctl_buf8.size;
 	rc = dartt_sync(&ctl_buf8, &ctl_sync);	
-    TEST_ASSERT_EQUAL(ERROR_MEMORY_OVERRUN, rc);	//we reassigned the ctl pointer without reassigning the base - this is invalid argument (or potentially memory overrun) error, so return with a code
+    TEST_ASSERT_EQUAL(DARTT_ERROR_MEMORY_OVERRUN, rc);	//we reassigned the ctl pointer without reassigning the base - this is invalid argument (or potentially memory overrun) error, so return with a code
 
 	ctl_sync.periph_base.buf = periph_buf8.buf;
 	ctl_sync.periph_base.size = periph_buf8.size;
@@ -751,7 +751,7 @@ void test_dartt_read_multi(void)
     TEST_ASSERT_LESS_THAN(ctl_master_alias.size, ctl_sync.rx_buf.size); //must be true for the test to function properly
     ctl_master_alias.len = ctl_master_alias.size;   //indicate we want to read the full memory
     rc = dartt_ctl_read(&ctl_master_alias, &ctl_sync);
-    TEST_ASSERT_EQUAL(ERROR_MEMORY_OVERRUN, rc);   //because the transmit buffer is much smaller than the data we're trying to read, it should fail with a code (memory overrun)
+    TEST_ASSERT_EQUAL(DARTT_ERROR_MEMORY_OVERRUN, rc);   //because the transmit buffer is much smaller than the data we're trying to read, it should fail with a code (memory overrun)
 
     rc = dartt_read_multi(&ctl_master_alias, &ctl_sync);
     TEST_ASSERT_EQUAL(0, rc);
@@ -822,7 +822,7 @@ void test_dartt_read_multi_bad_read_callback(void)
 	ctl_master_alias.len = 4;
 	ctl_master_alias.size = 4;
     rc = dartt_read_multi(&ctl_master_alias, &ctl_sync);
-    TEST_ASSERT_EQUAL(ERROR_CTL_READ_LEN_MISMATCH, rc);
+    TEST_ASSERT_EQUAL(DARTT_ERROR_CTL_READ_LEN_MISMATCH, rc);
 }
 
 
@@ -874,7 +874,7 @@ void test_dartt_read_multi_fdcan(void)
     TEST_ASSERT_LESS_THAN(ctl_master_alias.size, ctl_sync.rx_buf.size); //must be true for the test to function properly
     ctl_master_alias.len = ctl_master_alias.size;   //indicate we want to read the full memory
     rc = dartt_ctl_read(&ctl_master_alias, &ctl_sync);
-    TEST_ASSERT_EQUAL(ERROR_MEMORY_OVERRUN, rc);   //because the transmit buffer is much smaller than the data we're trying to read, it should fail with a code (memory overrun)
+    TEST_ASSERT_EQUAL(DARTT_ERROR_MEMORY_OVERRUN, rc);   //because the transmit buffer is much smaller than the data we're trying to read, it should fail with a code (memory overrun)
 
     rc = dartt_read_multi(&ctl_master_alias, &ctl_sync);
     TEST_ASSERT_EQUAL(0, rc);
@@ -1101,7 +1101,7 @@ void dartt_write_multi_wrapper(int rbufsize, int tbufsize, serial_message_type_t
     TEST_ASSERT_LESS_THAN(ctl_master_alias.size, ctl_sync.tx_buf.size); //verify that write multi is actually going to write multi
     ctl_master_alias.len = ctl_master_alias.size;   //indicate we want to read the full memory
     rc = dartt_ctl_write(&ctl_master_alias, &ctl_sync);
-    TEST_ASSERT_EQUAL(ERROR_MEMORY_OVERRUN, rc);   //because the transmit buffer is much smaller than the data we're trying to read, it should fail with a code (memory overrun)
+    TEST_ASSERT_EQUAL(DARTT_ERROR_MEMORY_OVERRUN, rc);   //because the transmit buffer is much smaller than the data we're trying to read, it should fail with a code (memory overrun)
 
     rc = dartt_write_multi(&ctl_master_alias, &ctl_sync);
     TEST_ASSERT_EQUAL(0, rc);
@@ -1204,7 +1204,7 @@ void test_dartt_update_controller(void)
 	ctl.size = sizeof(test_struct_t);	
 	ctl.len = ctl.size;
 	int rc = dartt_update_controller(&ctl, &gl_ds);
-	TEST_ASSERT_EQUAL(ERROR_MEMORY_OVERRUN, rc);
+	TEST_ASSERT_EQUAL(DARTT_ERROR_MEMORY_OVERRUN, rc);
 
 	//improper buffer creation - underflow
 	ctl.buf = (unsigned char *)(&gl_master_copy);
@@ -1212,7 +1212,7 @@ void test_dartt_update_controller(void)
 	ctl.size = sizeof(test_struct_t);	
 	ctl.len = ctl.size;
 	rc = dartt_update_controller(&ctl, &gl_ds);
-	TEST_ASSERT_EQUAL(ERROR_MEMORY_OVERRUN, rc);
+	TEST_ASSERT_EQUAL(DARTT_ERROR_MEMORY_OVERRUN, rc);
 
 	//improper buffer creation - misaligned (not 32bit aligned)
 	ctl.len = ctl.size - 1;
@@ -1220,7 +1220,7 @@ void test_dartt_update_controller(void)
 	ctl.buf += 1;
 	ctl.size = sizeof(test_struct_t) - 1;	
 	rc = dartt_update_controller(&ctl, &gl_ds);
-	TEST_ASSERT_EQUAL(ERROR_INVALID_ARGUMENT, rc);
+	TEST_ASSERT_EQUAL(DARTT_ERROR_INVALID_ARGUMENT, rc);
 
     //check for ctl validity
 	ctl.len = ctl.size;
@@ -1228,7 +1228,7 @@ void test_dartt_update_controller(void)
 	ctl.buf += 1;
 	ctl.size = sizeof(test_struct_t);	
 	rc = dartt_update_controller(&ctl, &gl_ds);
-	TEST_ASSERT_EQUAL(ERROR_MEMORY_OVERRUN, rc);
+	TEST_ASSERT_EQUAL(DARTT_ERROR_MEMORY_OVERRUN, rc);
 
     
 
@@ -1301,7 +1301,7 @@ void test_ctl_read_reply_overhead(void)
 		uint8_t short_rx[64] = {};
 		dartt_init_buffer(&gl_ds.rx_buf, short_rx, short_size);
 		int rc = dartt_ctl_read(&ctl, &gl_ds);
-		TEST_ASSERT_EQUAL(ERROR_MEMORY_OVERRUN, rc);
+		TEST_ASSERT_EQUAL(DARTT_ERROR_MEMORY_OVERRUN, rc);
 	}
 
 	//SAD PATH: rx buffer one byte short
@@ -1309,7 +1309,7 @@ void test_ctl_read_reply_overhead(void)
 		uint8_t short_rx[64] = {};
 		dartt_init_buffer(&gl_ds.rx_buf, short_rx, exact_rx_size - 1);
 		int rc = dartt_ctl_read(&ctl, &gl_ds);
-		TEST_ASSERT_EQUAL(ERROR_MEMORY_OVERRUN, rc);
+		TEST_ASSERT_EQUAL(DARTT_ERROR_MEMORY_OVERRUN, rc);
 	}
 
 	//HAPPY PATH: rx buffer exactly large enough
@@ -1334,7 +1334,7 @@ void test_ctl_read_reply_overhead(void)
 		uint8_t short_rx[64] = {};
 		dartt_init_buffer(&gl_ds.rx_buf, short_rx, ctl.len);	//only data, no overhead
 		int rc = dartt_ctl_read(&ctl, &gl_ds);
-		TEST_ASSERT_EQUAL(ERROR_MEMORY_OVERRUN, rc);
+		TEST_ASSERT_EQUAL(DARTT_ERROR_MEMORY_OVERRUN, rc);
 	}
 
 	//HAPPY PATH: rx buffer exactly large enough for ADDR_CRC
@@ -1361,7 +1361,7 @@ void test_ctl_read_reply_overhead(void)
 		uint8_t short_rx[64] = {};
 		dartt_init_buffer(&gl_ds.rx_buf, short_rx, short_size);
 		int rc = dartt_ctl_read(&ctl, &gl_ds);
-		TEST_ASSERT_EQUAL(ERROR_MEMORY_OVERRUN, rc);
+		TEST_ASSERT_EQUAL(DARTT_ERROR_MEMORY_OVERRUN, rc);
 	}
 
 	//HAPPY PATH: exact size for ADDR_MESSAGE
