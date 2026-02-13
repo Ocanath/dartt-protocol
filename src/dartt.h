@@ -43,12 +43,34 @@ typedef enum {
 	PAYLOAD_COPY	//copy the relevant parts of the frame to the pld buffer
 } payload_mode_t;	
 
+
+/*
+Buffer type. Starts at buf, bounded by size, 
+informational content bounded by len - i.e. len can be less than or equal to size,
+content between len and size is undefined
+*/
 typedef struct dartt_buffer_t
 {
 	unsigned char * buf;
 	size_t size;	//size of the buffer
 	size_t len;	//length of the current message in the buffer, referenced to the zero index
 } dartt_buffer_t;
+
+
+/*
+Memory backing store - generally used
+to define the 'dartt region'. Does not 
+have a len parameter.
+
+Used to semantically denote the difference
+between a 'buffer' and a working memory region.
+*/
+typedef struct dartt_mem_t
+{
+	unsigned char * buf;
+	size_t size;
+}dartt_mem_t;
+
 
 /*
 	Containter struct for base protocol messages.
@@ -121,8 +143,8 @@ unsigned char dartt_get_complementary_address(unsigned char address);
 int dartt_create_write_frame(misc_write_message_t * msg, serial_message_type_t type, dartt_buffer_t * output);
 int dartt_create_read_frame(misc_read_message_t * msg, serial_message_type_t type, dartt_buffer_t * output);
 int dartt_frame_to_payload(dartt_buffer_t * ser_msg, serial_message_type_t type, payload_mode_t pld_mode, payload_layer_msg_t * pld);
-int dartt_parse_base_serial_message(payload_layer_msg_t* pld_msg, dartt_buffer_t * mem_base, dartt_buffer_t * reply_base);
-int dartt_parse_general_message(payload_layer_msg_t * pld_msg, serial_message_type_t type, dartt_buffer_t * mem_base, dartt_buffer_t * reply);
+int dartt_parse_base_serial_message(payload_layer_msg_t* pld_msg, const dartt_mem_t * mem_base, dartt_buffer_t * reply_base);
+int dartt_parse_general_message(payload_layer_msg_t * pld_msg, serial_message_type_t type, const dartt_mem_t * mem_base, dartt_buffer_t * reply);
 int append_crc(dartt_buffer_t * input);
 int validate_crc(const dartt_buffer_t * input);
 int dartt_parse_read_reply(payload_layer_msg_t * payload_msg, misc_read_message_t * original_msg, dartt_buffer_t * dest);

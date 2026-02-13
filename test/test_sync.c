@@ -65,6 +65,12 @@ int init_struct_buffer(test_struct_t * s, dartt_buffer_t * buf)
     buf->len = 0;
 }
 
+int init_struct_mem(test_struct_t * s, dartt_mem_t * mem)
+{
+	mem->buf = (unsigned char *)s;
+	mem->size = sizeof(test_struct_t);
+}
+
 int dartt_init_buffer(dartt_buffer_t * b, uint8_t * arr, size_t size)
 {
     if(b == NULL || arr == NULL)
@@ -77,13 +83,26 @@ int dartt_init_buffer(dartt_buffer_t * b, uint8_t * arr, size_t size)
     return DARTT_PROTOCOL_SUCCESS;
 }
 
+
+int dartt_init_mem(dartt_mem_t * b, uint8_t * arr, size_t size)
+{
+    if(b == NULL || arr == NULL)
+    {
+        return ERROR_INVALID_ARGUMENT;
+    }
+    b->buf = (unsigned char *)arr;
+    b->size = size;
+    return DARTT_PROTOCOL_SUCCESS;
+}
+
+
+
 //periph copy
 test_struct_t gl_periph = {};
-dartt_buffer_t periph_alias = 
+dartt_mem_t periph_alias = 
 {
     .buf = (unsigned char * )(&gl_periph),
     .size = sizeof(test_struct_t),
-    .len = 0
 };
 
 int synctest_rx_blocking(dartt_buffer_t * rx, uint32_t timeout)
@@ -181,8 +200,8 @@ void test_dartt_sync_full(void)
     //sync params
     dartt_sync_t ctl_sync = {};
     ctl_sync.address = 3;
-    init_struct_buffer(&ctl_master, &ctl_sync.ctl_base);
-	init_struct_buffer(&periph_master, &ctl_sync.periph_base);
+    init_struct_mem(&ctl_master, &ctl_sync.ctl_base);
+	init_struct_mem(&periph_master, &ctl_sync.periph_base);
     ctl_sync.msg_type = TYPE_SERIAL_MESSAGE;
     int rc = dartt_init_buffer(&ctl_sync.tx_buf, tx_mem, sizeof(tx_mem));
     TEST_ASSERT_EQUAL(0,rc);
@@ -274,7 +293,7 @@ void test_dartt_sync_full(void)
     //final sync test - make the control and shadow copies completely out of sync, triggering a complete buffer write.
     //since tx buf is small, this tests the logic of breaking up the tx buffer as well
     init_struct_buffer(&ctl_master, &ctl_master_alias); //reinit both alias buffers to have proper size
-    init_struct_buffer(&periph_master, &ctl_sync.periph_base);
+    init_struct_mem(&periph_master, &ctl_sync.periph_base);
     //reset all memory (both master copies and peripheral copy to a test state for the full write attempt)
     for(int i = 0; i < ctl_master_alias.size; i++)
     {
@@ -314,8 +333,8 @@ void test_dartt_write(void)
     //sync params
     dartt_sync_t ctl_sync = {};
     ctl_sync.address = 3;
-    init_struct_buffer(&ctl_master, &ctl_sync.ctl_base);
-	init_struct_buffer(&periph_master, &ctl_sync.periph_base);
+    init_struct_mem(&ctl_master, &ctl_sync.ctl_base);
+	init_struct_mem(&periph_master, &ctl_sync.periph_base);
     ctl_sync.msg_type = TYPE_SERIAL_MESSAGE;
     int rc = dartt_init_buffer(&ctl_sync.tx_buf, tx_mem, sizeof(tx_mem));
     TEST_ASSERT_EQUAL(0,rc);
@@ -435,11 +454,11 @@ void test_bad_inputs(void)
     ds.blocking_tx_callback = &synctest_tx_blocking;
     dartt_init_buffer(&ds.tx_buf, tx_mem, sizeof(tx_mem));
     dartt_init_buffer(&ds.rx_buf, tx_mem, sizeof(tx_mem));
-    dartt_init_buffer(&ds.ctl_base, b3_mem, sizeof(b3_mem));
-	dartt_init_buffer(&ds.periph_base, b2_mem, sizeof(b2_mem));
+    dartt_init_mem(&ds.ctl_base, b3_mem, sizeof(b3_mem));
+	dartt_init_mem(&ds.periph_base, b2_mem, sizeof(b2_mem));
     int rc = dartt_sync(&b1, &ds);
     TEST_ASSERT_NOT_EQUAL(0, rc);
-    dartt_init_buffer(&ds.ctl_base, b1_mem, sizeof(b1_mem));
+    dartt_init_mem(&ds.ctl_base, b1_mem, sizeof(b1_mem));
     rc = dartt_sync(&b1, &ds);
     TEST_ASSERT_EQUAL(0, rc);
 }
@@ -454,8 +473,9 @@ void test_undersized_tx_buffers(void)
 
     dartt_sync_t ctl_sync = {};
     ctl_sync.address = 3;
-    ctl_sync.ctl_base = ctl_alias;
-	init_struct_buffer(&periph_master, &ctl_sync.periph_base);
+    ctl_sync.ctl_base.buf = ctl_alias.buf;
+	ctl_sync.ctl_base.size = ctl_alias.size;
+	init_struct_mem(&periph_master, &ctl_sync.periph_base);
     ctl_sync.msg_type = TYPE_SERIAL_MESSAGE;
     ctl_sync.blocking_rx_callback = &synctest_rx_blocking;
 	gl_msg_type = ctl_sync.msg_type;
@@ -500,8 +520,9 @@ void test_minimum_sized_tx_buffers(void)
 
     dartt_sync_t ctl_sync = {};
     ctl_sync.address = 3;
-    ctl_sync.ctl_base = ctl_alias;
-	init_struct_buffer(&periph_master, &ctl_sync.periph_base);
+    ctl_sync.ctl_base.buf = ctl_alias.buf;
+	ctl_sync.ctl_base.size = ctl_alias.size;
+	init_struct_mem(&periph_master, &ctl_sync.periph_base);
     ctl_sync.msg_type = TYPE_SERIAL_MESSAGE;
     ctl_sync.blocking_rx_callback = &synctest_rx_blocking;
 	gl_msg_type = ctl_sync.msg_type;
@@ -559,8 +580,8 @@ void test_tx_buffer_edge_cases(void)
 
     dartt_sync_t ctl_sync = {};
     ctl_sync.address = 3;
-	init_struct_buffer(&ctl_master, &ctl_sync.ctl_base);
-	init_struct_buffer(&periph_master, &ctl_sync.periph_base);
+	init_struct_mem(&ctl_master, &ctl_sync.ctl_base);
+	init_struct_mem(&periph_master, &ctl_sync.periph_base);
     ctl_sync.msg_type = TYPE_SERIAL_MESSAGE;
     ctl_sync.blocking_rx_callback = &synctest_rx_blocking;
 	gl_msg_type = ctl_sync.msg_type;
@@ -629,11 +650,12 @@ void test_buffer_alignment_edge_cases(void)
 
     dartt_sync_t ctl_sync = {};
     ctl_sync.address = 3;
-    ctl_sync.ctl_base = ctl_buf;
+    ctl_sync.ctl_base.buf = ctl_buf.buf;
+	ctl_sync.ctl_base.size = ctl_buf.size;
 	//init shadow copy buffer
 	ctl_sync.periph_base.buf = periph_mem;
 	ctl_sync.periph_base.size = sizeof(periph_mem);
-	ctl_sync.periph_base.len = 0;
+	
 
     ctl_sync.msg_type = TYPE_SERIAL_MESSAGE;
     ctl_sync.blocking_rx_callback = &synctest_rx_blocking;
@@ -665,12 +687,13 @@ void test_buffer_alignment_edge_cases(void)
     rc = dartt_sync(&ctl_buf8, &ctl_sync);	
     TEST_ASSERT_EQUAL(ERROR_INVALID_ARGUMENT, rc);	//we reassigned the ctl pointer without reassigning the base - this is invalid argument (or potentially memory overrun) error, so return with a code
 
-	ctl_sync.ctl_base = ctl_buf8;
+	ctl_sync.ctl_base.buf = ctl_buf8.buf;
+	ctl_sync.ctl_base.size = ctl_buf8.size;
 	rc = dartt_sync(&ctl_buf8, &ctl_sync);	
     TEST_ASSERT_EQUAL(ERROR_MEMORY_OVERRUN, rc);	//we reassigned the ctl pointer without reassigning the base - this is invalid argument (or potentially memory overrun) error, so return with a code
 
-	ctl_sync.periph_base = periph_buf8;
-
+	ctl_sync.periph_base.buf = periph_buf8.buf;
+	ctl_sync.periph_base.size = periph_buf8.size;
 	rc = dartt_sync(&ctl_buf8, &ctl_sync);	
     TEST_ASSERT_EQUAL(DARTT_PROTOCOL_SUCCESS, rc);	//we reassigned the ctl pointer without reassigning the base - this is invalid argument (or potentially memory overrun) error, so return with a code
 
@@ -690,8 +713,8 @@ void test_dartt_read_multi(void)
     //sync params
     dartt_sync_t ctl_sync = {};
     ctl_sync.address = 3;
-    init_struct_buffer(&ctl_master, &ctl_sync.ctl_base);
-	init_struct_buffer(&periph_master, &ctl_sync.periph_base);
+    init_struct_mem(&ctl_master, &ctl_sync.ctl_base);
+	init_struct_mem(&periph_master, &ctl_sync.periph_base);
     ctl_sync.msg_type = TYPE_SERIAL_MESSAGE;
     int rc = dartt_init_buffer(&ctl_sync.tx_buf, tx_mem, sizeof(tx_mem));
     TEST_ASSERT_EQUAL(0,rc);
@@ -760,8 +783,8 @@ void test_dartt_read_multi_bad_read_callback(void)
     //sync params
     dartt_sync_t ctl_sync = {};
     ctl_sync.address = 3;
-    init_struct_buffer(&ctl_master, &ctl_sync.ctl_base);
-	init_struct_buffer(&periph_master, &ctl_sync.periph_base);
+    init_struct_mem(&ctl_master, &ctl_sync.ctl_base);
+	init_struct_mem(&periph_master, &ctl_sync.periph_base);
     ctl_sync.msg_type = TYPE_SERIAL_MESSAGE;
     int rc = dartt_init_buffer(&ctl_sync.tx_buf, tx_mem, sizeof(tx_mem));
     TEST_ASSERT_EQUAL(0,rc);
@@ -813,8 +836,8 @@ void test_dartt_read_multi_fdcan(void)
     //sync params
     dartt_sync_t ctl_sync = {};
     ctl_sync.address = 3;
-    init_struct_buffer(&ctl_master, &ctl_sync.ctl_base);
-	init_struct_buffer(&periph_master, &ctl_sync.periph_base);
+    init_struct_mem(&ctl_master, &ctl_sync.ctl_base);
+	init_struct_mem(&periph_master, &ctl_sync.periph_base);
     ctl_sync.msg_type = TYPE_ADDR_CRC_MESSAGE;
     int rc = dartt_init_buffer(&ctl_sync.tx_buf, tx_mem, 8);
     TEST_ASSERT_EQUAL(0,rc);
@@ -900,8 +923,8 @@ void test_dartt_sync_full_fdcan(void)
     //sync params
     dartt_sync_t ctl_sync = {};
     ctl_sync.address = 3;
-    init_struct_buffer(&ctl_master, &ctl_sync.ctl_base);
-	init_struct_buffer(&periph_master, &ctl_sync.periph_base);
+    init_struct_mem(&ctl_master, &ctl_sync.ctl_base);
+	init_struct_mem(&periph_master, &ctl_sync.periph_base);
     ctl_sync.msg_type = TYPE_ADDR_CRC_MESSAGE;
     int rc = dartt_init_buffer(&ctl_sync.tx_buf, tx_mem, 8);
     TEST_ASSERT_EQUAL(0,rc);
@@ -1040,8 +1063,8 @@ void dartt_write_multi_wrapper(int rbufsize, int tbufsize, serial_message_type_t
     //sync params
     dartt_sync_t ctl_sync = {};
     ctl_sync.address = 3;
-    init_struct_buffer(&ctl_master, &ctl_sync.ctl_base);
-	init_struct_buffer(&periph_master, &ctl_sync.periph_base);
+    init_struct_mem(&ctl_master, &ctl_sync.ctl_base);
+	init_struct_mem(&periph_master, &ctl_sync.periph_base);
     ctl_sync.msg_type = type;
     int rc = dartt_init_buffer(&ctl_sync.tx_buf, tx_mem, tbufsize);
     TEST_ASSERT_EQUAL(0,rc);
@@ -1114,8 +1137,8 @@ dartt_sync_t gl_ds;
 void init_gl_ds(void)
 {
 	gl_ds.address = 0x3;
-	init_struct_buffer(&gl_master_copy, &gl_ds.ctl_base);
-	init_struct_buffer(&gl_shadow_copy, &gl_ds.periph_base);
+	init_struct_mem(&gl_master_copy, &gl_ds.ctl_base);
+	init_struct_mem(&gl_shadow_copy, &gl_ds.periph_base);
 	gl_ds.msg_type = TYPE_SERIAL_MESSAGE;	//ignored by this function
 	dartt_init_buffer(&gl_ds.tx_buf, gl_tx_buffer, sizeof(gl_tx_buffer));
 	dartt_init_buffer(&gl_ds.rx_buf, gl_rx_buffer, sizeof(gl_rx_buffer));

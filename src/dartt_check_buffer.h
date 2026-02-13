@@ -29,3 +29,19 @@ static inline int check_buffer(const dartt_buffer_t * b)
 	}
 	return DARTT_PROTOCOL_SUCCESS;
 }
+
+static inline int check_mem_base(const dartt_mem_t * m)
+{
+	if(m == NULL)
+	{
+		return ERROR_INVALID_ARGUMENT;
+	}
+	if(m->size == 0)
+	{
+		return ERROR_INVALID_ARGUMENT;
+	}
+	if(m->buf == NULL)
+	{
+		return ERROR_INVALID_ARGUMENT;
+	}
+}

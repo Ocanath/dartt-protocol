@@ -13,8 +13,8 @@ extern "C" {
 typedef struct dartt_sync_t
 {
         unsigned char address;	 // Target peripheral address
-		dartt_buffer_t ctl_base;			// Base of controller control structure
-		dartt_buffer_t periph_base;		 // Base of shadow copy structure
+		dartt_mem_t ctl_base;			// Bounding region of controller control structure
+		dartt_mem_t periph_base;		 // Bounding region of shadow copy structure
 		serial_message_type_t msg_type;	// Message framing type
 		dartt_buffer_t tx_buf;		// Transmission buffer
 		dartt_buffer_t rx_buf;		 // Reception buffer
