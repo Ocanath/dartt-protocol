@@ -336,11 +336,11 @@ int dartt_ctl_read(dartt_buffer_t * ctl, dartt_sync_t * psync)
     size_t nb_overhead_read_reply = NUM_BYTES_READ_REPLY_OVERHEAD_PLD;
     if(psync->msg_type == TYPE_SERIAL_MESSAGE)
     {
-    	nb_overhead_read_reply = NUM_BYTES_ADDRESS + NUM_BYTES_CHECKSUM;
+    	nb_overhead_read_reply += NUM_BYTES_ADDRESS + NUM_BYTES_CHECKSUM;
     }
     else if(psync->msg_type == TYPE_ADDR_MESSAGE)
     {
-    	nb_overhead_read_reply = NUM_BYTES_CHECKSUM;
+    	nb_overhead_read_reply += NUM_BYTES_CHECKSUM;
     }
 	if(ctl->len + nb_overhead_read_reply > psync->rx_buf.size)
 	{
