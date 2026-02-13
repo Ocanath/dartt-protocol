@@ -1152,6 +1152,141 @@ void test_dartt_frame_to_payload_comprehensive(void)
 	}
 }
 
+/*
+Test that dartt_parse_base_serial_message enforces NUM_BYTES_READ_REPLY_OVERHEAD_PLD in the reply buffer sizing.
+The reply for a read contains [index_lo][index_hi][data...], so reply_base->size must be >= num_bytes + NUM_BYTES_READ_REPLY_OVERHEAD_PLD.
+*/
+void test_parse_base_read_reply_overhead(void)
+{
+	//8 words of backing memory, filled with a pattern
+	uint32_t mem_words[8] = {0xAABBCCDD, 0x11223344, 0x55667788, 0x99AABBCC,
+							 0xDDEEFF00, 0x12345678, 0x9ABCDEF0, 0xFEDCBA98};
+	dartt_mem_t mem_base = {
+		.buf = (unsigned char *)mem_words,
+		.size = sizeof(mem_words)
+	};
+
+	//construct a read request payload: [index_lo | 0x80][index_hi][num_bytes_lo][num_bytes_hi]
+	//read 4 bytes starting at word index 0
+	uint16_t num_bytes_requested = 4;
+	unsigned char read_pld[] = {
+		0x00 | 0x00, 0x80,	//index=0 with read bit set (big end has the MSB)
+		(unsigned char)(num_bytes_requested & 0xFF), (unsigned char)((num_bytes_requested >> 8) & 0xFF)
+	};
+	payload_layer_msg_t pld_msg = {
+		.address = 0x42,
+		.msg = {
+			.buf = read_pld,
+			.size = sizeof(read_pld),
+			.len = sizeof(read_pld)
+		}
+	};
+
+	// SAD PATH: reply buffer sized to hold only the data (no overhead) - must fail
+	{
+		unsigned char reply_mem[4] = {};	//exactly num_bytes_requested, missing NUM_BYTES_READ_REPLY_OVERHEAD_PLD
+		dartt_buffer_t reply = {
+			.buf = reply_mem,
+			.size = sizeof(reply_mem),
+			.len = 0
+		};
+		int rc = dartt_parse_base_serial_message(&pld_msg, &mem_base, &reply);
+		TEST_ASSERT_EQUAL(ERROR_MEMORY_OVERRUN, rc);
+	}
+
+	// SAD PATH: reply buffer one byte short of full overhead
+	{
+		unsigned char reply_mem[4 + NUM_BYTES_READ_REPLY_OVERHEAD_PLD - 1] = {};
+		dartt_buffer_t reply = {
+			.buf = reply_mem,
+			.size = sizeof(reply_mem),
+			.len = 0
+		};
+		int rc = dartt_parse_base_serial_message(&pld_msg, &mem_base, &reply);
+		TEST_ASSERT_EQUAL(ERROR_MEMORY_OVERRUN, rc);
+	}
+
+	// HAPPY PATH: reply buffer exactly num_bytes + NUM_BYTES_READ_REPLY_OVERHEAD_PLD
+	{
+		unsigned char reply_mem[4 + NUM_BYTES_READ_REPLY_OVERHEAD_PLD] = {};
+		dartt_buffer_t reply = {
+			.buf = reply_mem,
+			.size = sizeof(reply_mem),
+			.len = 0
+		};
+		int rc = dartt_parse_base_serial_message(&pld_msg, &mem_base, &reply);
+		TEST_ASSERT_EQUAL(DARTT_PROTOCOL_SUCCESS, rc);
+		TEST_ASSERT_EQUAL(num_bytes_requested + NUM_BYTES_READ_REPLY_OVERHEAD_PLD, reply.len);
+		//verify the index is prepended in the reply
+		uint16_t reply_index = (uint16_t)reply.buf[0] | ((uint16_t)reply.buf[1] << 8);
+		TEST_ASSERT_EQUAL(0, reply_index);
+		//verify the data bytes match the memory
+		for(int i = 0; i < num_bytes_requested; i++)
+		{
+			TEST_ASSERT_EQUAL(mem_base.buf[i], reply.buf[NUM_BYTES_READ_REPLY_OVERHEAD_PLD + i]);
+		}
+	}
+}
+
+/*
+Test that dartt_parse_general_message produces read reply frames whose total length
+accounts for NUM_BYTES_READ_REPLY_OVERHEAD_PLD plus framing, across all message types.
+*/
+void test_parse_general_message_reply_overhead(void)
+{
+	uint32_t mem_words[4] = {0x12345678, 0x9ABCDEF0, 0xAABBCCDD, 0x11223344};
+	dartt_mem_t mem_base = {
+		.buf = (unsigned char *)mem_words,
+		.size = sizeof(mem_words)
+	};
+
+	uint16_t num_bytes_requested = 8;
+
+	//for each message type, verify the reply frame length includes the read reply overhead
+	serial_message_type_t types[] = {TYPE_SERIAL_MESSAGE, TYPE_ADDR_MESSAGE, TYPE_ADDR_CRC_MESSAGE};
+	for(int t = 0; t < 3; t++)
+	{
+		serial_message_type_t type = types[t];
+
+		//construct the read request payload (stripped of framing - this is what parse_general_message sees)
+		unsigned char read_pld[] = {
+			0x00, 0x80,	//index=0 with read bit set
+			(unsigned char)(num_bytes_requested & 0xFF), (unsigned char)((num_bytes_requested >> 8) & 0xFF)
+		};
+		payload_layer_msg_t pld_msg = {
+			.address = 0x42,
+			.msg = {
+				.buf = read_pld,
+				.size = sizeof(read_pld),
+				.len = sizeof(read_pld)
+			}
+		};
+
+		//allocate generous reply buffer
+		unsigned char reply_mem[64] = {};
+		dartt_buffer_t reply = {
+			.buf = reply_mem,
+			.size = sizeof(reply_mem),
+			.len = 0
+		};
+
+		int rc = dartt_parse_general_message(&pld_msg, type, &mem_base, &reply);
+		TEST_ASSERT_EQUAL(DARTT_PROTOCOL_SUCCESS, rc);
+
+		//calculate expected reply frame length
+		size_t expected_len = NUM_BYTES_READ_REPLY_OVERHEAD_PLD + num_bytes_requested;
+		if(type == TYPE_SERIAL_MESSAGE)
+		{
+			expected_len += NUM_BYTES_ADDRESS + NUM_BYTES_CHECKSUM;
+		}
+		else if(type == TYPE_ADDR_MESSAGE)
+		{
+			expected_len += NUM_BYTES_CHECKSUM;
+		}
+		TEST_ASSERT_EQUAL(expected_len, reply.len);
+	}
+}
+
 void test_dartt_frame_to_payload(void)
 {
 	// Run the comprehensive test suite

@@ -104,17 +104,17 @@ dartt_mem_t periph_alias =
     .buf = (unsigned char * )(&gl_periph),
     .size = sizeof(test_struct_t),
 };
-
+serial_message_type_t gl_msg_type = TYPE_SERIAL_MESSAGE;
 int synctest_rx_blocking(dartt_buffer_t * rx, uint32_t timeout)
 {
     //model peripheral with reply behavior and modifications to periph via alias
     payload_layer_msg_t rxpld_msg = {};
-    int rc = dartt_frame_to_payload(p_sync_tx_buf, TYPE_SERIAL_MESSAGE, PAYLOAD_ALIAS, &rxpld_msg);
+    int rc = dartt_frame_to_payload(p_sync_tx_buf, gl_msg_type, PAYLOAD_ALIAS, &rxpld_msg);
     if(rc != DARTT_PROTOCOL_SUCCESS)
     {
         return rc;
     }
-    return dartt_parse_general_message(&rxpld_msg, TYPE_SERIAL_MESSAGE, &periph_alias, rx);
+    return dartt_parse_general_message(&rxpld_msg, gl_msg_type, &periph_alias, rx);
 }
 
 
@@ -137,7 +137,7 @@ int synctest_rx_blocking_fdcan(dartt_buffer_t * rx, uint32_t timeout)
     return DARTT_PROTOCOL_SUCCESS;
 }
 
-serial_message_type_t gl_msg_type = TYPE_SERIAL_MESSAGE;
+
 uint32_t gl_send_count = 0;    //flag to indicate to test software if tx is called. Zero before caller
 int synctest_tx_blocking(unsigned char addr, dartt_buffer_t * tx, uint32_t timeout)
 {
@@ -151,6 +151,10 @@ int synctest_tx_blocking(unsigned char addr, dartt_buffer_t * tx, uint32_t timeo
     
     unsigned char tx_cpy[sizeof(tx_mem)] = {};
     dartt_buffer_t tx_cpy_alias = {.buf = tx_cpy, .size = sizeof(tx_cpy), .len=tx->len};
+    if(tx->size > tx_cpy_alias.size)
+    {
+        return ERROR_MEMORY_OVERRUN;
+    }
     for(int i = 0; i < tx->size; i++)
     {
         tx_cpy_alias.buf[i] = tx->buf[i];
@@ -1254,4 +1258,117 @@ void test_dartt_update_controller(void)
 	}
 	TEST_ASSERT_EQUAL(ctl.size, match_count);
 
+}
+
+/*
+Test that dartt_ctl_read correctly accounts for NUM_BYTES_READ_REPLY_OVERHEAD_PLD
+when checking whether the rx buffer can hold the reply. The read reply frame contains:
+  [framing overhead] + [NUM_BYTES_READ_REPLY_OVERHEAD_PLD (index)] + [data]
+So rx_buf.size must be >= data_len + NUM_BYTES_READ_REPLY_OVERHEAD_PLD + framing_overhead.
+This test verifies the fix where = was changed to += for framing overhead accumulation.
+*/
+void test_ctl_read_reply_overhead(void)
+{
+	init_gl_ds();
+	gl_msg_type = TYPE_SERIAL_MESSAGE;
+	gl_ds.msg_type = TYPE_SERIAL_MESSAGE;
+	//re-init tx_buf with tx_mem (64 bytes) to match synctest_tx_blocking's local copy size
+	dartt_init_buffer(&gl_ds.tx_buf, tx_mem, sizeof(tx_mem));
+	p_sync_tx_buf = &gl_ds.tx_buf;
+
+	//fill the peripheral with known data so reads succeed
+	for(int i = 0; i < periph_alias.size; i++)
+	{
+		periph_alias.buf[i] = (i % 254) + 1;
+	}
+
+	//set up a 4-byte read region at the start of ctl_base
+	dartt_buffer_t ctl = {
+		.buf = gl_ds.ctl_base.buf,
+		.size = sizeof(uint32_t),
+		.len = sizeof(uint32_t)
+	};
+
+	//for TYPE_SERIAL_MESSAGE, the full reply overhead is:
+	//  NUM_BYTES_READ_REPLY_OVERHEAD_PLD + NUM_BYTES_ADDRESS + NUM_BYTES_CHECKSUM
+	size_t full_overhead = NUM_BYTES_READ_REPLY_OVERHEAD_PLD + NUM_BYTES_ADDRESS + NUM_BYTES_CHECKSUM;
+	size_t exact_rx_size = ctl.len + full_overhead;
+
+	//SAD PATH: rx buffer missing the read reply overhead (only has framing + data, no index overhead)
+	{
+		size_t short_size = ctl.len + NUM_BYTES_ADDRESS + NUM_BYTES_CHECKSUM;	//missing NUM_BYTES_READ_REPLY_OVERHEAD_PLD
+		TEST_ASSERT_LESS_THAN(exact_rx_size, short_size);	//verify this is actually smaller
+		uint8_t short_rx[64] = {};
+		dartt_init_buffer(&gl_ds.rx_buf, short_rx, short_size);
+		int rc = dartt_ctl_read(&ctl, &gl_ds);
+		TEST_ASSERT_EQUAL(ERROR_MEMORY_OVERRUN, rc);
+	}
+
+	//SAD PATH: rx buffer one byte short
+	{
+		uint8_t short_rx[64] = {};
+		dartt_init_buffer(&gl_ds.rx_buf, short_rx, exact_rx_size - 1);
+		int rc = dartt_ctl_read(&ctl, &gl_ds);
+		TEST_ASSERT_EQUAL(ERROR_MEMORY_OVERRUN, rc);
+	}
+
+	//HAPPY PATH: rx buffer exactly large enough
+	{
+		uint8_t exact_rx[64] = {};
+		dartt_init_buffer(&gl_ds.rx_buf, exact_rx, exact_rx_size);
+		int rc = dartt_ctl_read(&ctl, &gl_ds);
+		TEST_ASSERT_EQUAL(DARTT_PROTOCOL_SUCCESS, rc);
+	}
+
+	//Repeat for TYPE_ADDR_CRC_MESSAGE where overhead is only NUM_BYTES_READ_REPLY_OVERHEAD_PLD
+	gl_ds.msg_type = TYPE_ADDR_CRC_MESSAGE;
+	gl_msg_type = TYPE_ADDR_CRC_MESSAGE;
+	gl_ds.blocking_rx_callback = &synctest_rx_blocking_fdcan;
+	gl_ds.blocking_tx_callback = &synctest_tx_blocking_fdcan;
+
+	size_t fdcan_overhead = NUM_BYTES_READ_REPLY_OVERHEAD_PLD;	//no framing for ADDR_CRC
+	size_t fdcan_exact = ctl.len + fdcan_overhead;
+
+	//SAD PATH: rx buffer missing the read reply overhead entirely
+	{
+		uint8_t short_rx[64] = {};
+		dartt_init_buffer(&gl_ds.rx_buf, short_rx, ctl.len);	//only data, no overhead
+		int rc = dartt_ctl_read(&ctl, &gl_ds);
+		TEST_ASSERT_EQUAL(ERROR_MEMORY_OVERRUN, rc);
+	}
+
+	//HAPPY PATH: rx buffer exactly large enough for ADDR_CRC
+	{
+		uint8_t exact_rx[64] = {};
+		dartt_init_buffer(&gl_ds.rx_buf, exact_rx, fdcan_exact);
+		int rc = dartt_ctl_read(&ctl, &gl_ds);
+		TEST_ASSERT_EQUAL(DARTT_PROTOCOL_SUCCESS, rc);
+	}
+
+	//Repeat for TYPE_ADDR_MESSAGE
+	gl_ds.msg_type = TYPE_ADDR_MESSAGE;
+	gl_msg_type = TYPE_ADDR_MESSAGE;
+	//reuse serial callbacks since they handle framing appropriately for this test
+	gl_ds.blocking_rx_callback = &synctest_rx_blocking;
+	gl_ds.blocking_tx_callback = &synctest_tx_blocking;
+
+	size_t addr_overhead = NUM_BYTES_READ_REPLY_OVERHEAD_PLD + NUM_BYTES_CHECKSUM;
+	size_t addr_exact = ctl.len + addr_overhead;
+
+	//SAD PATH: rx buffer with only checksum overhead, missing read reply overhead
+	{
+		size_t short_size = ctl.len + NUM_BYTES_CHECKSUM;
+		uint8_t short_rx[64] = {};
+		dartt_init_buffer(&gl_ds.rx_buf, short_rx, short_size);
+		int rc = dartt_ctl_read(&ctl, &gl_ds);
+		TEST_ASSERT_EQUAL(ERROR_MEMORY_OVERRUN, rc);
+	}
+
+	//HAPPY PATH: exact size for ADDR_MESSAGE
+	{
+		uint8_t exact_rx[64] = {};
+		dartt_init_buffer(&gl_ds.rx_buf, exact_rx, addr_exact);
+		int rc = dartt_ctl_read(&ctl, &gl_ds);
+		TEST_ASSERT_EQUAL(DARTT_PROTOCOL_SUCCESS, rc);
+	}
 }
