@@ -168,7 +168,7 @@ int dartt_sync(dartt_buffer_t * ctl, dartt_sync_t * psync)
 			}
 
             //blocking write callback
-			rc = (*(psync->blocking_tx_callback))(misc_address, &psync->tx_buf, psync->timeout_ms);
+			rc = (*(psync->blocking_tx_callback))(misc_address, &psync->tx_buf, psync->user_context_tx, psync->timeout_ms);
 			if(rc != DARTT_PROTOCOL_SUCCESS)
 			{
 				return rc;
@@ -185,13 +185,13 @@ int dartt_sync(dartt_buffer_t * ctl, dartt_sync_t * psync)
 			{
 				return rc;
 			}
-			rc = (*(psync->blocking_tx_callback))(misc_address, &psync->tx_buf, psync->timeout_ms);
+			rc = (*(psync->blocking_tx_callback))(misc_address, &psync->tx_buf, psync->user_context_tx, psync->timeout_ms);
 			if(rc != DARTT_PROTOCOL_SUCCESS)
 			{
 				return rc;
 			}
 
-			rc = (*(psync->blocking_rx_callback))(&psync->rx_buf, psync->timeout_ms);
+			rc = (*(psync->blocking_rx_callback))(&psync->rx_buf, psync->user_context_rx, psync->timeout_ms);
 			if(rc != DARTT_PROTOCOL_SUCCESS)
 			{
 				return rc;
@@ -287,7 +287,7 @@ int dartt_ctl_write(dartt_buffer_t * ctl, dartt_sync_t * psync)
         return rc;
     }
     //blocking write callback
-    return (*(psync->blocking_tx_callback))(misc_address, &psync->tx_buf, psync->timeout_ms);
+    return (*(psync->blocking_tx_callback))(misc_address, &psync->tx_buf, psync->user_context_tx, psync->timeout_ms);
 }
 
 
@@ -368,13 +368,13 @@ int dartt_ctl_read(dartt_buffer_t * ctl, dartt_sync_t * psync)
     {
         return rc;
     }
-    rc = (*(psync->blocking_tx_callback))(misc_address, &psync->tx_buf, psync->timeout_ms);
+    rc = (*(psync->blocking_tx_callback))(misc_address, &psync->tx_buf, psync->user_context_tx, psync->timeout_ms);
     if(rc != DARTT_PROTOCOL_SUCCESS)
     {
         return rc;
     }
 
-    rc = (*(psync->blocking_rx_callback))(&psync->rx_buf, psync->timeout_ms);
+    rc = (*(psync->blocking_rx_callback))(&psync->rx_buf, psync->user_context_rx, psync->timeout_ms);
     if(rc != DARTT_PROTOCOL_SUCCESS)
     {
         return rc;

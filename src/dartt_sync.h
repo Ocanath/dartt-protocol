@@ -17,9 +17,11 @@ typedef struct dartt_sync_t
 		dartt_mem_t periph_base;		 // Bounding region of shadow copy structure
 		serial_message_type_t msg_type;	// Message framing type
 		dartt_buffer_t tx_buf;		// Transmission buffer
+		void * user_context_tx;		//OPTIONAL resource used for tx callback - i.e. serial class, socket, etc. Set to NULL if not needed
 		dartt_buffer_t rx_buf;		 // Reception buffer
-		int (*blocking_tx_callback)(unsigned char, dartt_buffer_t*, uint32_t timeout);	//Callback for (blocking) transmissions with a millisecond timeout
-		int (*blocking_rx_callback)(dartt_buffer_t*, uint32_t timeout);		//Callback for (blocking) receptions with a millisecond timeout
+		void * user_context_rx;		//OPTIONAL resource used for rx callback - i.e. serial class,etc. Set to NULL if not needed
+		int (*blocking_tx_callback)(unsigned char, dartt_buffer_t*, void * user_context, uint32_t timeout);	//Callback for (blocking) transmissions with a millisecond timeout
+		int (*blocking_rx_callback)(dartt_buffer_t*, void * user_context, uint32_t timeout);		//Callback for (blocking) receptions with a millisecond timeout
 		uint32_t timeout_ms;		// Communication timeout
 }dartt_sync_t;
 

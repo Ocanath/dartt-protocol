@@ -105,7 +105,7 @@ dartt_mem_t periph_alias =
     .size = sizeof(test_struct_t),
 };
 serial_message_type_t gl_msg_type = TYPE_SERIAL_MESSAGE;
-int synctest_rx_blocking(dartt_buffer_t * rx, uint32_t timeout)
+int synctest_rx_blocking(dartt_buffer_t * rx, void * user_context, uint32_t timeout)
 {
     //model peripheral with reply behavior and modifications to periph via alias
     payload_layer_msg_t rxpld_msg = {};
@@ -118,7 +118,7 @@ int synctest_rx_blocking(dartt_buffer_t * rx, uint32_t timeout)
 }
 
 
-int rx_blocking_callback_wronglength(dartt_buffer_t * rx, uint32_t timeout)
+int rx_blocking_callback_wronglength(dartt_buffer_t * rx, void * user_context, uint32_t timeout)
 {
     //model peripheral with reply behavior and modifications to periph via alias
     payload_layer_msg_t rxpld_msg = {};
@@ -128,7 +128,7 @@ int rx_blocking_callback_wronglength(dartt_buffer_t * rx, uint32_t timeout)
     return DARTT_PROTOCOL_SUCCESS;
 }
 
-int synctest_rx_blocking_fdcan(dartt_buffer_t * rx, uint32_t timeout)
+int synctest_rx_blocking_fdcan(dartt_buffer_t * rx, void * user_context, uint32_t timeout)
 {
     //model peripheral with reply behavior and modifications to periph via alias
     payload_layer_msg_t rxpld_msg = {};
@@ -139,7 +139,7 @@ int synctest_rx_blocking_fdcan(dartt_buffer_t * rx, uint32_t timeout)
 
 
 uint32_t gl_send_count = 0;    //flag to indicate to test software if tx is called. Zero before caller
-int synctest_tx_blocking(unsigned char addr, dartt_buffer_t * tx, uint32_t timeout)
+int synctest_tx_blocking(unsigned char addr, dartt_buffer_t * tx, void * user_context, uint32_t timeout)
 {
     // printf("transmitted: a = 0x%X, rx=0x");
     // for(int i = 0; i < tx->len; i++)
@@ -168,7 +168,7 @@ int synctest_tx_blocking(unsigned char addr, dartt_buffer_t * tx, uint32_t timeo
 }
 
 
-int synctest_tx_blocking_fdcan(unsigned char addr, dartt_buffer_t * tx, uint32_t timeout)
+int synctest_tx_blocking_fdcan(unsigned char addr, dartt_buffer_t * tx, void * user_context, uint32_t timeout)
 {
     // printf("transmitted: a = 0x%X, rx=0x");
     // for(int i = 0; i < tx->len; i++)
