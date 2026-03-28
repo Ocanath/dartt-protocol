@@ -359,11 +359,12 @@ int dartt_ctl_read(dartt_buffer_t * ctl, dartt_sync_t * psync)
     misc_read_message_t read_msg =
     {
             .address = misc_address,
-            .index = field_index + psync->base_offset,
+            .index = field_index + psync->base_offset,	//load with offset to the destination
             .num_bytes = (uint16_t)ctl->len
     };
 
     int rc = dartt_create_read_frame(&read_msg, psync->msg_type, &psync->tx_buf);
+	read_msg.index = field_index;	//remove offset after the request frame has been generated, to avoid improper offset into the shadow copy.
     if(rc != DARTT_PROTOCOL_SUCCESS)
     {
         return rc;
