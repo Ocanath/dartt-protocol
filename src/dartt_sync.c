@@ -390,6 +390,19 @@ int dartt_ctl_read(dartt_buffer_t * ctl, dartt_sync_t * psync)
     {
         return rc;
     }
+	if(psync->base_offset != 0)
+	{
+		//parse read reply gets the shadow copy offset from the data itself, not from the read message.
+		//so if it's nonzero, do a little extra work: extract it, subtract it, and re-insert it to the raw message data.
+		size_t bidx = 0;
+		uint16_t reply_index = 0;
+		reply_index |= (uint16_t)(pld_msg.msg.buf[bidx++]);
+		reply_index |= (((uint16_t)(pld_msg.msg.buf[bidx++])) << 8);
+		reply_index -= psync->base_offset;	//this may underflow, but it's checked in parse read reply so it's safe to not check it here
+		bidx = 0;
+		pld_msg.msg.buf[bidx++] = (unsigned char)(reply_index & 0x00FF);
+		pld_msg.msg.buf[bidx++] = (unsigned char)((reply_index & 0xFF00) >> 8);
+	}
     return dartt_parse_read_reply(&pld_msg, &read_msg, &psync->periph_base);
 }
 
