@@ -54,6 +54,21 @@ typedef struct test_struct_t
     motor_params_t mp[32];
 }test_struct_t;
 
+typedef struct periph_header_t
+{
+    int32_t device_id;
+    int32_t firmware_version;
+    int32_t hardware_revision;
+    int32_t status_flags;
+} periph_header_t;
+
+typedef struct padded_periph_t
+{
+    periph_header_t header;
+    test_struct_t   inner;
+    int32_t         reserved[4];
+} padded_periph_t;
+
 uint8_t tx_mem[64] = {};
 dartt_buffer_t * p_sync_tx_buf;
 uint8_t rx_mem[64] = {};
@@ -1372,4 +1387,313 @@ void test_ctl_read_reply_overhead(void)
 		int rc = dartt_ctl_read(&ctl, &gl_ds);
 		TEST_ASSERT_EQUAL(DARTT_PROTOCOL_SUCCESS, rc);
 	}
+}
+
+/*
+ * Tests for dartt_sync_t.base_offset.
+ *
+ * The "padded peripheral" model is padded_periph_t:
+ *   [periph_header_t header]  -- 4 words of guard fields
+ *   [test_struct_t   inner]   -- the controlled region
+ *   [int32_t reserved[4]]     -- 4 words of postamble guard fields
+ *
+ * base_offset = word offset of 'inner' within padded_periph_t = sizeof(periph_header_t)/4 = 4.
+ *
+ * Each test redirects periph_alias to a local padded_periph_t for the duration
+ * of the test, then restores the original on exit.
+ */
+
+void test_base_offset_write(void)
+{
+	TEST_ASSERT_EQUAL(0, sizeof(padded_periph_t) % sizeof(uint32_t));
+
+	padded_periph_t padded = {};
+	padded.header.device_id         = 0x11223344;
+	padded.header.firmware_version  = 0x55667788;
+	padded.header.hardware_revision = 0x0ABBCCDD;
+	padded.header.status_flags      = 0x0EADBEEF;
+	padded.reserved[0] = 0x0AFEBABE;
+	padded.reserved[1] = 0x0AFEBABE;
+	padded.reserved[2] = 0x0AFEBABE;
+	padded.reserved[3] = 0x0AFEBABE;
+
+	test_struct_t ctl_copy    = {};
+	test_struct_t shadow_copy = {};
+
+	dartt_mem_t           saved_alias = periph_alias;
+	serial_message_type_t saved_msg   = gl_msg_type;
+
+	periph_alias.buf  = (unsigned char *)&padded;
+	periph_alias.size = sizeof(padded_periph_t);
+	gl_msg_type = TYPE_SERIAL_MESSAGE;
+
+	int base_offset_int = index_of_field(
+		(unsigned char *)&padded.inner, (unsigned char *)&padded, sizeof(padded_periph_t));
+	TEST_ASSERT_EQUAL(sizeof(periph_header_t) / sizeof(uint32_t), base_offset_int);
+	
+	dartt_sync_t ds = {};
+	ds.address          = 0x3;
+	ds.base_offset      = (uint16_t)base_offset_int;
+	ds.ctl_base.buf     = (unsigned char *)&ctl_copy;
+	ds.ctl_base.size    = sizeof(test_struct_t);
+	ds.periph_base.buf  = (unsigned char *)&shadow_copy;
+	ds.periph_base.size = sizeof(test_struct_t);
+	ds.msg_type         = TYPE_SERIAL_MESSAGE;
+	dartt_init_buffer(&ds.tx_buf, tx_mem, sizeof(tx_mem));
+	dartt_init_buffer(&ds.rx_buf, rx_mem, sizeof(rx_mem));
+	ds.blocking_tx_callback = &synctest_tx_blocking;
+	ds.blocking_rx_callback = &synctest_rx_blocking;
+	ds.timeout_ms = 10;
+	p_sync_tx_buf = &ds.tx_buf;
+
+	TEST_ASSERT_NOT_EQUAL(0, ds.base_offset);
+
+	TEST_ASSERT_EQUAL(0, padded.inner.m1_set);
+	TEST_ASSERT_EQUAL(0, padded.inner.m2_set);
+
+	ctl_copy.m1_set = 42;
+	ctl_copy.m2_set = -99;
+	dartt_buffer_t ctl = {
+		.buf  = (unsigned char *)&ctl_copy.m1_set,
+		.size = 2 * sizeof(int32_t),
+		.len  = 2 * sizeof(int32_t)
+	};
+	int rc = dartt_write_multi(&ctl, &ds);
+	TEST_ASSERT_EQUAL(DARTT_PROTOCOL_SUCCESS, rc);
+
+	// write must land in inner, not header or reserved
+	TEST_ASSERT_EQUAL(42,  padded.inner.m1_set);
+	TEST_ASSERT_EQUAL(-99, padded.inner.m2_set);
+
+	TEST_ASSERT_EQUAL(0x11223344, padded.header.device_id);
+	TEST_ASSERT_EQUAL(0x55667788, padded.header.firmware_version);
+	TEST_ASSERT_EQUAL(0x0ABBCCDD, padded.header.hardware_revision);
+	TEST_ASSERT_EQUAL(0x0EADBEEF, padded.header.status_flags);
+	TEST_ASSERT_EQUAL(0x0AFEBABE, padded.reserved[0]);
+	TEST_ASSERT_EQUAL(0x0AFEBABE, padded.reserved[3]);
+
+	periph_alias = saved_alias;
+	gl_msg_type  = saved_msg;
+}
+
+void test_base_offset_read_multi(void)
+{
+	TEST_ASSERT_EQUAL(0, sizeof(padded_periph_t) % sizeof(uint32_t));
+
+	padded_periph_t padded = {};
+	padded.header.device_id    = 0x11223344;
+	padded.header.status_flags = 0x0EADBEEF;
+	padded.reserved[0]         = 0x0AFEBABE;
+	padded.reserved[3]         = 0x0AFEBABE;
+	padded.inner.m1_set                    = 1111;
+	padded.inner.m2_set                    = 2222;
+	padded.inner.mp[0].fds.module_number   = 7777;
+	padded.inner.mp[15].fds.align_offset   = -4321;
+
+	test_struct_t ctl_copy    = {};
+	test_struct_t shadow_copy = {};
+
+	dartt_mem_t           saved_alias = periph_alias;
+	serial_message_type_t saved_msg   = gl_msg_type;
+
+	periph_alias.buf  = (unsigned char *)&padded;
+	periph_alias.size = sizeof(padded_periph_t);
+	gl_msg_type = TYPE_SERIAL_MESSAGE;
+
+	int base_offset_int = index_of_field(
+		(unsigned char *)&padded.inner, (unsigned char *)&padded, sizeof(padded_periph_t));
+
+	dartt_sync_t ds = {};
+	ds.address          = 0x3;
+	ds.base_offset      = (uint16_t)base_offset_int;
+	ds.ctl_base.buf     = (unsigned char *)&ctl_copy;
+	ds.ctl_base.size    = sizeof(test_struct_t);
+	ds.periph_base.buf  = (unsigned char *)&shadow_copy;
+	ds.periph_base.size = sizeof(test_struct_t);
+	ds.msg_type         = TYPE_SERIAL_MESSAGE;
+	dartt_init_buffer(&ds.tx_buf, tx_mem, sizeof(tx_mem));
+	dartt_init_buffer(&ds.rx_buf, rx_mem, sizeof(rx_mem));
+	ds.blocking_tx_callback = &synctest_tx_blocking;
+	ds.blocking_rx_callback = &synctest_rx_blocking;
+	ds.timeout_ms = 10;
+	p_sync_tx_buf = &ds.tx_buf;
+
+	// read m1_set and m2_set
+	dartt_buffer_t ctl = {
+		.buf  = (unsigned char *)&ctl_copy.m1_set,
+		.size = 2 * sizeof(int32_t),
+		.len  = 2 * sizeof(int32_t)
+	};
+	int rc = dartt_read_multi(&ctl, &ds);
+	TEST_ASSERT_EQUAL(DARTT_PROTOCOL_SUCCESS, rc);
+	TEST_ASSERT_EQUAL(1111, shadow_copy.m1_set);
+	TEST_ASSERT_EQUAL(2222, shadow_copy.m2_set);
+	// other shadow_copy fields not yet read must remain at zero (no overrun into wrong region)
+	TEST_ASSERT_EQUAL(0, shadow_copy.mp[0].fds.module_number);
+
+	// read mp[0].fds.module_number
+	dartt_buffer_t ctl2 = {
+		.buf  = (unsigned char *)&ctl_copy.mp[0].fds.module_number,
+		.size = sizeof(int32_t),
+		.len  = sizeof(int32_t)
+	};
+	rc = dartt_read_multi(&ctl2, &ds);
+	TEST_ASSERT_EQUAL(DARTT_PROTOCOL_SUCCESS, rc);
+	TEST_ASSERT_EQUAL(7777, shadow_copy.mp[0].fds.module_number);
+
+	// read mp[15].fds.align_offset
+	dartt_buffer_t ctl3 = {
+		.buf  = (unsigned char *)&ctl_copy.mp[15].fds.align_offset,
+		.size = sizeof(int32_t),
+		.len  = sizeof(int32_t)
+	};
+	rc = dartt_read_multi(&ctl3, &ds);
+	TEST_ASSERT_EQUAL(DARTT_PROTOCOL_SUCCESS, rc);
+	TEST_ASSERT_EQUAL(-4321, shadow_copy.mp[15].fds.align_offset);
+
+	// guard regions must be untouched
+	TEST_ASSERT_EQUAL(0x11223344, padded.header.device_id);
+	TEST_ASSERT_EQUAL(0x0EADBEEF, padded.header.status_flags);
+	TEST_ASSERT_EQUAL(0x0AFEBABE, padded.reserved[0]);
+	TEST_ASSERT_EQUAL(0x0AFEBABE, padded.reserved[3]);
+
+	periph_alias = saved_alias;
+	gl_msg_type  = saved_msg;
+}
+
+void test_base_offset_sync(void)
+{
+	TEST_ASSERT_EQUAL(0, sizeof(padded_periph_t) % sizeof(uint32_t));
+
+	padded_periph_t padded = {};
+	padded.header.device_id         = 0x0AAAAAA;
+	padded.header.status_flags      = 0x0BBBBBBB;
+	padded.reserved[0] = 0x0CCCCCCC;
+	padded.reserved[3] = 0x0DDDDDDD;
+
+	test_struct_t ctl_copy    = {};
+	test_struct_t shadow_copy = {};
+
+	dartt_mem_t           saved_alias = periph_alias;
+	serial_message_type_t saved_msg   = gl_msg_type;
+
+	periph_alias.buf  = (unsigned char *)&padded;
+	periph_alias.size = sizeof(padded_periph_t);
+	gl_msg_type = TYPE_SERIAL_MESSAGE;
+
+	int base_offset_int = index_of_field(
+		(unsigned char *)&padded.inner, (unsigned char *)&padded, sizeof(padded_periph_t));
+
+	dartt_sync_t ds = {};
+	ds.address          = 0x3;
+	ds.base_offset      = (uint16_t)base_offset_int;
+	ds.ctl_base.buf     = (unsigned char *)&ctl_copy;
+	ds.ctl_base.size    = sizeof(test_struct_t);
+	ds.periph_base.buf  = (unsigned char *)&shadow_copy;
+	ds.periph_base.size = sizeof(test_struct_t);
+	ds.msg_type         = TYPE_SERIAL_MESSAGE;
+	dartt_init_buffer(&ds.tx_buf, tx_mem, sizeof(tx_mem));
+	dartt_init_buffer(&ds.rx_buf, rx_mem, sizeof(rx_mem));
+	ds.blocking_tx_callback = &synctest_tx_blocking;
+	ds.blocking_rx_callback = &synctest_rx_blocking;
+	ds.timeout_ms = 10;
+	p_sync_tx_buf = &ds.tx_buf;
+
+	// ctl differs from shadow_copy (zeroed) on two fields
+	ctl_copy.m1_set                  = 100;
+	ctl_copy.mp[2].fds.module_number = 555;
+
+	dartt_buffer_t ctl_alias = {
+		.buf  = (unsigned char *)&ctl_copy,
+		.size = sizeof(test_struct_t),
+		.len  = 0
+	};
+	int rc = dartt_sync(&ctl_alias, &ds);
+	TEST_ASSERT_EQUAL(DARTT_PROTOCOL_SUCCESS, rc);
+
+	// changed fields land in padded.inner at the correct local offsets
+	TEST_ASSERT_EQUAL(100, padded.inner.m1_set);
+	TEST_ASSERT_EQUAL(555, padded.inner.mp[2].fds.module_number);
+
+	// shadow_copy matches ctl_copy for all bytes after sync
+	for(int i = 0; i < (int)sizeof(test_struct_t); i++)
+	{
+		TEST_ASSERT_EQUAL(((unsigned char *)&ctl_copy)[i], ((unsigned char *)&shadow_copy)[i]);
+		TEST_ASSERT_EQUAL(((unsigned char *)&ctl_copy)[i], ((unsigned char *)&padded.inner)[i]);
+	}
+
+	// guard regions must be untouched
+	TEST_ASSERT_EQUAL(0x0AAAAAA,  padded.header.device_id);
+	TEST_ASSERT_EQUAL(0x0BBBBBBB, padded.header.status_flags);
+	TEST_ASSERT_EQUAL(0x0CCCCCCC, padded.reserved[0]);
+	TEST_ASSERT_EQUAL(0x0DDDDDDD, padded.reserved[3]);
+
+	periph_alias = saved_alias;
+	gl_msg_type  = saved_msg;
+}
+
+void test_base_offset_zero(void)
+{
+	// Regression: base_offset = 0 must behave identically to the pre-feature baseline.
+	// periph_alias stays pointed at gl_periph (plain test_struct_t).
+	TEST_ASSERT_EQUAL((unsigned char *)&gl_periph, periph_alias.buf);
+	TEST_ASSERT_EQUAL(sizeof(test_struct_t), periph_alias.size);
+
+	for(int i = 0; i < (int)periph_alias.size; i++) periph_alias.buf[i] = 0;
+
+	gl_periph.m1_set                    = 9876;
+	gl_periph.mp[5].fds.align_offset    = -333;
+	gl_periph.mp[31].pi_vq.x            = 12345;
+
+	serial_message_type_t saved_msg = gl_msg_type;
+	gl_msg_type = TYPE_SERIAL_MESSAGE;
+
+	test_struct_t ctl_copy    = {};
+	test_struct_t shadow_copy = {};
+
+	dartt_sync_t ds = {};
+	ds.address          = 0x3;
+	ds.base_offset      = 0;
+	ds.ctl_base.buf     = (unsigned char *)&ctl_copy;
+	ds.ctl_base.size    = sizeof(test_struct_t);
+	ds.periph_base.buf  = (unsigned char *)&shadow_copy;
+	ds.periph_base.size = sizeof(test_struct_t);
+	ds.msg_type         = TYPE_SERIAL_MESSAGE;
+	dartt_init_buffer(&ds.tx_buf, tx_mem, sizeof(tx_mem));
+	dartt_init_buffer(&ds.rx_buf, rx_mem, sizeof(rx_mem));
+	ds.blocking_tx_callback = &synctest_tx_blocking;
+	ds.blocking_rx_callback = &synctest_rx_blocking;
+	ds.timeout_ms = 10;
+	p_sync_tx_buf = &ds.tx_buf;
+
+	dartt_buffer_t ctl = {
+		.buf  = (unsigned char *)&ctl_copy.m1_set,
+		.size = sizeof(int32_t),
+		.len  = sizeof(int32_t)
+	};
+	int rc = dartt_read_multi(&ctl, &ds);
+	TEST_ASSERT_EQUAL(DARTT_PROTOCOL_SUCCESS, rc);
+	TEST_ASSERT_EQUAL(9876, shadow_copy.m1_set);
+	TEST_ASSERT_EQUAL(0,    shadow_copy.m2_set);   // not read, must stay 0
+
+	dartt_buffer_t ctl2 = {
+		.buf  = (unsigned char *)&ctl_copy.mp[5].fds.align_offset,
+		.size = sizeof(int32_t),
+		.len  = sizeof(int32_t)
+	};
+	rc = dartt_read_multi(&ctl2, &ds);
+	TEST_ASSERT_EQUAL(DARTT_PROTOCOL_SUCCESS, rc);
+	TEST_ASSERT_EQUAL(-333, shadow_copy.mp[5].fds.align_offset);
+	TEST_ASSERT_EQUAL(0,    shadow_copy.mp[5].fds.module_number);  // adjacent field, not read
+
+	dartt_buffer_t ctl3 = {
+		.buf  = (unsigned char *)&ctl_copy.mp[31].pi_vq.x,
+		.size = sizeof(int32_t),
+		.len  = sizeof(int32_t)
+	};
+	rc = dartt_read_multi(&ctl3, &ds);
+	TEST_ASSERT_EQUAL(DARTT_PROTOCOL_SUCCESS, rc);
+	TEST_ASSERT_EQUAL(12345, shadow_copy.mp[31].pi_vq.x);
+
+	gl_msg_type = saved_msg;
 }
