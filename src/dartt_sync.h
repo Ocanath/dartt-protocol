@@ -15,6 +15,7 @@ typedef struct dartt_sync_t
         unsigned char address;	 // Target peripheral address
 		dartt_mem_t ctl_base;			// Bounding region of controller control structure
 		dartt_mem_t periph_base;		 // Bounding region of shadow copy structure
+		uint16_t base_offset;			//offset into the true peripheral blob. Applied when the dartt_sync_t is indexing into a larger blob, with unknown surrounding structure. Should be set to 0 in most situations
 		serial_message_type_t msg_type;	// Message framing type
 		dartt_buffer_t tx_buf;		// Transmission buffer
 		void * user_context_tx;		//OPTIONAL resource used for tx callback - i.e. serial class, socket, etc. Set to NULL if not needed

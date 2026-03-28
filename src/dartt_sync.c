@@ -154,7 +154,7 @@ int dartt_sync(dartt_buffer_t * ctl, dartt_sync_t * psync)
 			misc_write_message_t write_msg =
 			{
 					.address = misc_address,
-					.index = field_index,
+					.index = field_index + psync->base_offset,
 					.payload = {
 							.buf = &ctl->buf[start_bidx],
 							.size = (stop_bidx - start_bidx),
@@ -177,7 +177,7 @@ int dartt_sync(dartt_buffer_t * ctl, dartt_sync_t * psync)
 			misc_read_message_t read_msg =
 			{
 					.address = misc_address,
-					.index = field_index,
+					.index = field_index + psync->base_offset,
 					.num_bytes = (uint16_t)(write_msg.payload.len)
 			};
 			rc = dartt_create_read_frame(&read_msg, psync->msg_type, &psync->tx_buf);
@@ -274,7 +274,7 @@ int dartt_ctl_write(dartt_buffer_t * ctl, dartt_sync_t * psync)
     misc_write_message_t write_msg =
     {
             .address = misc_address,
-            .index = field_index,
+            .index = field_index + psync->base_offset,
             .payload = {
                     .buf = ctl->buf,
                     .size = ctl->size,
@@ -359,7 +359,7 @@ int dartt_ctl_read(dartt_buffer_t * ctl, dartt_sync_t * psync)
     misc_read_message_t read_msg =
     {
             .address = misc_address,
-            .index = field_index,
+            .index = field_index + psync->base_offset,
             .num_bytes = (uint16_t)ctl->len
     };
 
