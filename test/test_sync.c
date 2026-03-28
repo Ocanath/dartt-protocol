@@ -1140,6 +1140,7 @@ dartt_sync_t gl_ds;
 
 void init_gl_ds(void)
 {
+	gl_ds.base_offset = 0;
 	gl_ds.address = 0x3;
 	init_struct_mem(&gl_master_copy, &gl_ds.ctl_base);
 	init_struct_mem(&gl_shadow_copy, &gl_ds.periph_base);
