@@ -2,23 +2,12 @@
 #include <string.h>
 
 
-/*
-Generic 2's complement hex checksum calculation.
- */
-uint16_t get_checksum16(uint16_t* arr, size_t size)
-{
-	int16_t checksum = 0;
-	for (int i = 0; i < size; i++)
-		checksum += (int16_t)arr[i];
-	return -checksum;
-}
-
 #ifdef NON_LUT_CRC      //define if memory is highly constrained
 /*
     Calculate the CRC16 checksum of a message using bit-by-bit method.
     Uses CRC-16-ANSI polynomial 0x8005 (reversed 0xA001).
  */
-uint16_t get_crc16(uint8_t* arr, size_t size)
+uint16_t get_crc16(const unsigned char * arr, size_t size)
 {
     uint16_t crc = 0xFFFF;
     for(int i = 0; i < size; i++)
@@ -85,7 +74,7 @@ static const uint16_t crc16_table[256] =
     Much faster than bit-by-bit method for large data.
     Uses CRC-16-ANSI polynomial 0x8005 (reversed 0xA001).
  */
-uint16_t get_crc16(uint8_t* arr, size_t size)
+uint16_t get_crc16(const unsigned char * arr, size_t size)
 {
     uint16_t crc = 0xFFFF;
     for(int i = 0; i < size; i++)
@@ -102,7 +91,7 @@ uint16_t get_crc16(uint8_t* arr, size_t size)
 As-is crc32 algo
 CRC-32/ISO-HDLC, no LUT
 */
-uint32_t get_crc32(unsigned char *message, uint32_t len) 
+uint32_t get_crc32(const unsigned char *message, uint32_t len)
 {
    int i, j;
    uint32_t byte, crc, mask;
