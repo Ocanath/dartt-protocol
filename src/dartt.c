@@ -1,7 +1,7 @@
 #include <stdint.h>
 #include <assert.h>
+#include <dartt_crc.h>
 #include "dartt.h"
-#include "checksum.h"
 #include "dartt_check_buffer.h"
 
 /**

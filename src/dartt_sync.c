@@ -542,7 +542,7 @@ int dartt_write_multi(dartt_buffer_t * ctl, dartt_sync_t * psync)
 		}
 	}
 	
-	int last_write_pld_size = ctl->len % wsize;
+	size_t last_write_pld_size = ctl->len % wsize;
 	if(last_write_pld_size != 0)			//last write
 	{
 		dartt_buffer_t ctl_last_chunk = 

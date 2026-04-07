@@ -8,7 +8,7 @@ add_library(dartt_protocol
 
 # Create dartt_checksum library
 add_library(dartt_checksum
-    checksum.c
+    dartt_crc.c
 )
 
 # Include directories for both libraries
