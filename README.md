@@ -2,13 +2,17 @@
 
 ## Introduction
 
-DARTT is a serial communication protocol that provides a simple, lightweight and low-overhead method of communicating with embedded systems. Its primary intended use case for robotics (sensors, motor controllers), but is useful as a general-purpose protocol for any simple communication network with a controller-peripheral structure. 
+DARTT is a fast, simple memory mapped serial communication protocol designed for communication with low-level systems. Its primary intended use case for robotics (sensors, motor controllers), but is useful as a general-purpose protocol for any simple communication network with a controller-peripheral structure. 
 
 DARTT has the following key advantages:
 
+### Speed
+
+DARTT is in many ways a modern response to Modbus-RTU. It does not have physical layer timing based frame separation specification. When sent over async serial connections (UART), DARTT message boundaries are determined symbolically (using DARTT), meaning they can be easily and reliably transported at baudrates well beyond 921600baud. 
+
 ### Rapid Development
 
-Above all else, DARTT is designed for rapid protoyping and deployment of highly customized communication protocols. It is perfect for small teams or solo developers who want to set up fully featured communication on many different devices as quickly as possible. In most situations, a DARTT memory layout can be defined with a typedef struct in a single, shared header, containing all attributes that might need to be exposed over a communication interface. 
+DARTT is designed for rapid protoyping and deployment of highly customized communication protocols. It is perfect for small teams or solo developers who want to set up fully featured communication on many different devices as quickly as possible. In most situations, a DARTT memory layout can be defined with a typedef struct in a single, shared header, containing all attributes that might need to be exposed over a communication interface. 
 
 ### Near-Zero Overhead
 
