@@ -91,20 +91,21 @@ uint16_t get_crc16(const unsigned char * arr, size_t size)
 As-is crc32 algo
 CRC-32/ISO-HDLC, no LUT
 */
-uint32_t get_crc32(const unsigned char *message, uint32_t len)
+uint32_t get_crc32(const unsigned char *message, size_t len)
 {
-   int i, j;
+   size_t i;
+   int j;
    uint32_t byte, crc, mask;
 
    i = 0;
    crc = 0xFFFFFFFF;
-   while (i < len) 
+   while (i < len)
    {
 		byte = message[i];            // Get next byte.
 		crc = crc ^ byte;
-		for (j = 7; j >= 0; j--) 
+		for (j = 7; j >= 0; j--)
 		{    // Do eight times.
-			mask = -(crc & 1);
+			mask = (uint32_t)(-(int32_t)(crc & 1));
 			crc = (crc >> 1) ^ (0xEDB88320 & mask);
 		}
 		i = i + 1;
