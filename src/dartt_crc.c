@@ -27,8 +27,8 @@ uint16_t dartt_crc16(const unsigned char * arr, size_t size)
     }
     return crc;
 }
-#endif 
 
+#else
 /*
     CRC16 lookup table for polynomial 0xA001 (CRC-16-ANSI)
     Pre-computed for all 256 possible byte values
@@ -86,6 +86,7 @@ uint16_t dartt_crc16(const unsigned char * arr, size_t size)
 }   
 
 
+#endif
 
 /*
 As-is crc32 algo
