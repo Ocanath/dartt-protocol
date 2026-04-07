@@ -1,5 +1,5 @@
-#ifndef CHECKSUM_H
-#define CHECKSUM_H
+#ifndef DARTT_CRC_H
+#define DARTT_CRC_H
 
 #include <stdint.h>
 #include <stddef.h>
@@ -9,8 +9,8 @@ extern "C" {
 #endif
 
 
-uint16_t get_crc16(const unsigned char * arr, size_t size);
-uint32_t get_crc32(const unsigned char * message, size_t len);
+uint16_t dartt_crc16(const unsigned char * arr, size_t size);
+uint32_t dartt_crc32(const unsigned char * message, size_t len);
 
 #ifdef __cplusplus
 }

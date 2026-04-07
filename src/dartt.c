@@ -245,7 +245,7 @@ int dartt_create_write_frame(misc_write_message_t * msg, serial_message_type_t t
     }
     if(type == TYPE_SERIAL_MESSAGE || type == TYPE_ADDR_MESSAGE)
     {
-        uint16_t crc = get_crc16(output->buf, output->len);
+        uint16_t crc = dartt_crc16(output->buf, output->len);
         output->buf[output->len++] = (unsigned char)(crc & 0x00FF);
         output->buf[output->len++] = (unsigned char)((crc & 0xFF00) >> 8);
     }
@@ -353,7 +353,7 @@ int dartt_create_read_frame(misc_read_message_t * msg, serial_message_type_t typ
     output->buf[output->len++] = (unsigned char)((msg->num_bytes & 0xFF00) >> 8);
     if(type == TYPE_SERIAL_MESSAGE || type == TYPE_ADDR_MESSAGE)
     {
-        uint16_t crc = get_crc16(output->buf, output->len);
+        uint16_t crc = dartt_crc16(output->buf, output->len);
         output->buf[output->len++] = (unsigned char)(crc & 0x00FF);
         output->buf[output->len++] = (unsigned char)((crc & 0xFF00) >> 8);
     }    
@@ -503,7 +503,7 @@ int validate_crc(const dartt_buffer_t * input)
     {
         return DARTT_ERROR_INVALID_ARGUMENT;
     }
-    uint16_t crc = get_crc16(input->buf, input->len - NUM_BYTES_CHECKSUM);
+    uint16_t crc = dartt_crc16(input->buf, input->len - NUM_BYTES_CHECKSUM);
     uint16_t m_crc = 0;
     unsigned char * pchecksum = input->buf + (input->len - NUM_BYTES_CHECKSUM);
     m_crc |= (uint16_t)pchecksum[0];
@@ -549,7 +549,7 @@ int append_crc(dartt_buffer_t * input)
     {
         return DARTT_ERROR_MEMORY_OVERRUN;
     }
-    uint16_t crc = get_crc16(input->buf, input->len);
+    uint16_t crc = dartt_crc16(input->buf, input->len);
     input->buf[input->len++] = (unsigned char)(crc & 0x00FF);
     input->buf[input->len++] = (unsigned char)((crc & 0xFF00) >> 8);
 

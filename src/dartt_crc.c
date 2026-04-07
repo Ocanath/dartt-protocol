@@ -7,7 +7,7 @@
     Calculate the CRC16 checksum of a message using bit-by-bit method.
     Uses CRC-16-ANSI polynomial 0x8005 (reversed 0xA001).
  */
-uint16_t get_crc16(const unsigned char * arr, size_t size)
+uint16_t dartt_crc16(const unsigned char * arr, size_t size)
 {
     uint16_t crc = 0xFFFF;
     for(int i = 0; i < size; i++)
@@ -74,7 +74,7 @@ static const uint16_t crc16_table[256] =
     Much faster than bit-by-bit method for large data.
     Uses CRC-16-ANSI polynomial 0x8005 (reversed 0xA001).
  */
-uint16_t get_crc16(const unsigned char * arr, size_t size)
+uint16_t dartt_crc16(const unsigned char * arr, size_t size)
 {
     uint16_t crc = 0xFFFF;
     for(int i = 0; i < size; i++)
@@ -91,7 +91,7 @@ uint16_t get_crc16(const unsigned char * arr, size_t size)
 As-is crc32 algo
 CRC-32/ISO-HDLC, no LUT
 */
-uint32_t get_crc32(const unsigned char *message, size_t len)
+uint32_t dartt_crc32(const unsigned char *message, size_t len)
 {
    size_t i;
    int j;
