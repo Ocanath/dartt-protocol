@@ -28,12 +28,12 @@ typedef struct dartt_sync_t
 
 
 
-int dartt_sync(dartt_buffer_t * ctl, dartt_sync_t * psync);
-int dartt_ctl_write(dartt_buffer_t * ctl, dartt_sync_t * psync);
-int dartt_ctl_read(dartt_buffer_t * ctl, dartt_sync_t * psync);
-int dartt_read_multi(dartt_buffer_t * ctl, dartt_sync_t * psync);
-int dartt_write_multi(dartt_buffer_t * ctl, dartt_sync_t * psync);
-int dartt_update_controller(dartt_buffer_t * ctl, dartt_sync_t * psync);
+int dartt_sync(dartt_mem_t * ctl, dartt_sync_t * psync);
+int dartt_ctl_write(dartt_mem_t * ctl, dartt_sync_t * psync);
+int dartt_ctl_read(dartt_mem_t * ctl, dartt_sync_t * psync);
+int dartt_read_multi(dartt_mem_t * ctl, dartt_sync_t * psync);
+int dartt_write_multi(dartt_mem_t * ctl, dartt_sync_t * psync);
+int dartt_update_controller(dartt_mem_t * ctl, dartt_sync_t * psync);
 
 #ifdef __cplusplus
 }

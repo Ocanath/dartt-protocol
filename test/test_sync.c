@@ -213,7 +213,7 @@ void test_dartt_sync_full(void)
     TEST_ASSERT_EQUAL(0, sizeof(test_struct_t)%sizeof(int32_t));//ensure struct is 32bit word aligned
     //master structs and aliases
     test_struct_t ctl_master = {};
-    dartt_buffer_t ctl_master_alias;
+    dartt_mem_t ctl_master_alias;
     init_struct_buffer(&ctl_master, &ctl_master_alias);
     test_struct_t periph_master = {};
     //sync params
@@ -293,7 +293,6 @@ void test_dartt_sync_full(void)
     //change the aliases to only target a small specific region, which should limit sync
     ctl_master_alias.buf = (unsigned char *)(&ctl_master.mp[0].pi_vq);
     ctl_master_alias.size = sizeof(fixed_PI_2_params_t);
-    ctl_master_alias.len = 0;
 
     ctl_master.m2_set = 100;
     periph_master.m2_set = -50; //explicitly load these differently (they were already different but just for clarity)
@@ -343,10 +342,10 @@ void test_dartt_write(void)
     TEST_ASSERT_EQUAL(0, sizeof(test_struct_t)%sizeof(int32_t));//ensure struct is 32bit word aligned
     //master structs and aliases
     test_struct_t ctl_master = {};
-    dartt_buffer_t ctl_master_alias;
+    dartt_mem_t ctl_master_alias;
     init_struct_buffer(&ctl_master, &ctl_master_alias);
     test_struct_t periph_master = {};
-	dartt_buffer_t periph_master_alias;
+	dartt_mem_t periph_master_alias;
 	init_struct_buffer(&periph_master, &periph_master_alias);
 
     //sync params
@@ -382,10 +381,9 @@ void test_dartt_write(void)
         TEST_ASSERT_EQUAL(ctl_master_alias.buf[i], periph_master_alias.buf[i]);
     }
 
-    dartt_buffer_t motor_commands = {
+    dartt_mem_t motor_commands = {
         .buf = (unsigned char *)(&ctl_master.m1_set),
         .size = 2*sizeof(int32_t),  //(&ctl_master.m2_set+sizeof(int32_t)) - &ctl_master.m1_set
-        .len = 2*sizeof(int32_t)
     };
     ctl_master.m1_set = 1234;
     ctl_master.m2_set = 5689;
@@ -412,7 +410,6 @@ void test_dartt_write(void)
 
     motor_commands.buf = (unsigned char *)(&ctl_master.mp[0].pi_vq.kp.i32);
     motor_commands.size = 4*sizeof(uint32_t);
-    motor_commands.len = motor_commands.size;
 
     TEST_ASSERT_NOT_EQUAL(0, periph_master.mp[0].pi_vq.kp.i32);
     TEST_ASSERT_NOT_EQUAL(0, periph_master.mp[0].pi_vq.kp.radix);
@@ -432,7 +429,7 @@ void test_dartt_write(void)
     TEST_ASSERT_NOT_EQUAL(ctl_master.mp[1].pi_vq.kp.radix, gl_periph.mp[1].pi_vq.kp.radix);
     motor_commands.buf = (unsigned char *)(&ctl_master.mp[1].pi_vq.kp.i32);
     motor_commands.size = 4*sizeof(uint32_t);
-    motor_commands.len = motor_commands.size;
+
     rc = dartt_ctl_write(&motor_commands, &ctl_sync);
     TEST_ASSERT_EQUAL(ctl_master.mp[1].pi_vq.kp.i32, gl_periph.mp[1].pi_vq.kp.i32);
     TEST_ASSERT_EQUAL(ctl_master.mp[1].pi_vq.kp.radix, gl_periph.mp[1].pi_vq.kp.radix);
@@ -459,7 +456,7 @@ void test_dartt_write(void)
 void test_bad_inputs(void)
 {
 
-    dartt_buffer_t b1, b2, b3, b4;
+    dartt_mem_t b1, b2, b3, b4;
 
     uint8_t b1_mem[4] = {};
     uint8_t b2_mem[4] = {};
@@ -486,7 +483,7 @@ void test_undersized_tx_buffers(void)
 {
     test_struct_t ctl_master = {};
     test_struct_t periph_master = {};
-    dartt_buffer_t ctl_alias;
+    dartt_mem_t ctl_alias;
     init_struct_buffer(&ctl_master, &ctl_alias);
     
 
@@ -533,7 +530,7 @@ void test_minimum_sized_tx_buffers(void)
 {
     test_struct_t ctl_master = {};
     test_struct_t periph_master = {};
-    dartt_buffer_t ctl_alias;
+    dartt_mem_t ctl_alias;
     init_struct_buffer(&ctl_master, &ctl_alias);
     
 
@@ -594,7 +591,7 @@ void test_tx_buffer_edge_cases(void)
 {
     test_struct_t ctl_master = {};
     test_struct_t periph_master = {};
-	dartt_buffer_t ctl_alias;
+	dartt_mem_t ctl_alias;
     init_struct_buffer(&ctl_master, &ctl_alias);
 
     dartt_sync_t ctl_sync = {};
@@ -665,7 +662,7 @@ void test_buffer_alignment_edge_cases(void)
     uint8_t ctl_mem[7] = {}; // 7 bytes - not aligned to 4-byte boundary
     uint8_t periph_mem[7] = {};
 
-    dartt_buffer_t ctl_buf = {.buf = ctl_mem, .size = sizeof(ctl_mem), .len = 0};
+    dartt_mem_t ctl_buf = {.buf = ctl_mem, .size = sizeof(ctl_mem)};
 
     dartt_sync_t ctl_sync = {};
     ctl_sync.address = 3;
@@ -696,8 +693,8 @@ void test_buffer_alignment_edge_cases(void)
     uint8_t ctl_mem8[8] = {};
     uint8_t periph_mem8[8] = {};
 
-    dartt_buffer_t ctl_buf8 = {.buf = ctl_mem8, .size = sizeof(ctl_mem8), .len = sizeof(ctl_mem8)};
-	dartt_buffer_t periph_buf8 = {.buf = periph_mem8, .size = sizeof(periph_mem8), .len = sizeof(periph_mem8)};
+    dartt_mem_t ctl_buf8 = {.buf = ctl_mem8, .size = sizeof(ctl_mem8)};
+	dartt_mem_t periph_buf8 = {.buf = periph_mem8, .size = sizeof(periph_mem8)};
 	
     // Make them different to trigger sync
     ctl_mem8[0] = 1;
@@ -724,10 +721,10 @@ void test_dartt_read_multi(void)
     TEST_ASSERT_EQUAL(0, sizeof(test_struct_t)%sizeof(int32_t));//ensure struct is 32bit word aligned
     //master structs and aliases
     test_struct_t ctl_master = {};
-    dartt_buffer_t ctl_master_alias;
+    dartt_mem_t ctl_master_alias;
     init_struct_buffer(&ctl_master, &ctl_master_alias);
     test_struct_t periph_master = {};
-    dartt_buffer_t periph_master_alias;
+    dartt_mem_t periph_master_alias;
     init_struct_buffer(&periph_master, &periph_master_alias);
     //sync params
     dartt_sync_t ctl_sync = {};
@@ -764,7 +761,7 @@ void test_dartt_read_multi(void)
     }
     
     TEST_ASSERT_LESS_THAN(ctl_master_alias.size, ctl_sync.rx_buf.size); //must be true for the test to function properly
-    ctl_master_alias.len = ctl_master_alias.size;   //indicate we want to read the full memory
+    
     rc = dartt_ctl_read(&ctl_master_alias, &ctl_sync);
     TEST_ASSERT_EQUAL(DARTT_ERROR_MEMORY_OVERRUN, rc);   //because the transmit buffer is much smaller than the data we're trying to read, it should fail with a code (memory overrun)
 
@@ -794,10 +791,10 @@ void test_dartt_read_multi_bad_read_callback(void)
     TEST_ASSERT_EQUAL(0, sizeof(test_struct_t)%sizeof(int32_t));//ensure struct is 32bit word aligned
     //master structs and aliases
     test_struct_t ctl_master = {};
-    dartt_buffer_t ctl_master_alias;
+    dartt_mem_t ctl_master_alias;
     init_struct_buffer(&ctl_master, &ctl_master_alias);
     test_struct_t periph_master = {};
-    dartt_buffer_t periph_master_alias;
+    dartt_mem_t periph_master_alias;
     init_struct_buffer(&periph_master, &periph_master_alias);
     //sync params
     dartt_sync_t ctl_sync = {};
@@ -834,7 +831,6 @@ void test_dartt_read_multi_bad_read_callback(void)
     }
     
 	ctl_master_alias.buf = ctl_sync.ctl_base.buf + sizeof(uint32_t)*3;
-	ctl_master_alias.len = 4;
 	ctl_master_alias.size = 4;
     rc = dartt_read_multi(&ctl_master_alias, &ctl_sync);
     TEST_ASSERT_EQUAL(DARTT_ERROR_CTL_READ_LEN_MISMATCH, rc);
@@ -847,10 +843,10 @@ void test_dartt_read_multi_fdcan(void)
     TEST_ASSERT_EQUAL(0, sizeof(test_struct_t)%sizeof(int32_t));//ensure struct is 32bit word aligned
     //master structs and aliases
     test_struct_t ctl_master = {};
-    dartt_buffer_t ctl_master_alias;
+    dartt_mem_t ctl_master_alias;
     init_struct_buffer(&ctl_master, &ctl_master_alias);
     test_struct_t periph_master = {};
-    dartt_buffer_t periph_master_alias;
+    dartt_mem_t periph_master_alias;
     init_struct_buffer(&periph_master, &periph_master_alias);
     //sync params
     dartt_sync_t ctl_sync = {};
@@ -887,7 +883,7 @@ void test_dartt_read_multi_fdcan(void)
     }
     
     TEST_ASSERT_LESS_THAN(ctl_master_alias.size, ctl_sync.rx_buf.size); //must be true for the test to function properly
-    ctl_master_alias.len = ctl_master_alias.size;   //indicate we want to read the full memory
+    
     rc = dartt_ctl_read(&ctl_master_alias, &ctl_sync);
     TEST_ASSERT_EQUAL(DARTT_ERROR_MEMORY_OVERRUN, rc);   //because the transmit buffer is much smaller than the data we're trying to read, it should fail with a code (memory overrun)
 
@@ -934,10 +930,10 @@ void test_dartt_sync_full_fdcan(void)
     TEST_ASSERT_EQUAL(0, sizeof(test_struct_t)%sizeof(int32_t));//ensure struct is 32bit word aligned
     //master structs and aliases
     test_struct_t ctl_master = {};
-    dartt_buffer_t ctl_master_alias;
+    dartt_mem_t ctl_master_alias;
     init_struct_buffer(&ctl_master, &ctl_master_alias);
     test_struct_t periph_master = {};
-    dartt_buffer_t periph_master_alias;
+    dartt_mem_t periph_master_alias;
     init_struct_buffer(&periph_master, &periph_master_alias);
     //sync params
     dartt_sync_t ctl_sync = {};
@@ -1016,10 +1012,10 @@ void test_dartt_sync_full_fdcan(void)
     //change the aliases to only target a small specific region, which should limit sync
     ctl_master_alias.buf = (unsigned char *)(&ctl_master.mp[0].pi_vq);
     ctl_master_alias.size = sizeof(fixed_PI_2_params_t);
-    ctl_master_alias.len = 0;
+    
     periph_master_alias.buf = (unsigned char *)(&periph_master.mp[0].pi_vq);
     periph_master_alias.size = sizeof(fixed_PI_2_params_t);
-    periph_master_alias.len = 0;
+    
 
     ctl_master.m2_set = 100;
     periph_master.m2_set = -50; //explicitly load these differently (they were already different but just for clarity)
@@ -1074,10 +1070,10 @@ void dartt_write_multi_wrapper(int rbufsize, int tbufsize, serial_message_type_t
     TEST_ASSERT_EQUAL(0, sizeof(test_struct_t)%sizeof(int32_t));//ensure struct is 32bit word aligned
     //master structs and aliases
     test_struct_t ctl_master = {};
-    dartt_buffer_t ctl_master_alias;
+    dartt_mem_t ctl_master_alias;
     init_struct_buffer(&ctl_master, &ctl_master_alias);
     test_struct_t periph_master = {};
-    dartt_buffer_t periph_master_alias;
+    dartt_mem_t periph_master_alias;
     init_struct_buffer(&periph_master, &periph_master_alias);
     //sync params
     dartt_sync_t ctl_sync = {};
@@ -1114,7 +1110,7 @@ void dartt_write_multi_wrapper(int rbufsize, int tbufsize, serial_message_type_t
     }
     
     TEST_ASSERT_LESS_THAN(ctl_master_alias.size, ctl_sync.tx_buf.size); //verify that write multi is actually going to write multi
-    ctl_master_alias.len = ctl_master_alias.size;   //indicate we want to read the full memory
+    
     rc = dartt_ctl_write(&ctl_master_alias, &ctl_sync);
     TEST_ASSERT_EQUAL(DARTT_ERROR_MEMORY_OVERRUN, rc);   //because the transmit buffer is much smaller than the data we're trying to read, it should fail with a code (memory overrun)
 
@@ -1215,10 +1211,10 @@ void test_dartt_update_controller(void)
 	memcpy(ctl_copy_backup, gl_ds.ctl_base.buf, gl_ds.ctl_base.size);	
 
 	//will overrun the master copy - improper buffer creation
-	dartt_buffer_t ctl;
+	dartt_mem_t ctl;
 	ctl.buf = (unsigned char *)(&gl_master_copy.m2_set);
 	ctl.size = sizeof(test_struct_t);	
-	ctl.len = ctl.size;
+	
 	int rc = dartt_update_controller(&ctl, &gl_ds);
 	TEST_ASSERT_EQUAL(DARTT_ERROR_MEMORY_OVERRUN, rc);
 
@@ -1226,12 +1222,12 @@ void test_dartt_update_controller(void)
 	ctl.buf = (unsigned char *)(&gl_master_copy);
 	ctl.buf -= 1;
 	ctl.size = sizeof(test_struct_t);	
-	ctl.len = ctl.size;
+	
 	rc = dartt_update_controller(&ctl, &gl_ds);
 	TEST_ASSERT_EQUAL(DARTT_ERROR_MEMORY_OVERRUN, rc);
 
 	//improper buffer creation - misaligned (not 32bit aligned)
-	ctl.len = ctl.size - 1;
+	
 	ctl.buf = (unsigned char *)(&gl_master_copy);
 	ctl.buf += 1;
 	ctl.size = sizeof(test_struct_t) - 1;	
@@ -1239,7 +1235,7 @@ void test_dartt_update_controller(void)
 	TEST_ASSERT_EQUAL(DARTT_ERROR_INVALID_ARGUMENT, rc);
 
     //check for ctl validity
-	ctl.len = ctl.size;
+	
 	ctl.buf = (unsigned char *)(&gl_master_copy);
 	ctl.buf += 1;
 	ctl.size = sizeof(test_struct_t);	
@@ -1252,7 +1248,7 @@ void test_dartt_update_controller(void)
 	//happy path
 	ctl.buf = (unsigned char *)(&gl_master_copy.m2_set);
 	ctl.size = 6*sizeof(uint32_t);
-	ctl.len = ctl.size;
+	
 	rc = dartt_update_controller(&ctl, &gl_ds);
 	TEST_ASSERT_EQUAL(0, rc);
 	int fidx = index_of_field(ctl.buf, gl_ds.ctl_base.buf, gl_ds.ctl_base.size);
@@ -1299,20 +1295,20 @@ void test_ctl_read_reply_overhead(void)
 	}
 
 	//set up a 4-byte read region at the start of ctl_base
-	dartt_buffer_t ctl = {
+	dartt_mem_t ctl = {
 		.buf = gl_ds.ctl_base.buf,
 		.size = sizeof(uint32_t),
-		.len = sizeof(uint32_t)
+		
 	};
 
 	//for TYPE_SERIAL_MESSAGE, the full reply overhead is:
 	//  NUM_BYTES_READ_REPLY_OVERHEAD_PLD + NUM_BYTES_ADDRESS + NUM_BYTES_CHECKSUM
 	size_t full_overhead = NUM_BYTES_READ_REPLY_OVERHEAD_PLD + NUM_BYTES_ADDRESS + NUM_BYTES_CHECKSUM;
-	size_t exact_rx_size = ctl.len + full_overhead;
+	size_t exact_rx_size = ctl.size + full_overhead;
 
 	//SAD PATH: rx buffer missing the read reply overhead (only has framing + data, no index overhead)
 	{
-		size_t short_size = ctl.len + NUM_BYTES_ADDRESS + NUM_BYTES_CHECKSUM;	//missing NUM_BYTES_READ_REPLY_OVERHEAD_PLD
+		size_t short_size = ctl.size + NUM_BYTES_ADDRESS + NUM_BYTES_CHECKSUM;	//missing NUM_BYTES_READ_REPLY_OVERHEAD_PLD
 		TEST_ASSERT_LESS_THAN(exact_rx_size, short_size);	//verify this is actually smaller
 		uint8_t short_rx[64] = {};
 		dartt_init_buffer(&gl_ds.rx_buf, short_rx, short_size);
@@ -1343,12 +1339,12 @@ void test_ctl_read_reply_overhead(void)
 	gl_ds.blocking_tx_callback = &synctest_tx_blocking_fdcan;
 
 	size_t fdcan_overhead = NUM_BYTES_READ_REPLY_OVERHEAD_PLD;	//no framing for ADDR_CRC
-	size_t fdcan_exact = ctl.len + fdcan_overhead;
+	size_t fdcan_exact = ctl.size + fdcan_overhead;
 
 	//SAD PATH: rx buffer missing the read reply overhead entirely
 	{
 		uint8_t short_rx[64] = {};
-		dartt_init_buffer(&gl_ds.rx_buf, short_rx, ctl.len);	//only data, no overhead
+		dartt_init_buffer(&gl_ds.rx_buf, short_rx, ctl.size);	//only data, no overhead
 		int rc = dartt_ctl_read(&ctl, &gl_ds);
 		TEST_ASSERT_EQUAL(DARTT_ERROR_MEMORY_OVERRUN, rc);
 	}
@@ -1369,11 +1365,11 @@ void test_ctl_read_reply_overhead(void)
 	gl_ds.blocking_tx_callback = &synctest_tx_blocking;
 
 	size_t addr_overhead = NUM_BYTES_READ_REPLY_OVERHEAD_PLD + NUM_BYTES_CHECKSUM;
-	size_t addr_exact = ctl.len + addr_overhead;
+	size_t addr_exact = ctl.size + addr_overhead;
 
 	//SAD PATH: rx buffer with only checksum overhead, missing read reply overhead
 	{
-		size_t short_size = ctl.len + NUM_BYTES_CHECKSUM;
+		size_t short_size = ctl.size + NUM_BYTES_CHECKSUM;
 		uint8_t short_rx[64] = {};
 		dartt_init_buffer(&gl_ds.rx_buf, short_rx, short_size);
 		int rc = dartt_ctl_read(&ctl, &gl_ds);
@@ -1453,10 +1449,9 @@ void test_base_offset_write(void)
 
 	ctl_copy.m1_set = 42;
 	ctl_copy.m2_set = -99;
-	dartt_buffer_t ctl = {
+	dartt_mem_t ctl = {
 		.buf  = (unsigned char *)&ctl_copy.m1_set,
-		.size = 2 * sizeof(int32_t),
-		.len  = 2 * sizeof(int32_t)
+		.size = 2 * sizeof(int32_t)
 	};
 	int rc = dartt_write_multi(&ctl, &ds);
 	TEST_ASSERT_EQUAL(DARTT_PROTOCOL_SUCCESS, rc);
@@ -1519,10 +1514,9 @@ void test_base_offset_read_multi(void)
 	p_sync_tx_buf = &ds.tx_buf;
 
 	// read m1_set and m2_set
-	dartt_buffer_t ctl = {
+	dartt_mem_t ctl = {
 		.buf  = (unsigned char *)&ctl_copy.m1_set,
-		.size = 2 * sizeof(int32_t),
-		.len  = 2 * sizeof(int32_t)
+		.size = 2 * sizeof(int32_t)
 	};
 	int rc = dartt_read_multi(&ctl, &ds);
 	TEST_ASSERT_EQUAL(DARTT_PROTOCOL_SUCCESS, rc);
@@ -1532,20 +1526,18 @@ void test_base_offset_read_multi(void)
 	TEST_ASSERT_EQUAL(0, shadow_copy.mp[0].fds.module_number);
 
 	// read mp[0].fds.module_number
-	dartt_buffer_t ctl2 = {
+	dartt_mem_t ctl2 = {
 		.buf  = (unsigned char *)&ctl_copy.mp[0].fds.module_number,
-		.size = sizeof(int32_t),
-		.len  = sizeof(int32_t)
+		.size = sizeof(int32_t)
 	};
 	rc = dartt_read_multi(&ctl2, &ds);
 	TEST_ASSERT_EQUAL(DARTT_PROTOCOL_SUCCESS, rc);
 	TEST_ASSERT_EQUAL(7777, shadow_copy.mp[0].fds.module_number);
 
 	// read mp[15].fds.align_offset
-	dartt_buffer_t ctl3 = {
+	dartt_mem_t ctl3 = {
 		.buf  = (unsigned char *)&ctl_copy.mp[15].fds.align_offset,
-		.size = sizeof(int32_t),
-		.len  = sizeof(int32_t)
+		.size = sizeof(int32_t)
 	};
 	rc = dartt_read_multi(&ctl3, &ds);
 	TEST_ASSERT_EQUAL(DARTT_PROTOCOL_SUCCESS, rc);
@@ -1603,10 +1595,9 @@ void test_base_offset_sync(void)
 	ctl_copy.m1_set                  = 100;
 	ctl_copy.mp[2].fds.module_number = 555;
 
-	dartt_buffer_t ctl_alias = {
+	dartt_mem_t ctl_alias = {
 		.buf  = (unsigned char *)&ctl_copy,
-		.size = sizeof(test_struct_t),
-		.len  = 0
+		.size = sizeof(test_struct_t)
 	};
 	int rc = dartt_sync(&ctl_alias, &ds);
 	TEST_ASSERT_EQUAL(DARTT_PROTOCOL_SUCCESS, rc);
@@ -1666,30 +1657,27 @@ void test_base_offset_zero(void)
 	ds.timeout_ms = 10;
 	p_sync_tx_buf = &ds.tx_buf;
 
-	dartt_buffer_t ctl = {
+	dartt_mem_t ctl = {
 		.buf  = (unsigned char *)&ctl_copy.m1_set,
 		.size = sizeof(int32_t),
-		.len  = sizeof(int32_t)
 	};
 	int rc = dartt_read_multi(&ctl, &ds);
 	TEST_ASSERT_EQUAL(DARTT_PROTOCOL_SUCCESS, rc);
 	TEST_ASSERT_EQUAL(9876, shadow_copy.m1_set);
 	TEST_ASSERT_EQUAL(0,    shadow_copy.m2_set);   // not read, must stay 0
 
-	dartt_buffer_t ctl2 = {
+	dartt_mem_t ctl2 = {
 		.buf  = (unsigned char *)&ctl_copy.mp[5].fds.align_offset,
 		.size = sizeof(int32_t),
-		.len  = sizeof(int32_t)
 	};
 	rc = dartt_read_multi(&ctl2, &ds);
 	TEST_ASSERT_EQUAL(DARTT_PROTOCOL_SUCCESS, rc);
 	TEST_ASSERT_EQUAL(-333, shadow_copy.mp[5].fds.align_offset);
 	TEST_ASSERT_EQUAL(0,    shadow_copy.mp[5].fds.module_number);  // adjacent field, not read
 
-	dartt_buffer_t ctl3 = {
+	dartt_mem_t ctl3 = {
 		.buf  = (unsigned char *)&ctl_copy.mp[31].pi_vq.x,
 		.size = sizeof(int32_t),
-		.len  = sizeof(int32_t)
 	};
 	rc = dartt_read_multi(&ctl3, &ds);
 	TEST_ASSERT_EQUAL(DARTT_PROTOCOL_SUCCESS, rc);
