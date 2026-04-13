@@ -73,13 +73,6 @@ uint8_t tx_mem[64] = {};
 dartt_buffer_t * p_sync_tx_buf;
 uint8_t rx_mem[64] = {};
 
-int init_struct_buffer(test_struct_t * s, dartt_buffer_t * buf)
-{
-    buf->buf = (unsigned char *)s;
-    buf->size = sizeof(test_struct_t);
-    buf->len = 0;
-}
-
 int init_struct_mem(test_struct_t * s, dartt_mem_t * mem)
 {
 	mem->buf = (unsigned char *)s;
@@ -214,7 +207,7 @@ void test_dartt_sync_full(void)
     //master structs and aliases
     test_struct_t ctl_master = {};
     dartt_mem_t ctl_master_alias;
-    init_struct_buffer(&ctl_master, &ctl_master_alias);
+    init_struct_mem(&ctl_master, &ctl_master_alias);
     test_struct_t periph_master = {};
     //sync params
     dartt_sync_t ctl_sync = {};
@@ -310,7 +303,7 @@ void test_dartt_sync_full(void)
 
     //final sync test - make the control and shadow copies completely out of sync, triggering a complete buffer write.
     //since tx buf is small, this tests the logic of breaking up the tx buffer as well
-    init_struct_buffer(&ctl_master, &ctl_master_alias); //reinit both alias buffers to have proper size
+    init_struct_mem(&ctl_master, &ctl_master_alias); //reinit both alias buffers to have proper size
     init_struct_mem(&periph_master, &ctl_sync.periph_base);
     //reset all memory (both master copies and peripheral copy to a test state for the full write attempt)
     for(int i = 0; i < ctl_master_alias.size; i++)
@@ -343,10 +336,10 @@ void test_dartt_write(void)
     //master structs and aliases
     test_struct_t ctl_master = {};
     dartt_mem_t ctl_master_alias;
-    init_struct_buffer(&ctl_master, &ctl_master_alias);
+    init_struct_mem(&ctl_master, &ctl_master_alias);
     test_struct_t periph_master = {};
 	dartt_mem_t periph_master_alias;
-	init_struct_buffer(&periph_master, &periph_master_alias);
+	init_struct_mem(&periph_master, &periph_master_alias);
 
     //sync params
     dartt_sync_t ctl_sync = {};
@@ -484,7 +477,7 @@ void test_undersized_tx_buffers(void)
     test_struct_t ctl_master = {};
     test_struct_t periph_master = {};
     dartt_mem_t ctl_alias;
-    init_struct_buffer(&ctl_master, &ctl_alias);
+    init_struct_mem(&ctl_master, &ctl_alias);
     
 
     dartt_sync_t ctl_sync = {};
@@ -531,7 +524,7 @@ void test_minimum_sized_tx_buffers(void)
     test_struct_t ctl_master = {};
     test_struct_t periph_master = {};
     dartt_mem_t ctl_alias;
-    init_struct_buffer(&ctl_master, &ctl_alias);
+    init_struct_mem(&ctl_master, &ctl_alias);
     
 
     dartt_sync_t ctl_sync = {};
@@ -592,7 +585,7 @@ void test_tx_buffer_edge_cases(void)
     test_struct_t ctl_master = {};
     test_struct_t periph_master = {};
 	dartt_mem_t ctl_alias;
-    init_struct_buffer(&ctl_master, &ctl_alias);
+    init_struct_mem(&ctl_master, &ctl_alias);
 
     dartt_sync_t ctl_sync = {};
     ctl_sync.address = 3;
@@ -722,10 +715,10 @@ void test_dartt_read_multi(void)
     //master structs and aliases
     test_struct_t ctl_master = {};
     dartt_mem_t ctl_master_alias;
-    init_struct_buffer(&ctl_master, &ctl_master_alias);
+    init_struct_mem(&ctl_master, &ctl_master_alias);
     test_struct_t periph_master = {};
     dartt_mem_t periph_master_alias;
-    init_struct_buffer(&periph_master, &periph_master_alias);
+    init_struct_mem(&periph_master, &periph_master_alias);
     //sync params
     dartt_sync_t ctl_sync = {};
     ctl_sync.address = 3;
@@ -792,10 +785,10 @@ void test_dartt_read_multi_bad_read_callback(void)
     //master structs and aliases
     test_struct_t ctl_master = {};
     dartt_mem_t ctl_master_alias;
-    init_struct_buffer(&ctl_master, &ctl_master_alias);
+    init_struct_mem(&ctl_master, &ctl_master_alias);
     test_struct_t periph_master = {};
     dartt_mem_t periph_master_alias;
-    init_struct_buffer(&periph_master, &periph_master_alias);
+    init_struct_mem(&periph_master, &periph_master_alias);
     //sync params
     dartt_sync_t ctl_sync = {};
     ctl_sync.address = 3;
@@ -844,10 +837,10 @@ void test_dartt_read_multi_fdcan(void)
     //master structs and aliases
     test_struct_t ctl_master = {};
     dartt_mem_t ctl_master_alias;
-    init_struct_buffer(&ctl_master, &ctl_master_alias);
+    init_struct_mem(&ctl_master, &ctl_master_alias);
     test_struct_t periph_master = {};
     dartt_mem_t periph_master_alias;
-    init_struct_buffer(&periph_master, &periph_master_alias);
+    init_struct_mem(&periph_master, &periph_master_alias);
     //sync params
     dartt_sync_t ctl_sync = {};
     ctl_sync.address = 3;
@@ -931,10 +924,10 @@ void test_dartt_sync_full_fdcan(void)
     //master structs and aliases
     test_struct_t ctl_master = {};
     dartt_mem_t ctl_master_alias;
-    init_struct_buffer(&ctl_master, &ctl_master_alias);
+    init_struct_mem(&ctl_master, &ctl_master_alias);
     test_struct_t periph_master = {};
     dartt_mem_t periph_master_alias;
-    init_struct_buffer(&periph_master, &periph_master_alias);
+    init_struct_mem(&periph_master, &periph_master_alias);
     //sync params
     dartt_sync_t ctl_sync = {};
     ctl_sync.address = 3;
@@ -1033,8 +1026,8 @@ void test_dartt_sync_full_fdcan(void)
 
     //final sync test - make the control and shadow copies completely out of sync, triggering a complete buffer write.
     //since tx buf is small, this tests the logic of breaking up the tx buffer as well
-    init_struct_buffer(&ctl_master, &ctl_master_alias); //reinit both alias buffers to have proper size
-    init_struct_buffer(&periph_master, &periph_master_alias);
+    init_struct_mem(&ctl_master, &ctl_master_alias); //reinit both alias buffers to have proper size
+    init_struct_mem(&periph_master, &periph_master_alias);
     //reset all memory (both master copies and peripheral copy to a test state for the full write attempt)
     for(int i = 0; i < ctl_master_alias.size; i++)
     {
@@ -1071,10 +1064,10 @@ void dartt_write_multi_wrapper(int rbufsize, int tbufsize, serial_message_type_t
     //master structs and aliases
     test_struct_t ctl_master = {};
     dartt_mem_t ctl_master_alias;
-    init_struct_buffer(&ctl_master, &ctl_master_alias);
+    init_struct_mem(&ctl_master, &ctl_master_alias);
     test_struct_t periph_master = {};
     dartt_mem_t periph_master_alias;
-    init_struct_buffer(&periph_master, &periph_master_alias);
+    init_struct_mem(&periph_master, &periph_master_alias);
     //sync params
     dartt_sync_t ctl_sync = {};
     ctl_sync.address = 3;
