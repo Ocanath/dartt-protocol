@@ -12,7 +12,7 @@ uint16_t dartt_crc16(const unsigned char * arr, size_t size)
     uint16_t crc = 0xFFFF;
     for(int i = 0; i < size; i++)
     {
-        crc ^= arr[i];
+        crc ^= ((uint16_t)arr[i]);
         for(int j = 0; j < 8; j++)
         {
             if(crc & 0x0001)
@@ -102,11 +102,11 @@ uint32_t dartt_crc32(const unsigned char *message, size_t len)
    crc = 0xFFFFFFFF;
    while (i < len)
    {
-		byte = message[i];            // Get next byte.
+		byte = (uint32_t)message[i];            // Get next byte.
 		crc = crc ^ byte;
 		for (j = 7; j >= 0; j--)
 		{    // Do eight times.
-			mask = (uint32_t)(-(int32_t)(crc & 1));
+			mask = (crc & 1) ? 0xFFFFFFFFU : 0U;
 			crc = (crc >> 1) ^ (0xEDB88320 & mask);
 		}
 		i = i + 1;
