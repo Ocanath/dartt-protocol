@@ -34,7 +34,18 @@ typedef struct comms_t
 } comms_t;
 
 
-
+void test_read_request_overhead(void)
+{
+	size_t size = 0;
+	size = dartt_read_request_overhead(TYPE_SERIAL_MESSAGE);
+	TEST_ASSERT_EQUAL(7, size);
+	size = dartt_read_request_overhead(TYPE_ADDR_MESSAGE);
+	TEST_ASSERT_EQUAL(6, size);
+	size = dartt_read_request_overhead(TYPE_ADDR_CRC_MESSAGE);
+	TEST_ASSERT_EQUAL(4, size);
+	size = dartt_read_request_overhead(3);
+	TEST_ASSERT_EQUAL(0, size);
+}
 
 void test_check_write_args(void)
 {

@@ -315,6 +315,31 @@ int check_read_args(misc_read_message_t * msg, serial_message_type_t type, dartt
 }
 
 /**
+ * @brief Helper function to obtain the size of a read request as a function of message type.
+ * 
+ * @param type Frame type
+ * @returns Size of the read reply frame
+ */
+size_t dartt_read_request_overhead(serial_message_type_t type)
+{
+	size_t overhead = NUM_BYTES_INDEX + NUM_BYTES_NUMWORDS_READREQUEST;
+	if(type == TYPE_SERIAL_MESSAGE)
+	{
+		overhead += NUM_BYTES_ADDRESS + NUM_BYTES_CHECKSUM;
+	}
+	else if(type == TYPE_ADDR_MESSAGE)
+	{
+		overhead += NUM_BYTES_CHECKSUM;
+	}
+	else if (type != TYPE_ADDR_CRC_MESSAGE)
+	{
+		overhead = 0;
+	}
+	return overhead;
+}
+
+
+/**
  * @brief Generate a read frame from a message structure.
  * 
  * This function constructs a complete read frame ready for transmission,
@@ -344,16 +369,8 @@ int dartt_create_read_frame(misc_read_message_t * msg, serial_message_type_t typ
 	{
 		return rc;
 	}
-	size_t overhead = NUM_BYTES_INDEX + NUM_BYTES_NUMWORDS_READREQUEST;
-	if(type == TYPE_SERIAL_MESSAGE)
-	{
-		overhead += NUM_BYTES_ADDRESS + NUM_BYTES_CHECKSUM;
-	}
-	else if(type == TYPE_ADDR_MESSAGE)
-	{
-		overhead += NUM_BYTES_CHECKSUM;
-	}
-	if(output->size < overhead)
+	
+	if(output->size < dartt_read_request_overhead(type))
 	{
 		return DARTT_ERROR_MEMORY_OVERRUN;
 	}

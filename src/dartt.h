@@ -110,6 +110,7 @@ typedef struct misc_read_message_t
 int index_of_field(void * p_field, void * mem, size_t mem_size);
 int copy_buf_full(dartt_buffer_t * in, dartt_buffer_t * out);
 unsigned char dartt_get_complementary_address(unsigned char address);
+size_t dartt_read_request_overhead(serial_message_type_t type);
 int dartt_create_write_frame(misc_write_message_t * msg, serial_message_type_t type, dartt_buffer_t * output);
 int dartt_create_read_frame(misc_read_message_t * msg, serial_message_type_t type, dartt_buffer_t * output);
 int dartt_frame_to_payload(dartt_buffer_t * ser_msg, serial_message_type_t type, payload_mode_t pld_mode, payload_layer_msg_t * pld);
