@@ -339,7 +339,24 @@ int check_read_args(misc_read_message_t * msg, serial_message_type_t type, dartt
 int dartt_create_read_frame(misc_read_message_t * msg, serial_message_type_t type, dartt_buffer_t * output)
 {
     assert(check_read_args(msg,type,output) == DARTT_PROTOCOL_SUCCESS);
-    assert(type == TYPE_SERIAL_MESSAGE || type == TYPE_ADDR_MESSAGE || type == TYPE_ADDR_CRC_MESSAGE);
+	int rc = check_buffer(output);
+	if(rc != DARTT_PROTOCOL_SUCCESS)
+	{
+		return rc;
+	}
+	size_t overhead = NUM_BYTES_INDEX + NUM_BYTES_NUMWORDS_READREQUEST;
+	if(type == TYPE_SERIAL_MESSAGE)
+	{
+		overhead += NUM_BYTES_ADDRESS + NUM_BYTES_CHECKSUM;
+	}
+	else if(type == TYPE_ADDR_MESSAGE)
+	{
+		overhead += NUM_BYTES_CHECKSUM;
+	}
+	if(output->size < overhead)
+	{
+		return DARTT_ERROR_MEMORY_OVERRUN;
+	}
 
     output->len = 0;
     if(type == TYPE_SERIAL_MESSAGE)
