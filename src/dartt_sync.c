@@ -259,10 +259,6 @@ int dartt_ctl_write(dartt_mem_t * ctl, dartt_sync_t * psync)
 	{
         return DARTT_ERROR_MEMORY_OVERRUN;
     }
-    if (ctl->buf + ctl->size > psync->ctl_base.buf + psync->ctl_base.size) 
-	{
-        return DARTT_ERROR_MEMORY_OVERRUN;
-    }
 
     int field_index = index_of_field( (void*)(&ctl->buf[0]), (void*)(&psync->ctl_base.buf[0]), psync->ctl_base.size );
     if(field_index < 0)
