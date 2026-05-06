@@ -314,15 +314,9 @@ int check_read_args(misc_read_message_t * msg, serial_message_type_t type, dartt
     return DARTT_PROTOCOL_SUCCESS;
 }
 
-/**
- * @brief Helper function to obtain the size of a read request as a function of message type.
- * 
- * @param type Frame type
- * @returns Size of the read reply frame
- */
-size_t dartt_read_request_overhead(serial_message_type_t type)
+size_t dartt_rw_overhead(serial_message_type_t type)
 {
-	size_t overhead = NUM_BYTES_INDEX + NUM_BYTES_NUMWORDS_READREQUEST;
+	size_t overhead = NUM_BYTES_INDEX;
 	if(type == TYPE_SERIAL_MESSAGE)
 	{
 		overhead += NUM_BYTES_ADDRESS + NUM_BYTES_CHECKSUM;
@@ -337,7 +331,6 @@ size_t dartt_read_request_overhead(serial_message_type_t type)
 	}
 	return overhead;
 }
-
 
 /**
  * @brief Generate a read frame from a message structure.
@@ -370,7 +363,7 @@ int dartt_create_read_frame(misc_read_message_t * msg, serial_message_type_t typ
 		return rc;
 	}
 	
-	if(output->size < dartt_read_request_overhead(type))
+	if(output->size < dartt_rw_overhead(type) + NUM_BYTES_NUMWORDS_READREQUEST)
 	{
 		return DARTT_ERROR_MEMORY_OVERRUN;
 	}
@@ -721,129 +714,72 @@ int dartt_frame_to_payload(dartt_buffer_t * ser_msg, serial_message_type_t type,
 		return cb;
 	}
 
-	
-	if(type == TYPE_SERIAL_MESSAGE)
-    {
-		//first step - crc validation on input message
-        if(ser_msg->len <= (NUM_BYTES_ADDRESS + NUM_BYTES_CHECKSUM))    //message has to have room for a checksum, an index, and at least one additional byte
-        {
-            return DARTT_ERROR_MALFORMED_MESSAGE;
-        }
-        int rc = validate_crc(ser_msg);
-        if(rc != DARTT_PROTOCOL_SUCCESS)
-        {
-            return rc;	//checksum must match
-        }
-
-		if(pld_mode == PAYLOAD_ALIAS)	//Use pointer arithmetic
-		{
-			pld->msg.buf = ser_msg->buf;
-			pld->msg.len = ser_msg->len - NUM_BYTES_CHECKSUM;		//truncate off checksum
-			pld->msg.size = ser_msg->size - NUM_BYTES_CHECKSUM;	//even if size is greater than len, this is safe
-			
-			pld->address = ser_msg->buf[0];
-			pld->msg.buf += NUM_BYTES_ADDRESS;
-			pld->msg.len -= NUM_BYTES_ADDRESS;
-			pld->msg.size -= NUM_BYTES_ADDRESS;
-			//truncate checksum off and use pointer arithmetic to load payload to addr
-		}
-		else if(pld_mode == PAYLOAD_COPY)	//
-		{
-			if(pld->msg.buf == NULL)
-			{
-				return DARTT_ERROR_INVALID_ARGUMENT;
-			}
-			size_t newlen  = ser_msg->len - (NUM_BYTES_ADDRESS + NUM_BYTES_CHECKSUM);
-			if(newlen > pld->msg.size)
-			{
-				return DARTT_ERROR_MEMORY_OVERRUN;
-			}
-			pld->address = ser_msg->buf[0];
-			unsigned char * sm_start = ser_msg->buf + NUM_BYTES_ADDRESS; //skip address
-			
-			for(size_t i = 0; i < newlen; i++)
-			{
-				pld->msg.buf[i] = sm_start[i];
-			}
-			pld->msg.len = newlen;
-		}
-		else
-		{
-			return DARTT_ERROR_INVALID_ARGUMENT;
-		}
-        return DARTT_PROTOCOL_SUCCESS;
-    }
-	else if (type == TYPE_ADDR_MESSAGE)
-    {
-        if(ser_msg->len <= NUM_BYTES_CHECKSUM)    //message has to have room for a checksum, an index, and at least one additional byte
-        {
-            return DARTT_ERROR_MALFORMED_MESSAGE;
-        }
-        int rc = validate_crc(ser_msg);
-        if(rc != DARTT_PROTOCOL_SUCCESS)
-        {
-            return rc;
-        }
-		if(pld_mode == PAYLOAD_ALIAS)
-		{
-			pld->msg.buf = ser_msg->buf;
-			pld->msg.size = ser_msg->size;
-			pld->msg.len = (ser_msg->len - NUM_BYTES_CHECKSUM);
-		}
-		else if (pld_mode == PAYLOAD_COPY)
-		{
-			if(pld->msg.buf == NULL)
-			{
-				return DARTT_ERROR_INVALID_ARGUMENT;
-			}
-			size_t newlen  = ser_msg->len - NUM_BYTES_CHECKSUM;
-			if(newlen > pld->msg.size)
-			{
-				return DARTT_ERROR_MEMORY_OVERRUN;
-			}
-			for(size_t i = 0; i < newlen; i++)
-			{
-				pld->msg.buf[i] = ser_msg->buf[i];
-			}
-			pld->msg.len = newlen;
-		}
-		else
-		{
-			return DARTT_ERROR_INVALID_ARGUMENT;
-		}
-        return DARTT_PROTOCOL_SUCCESS;
-    }
-	else if(type == TYPE_ADDR_CRC_MESSAGE)
+	//pre-flight length check
+	if(ser_msg->len <= dartt_rw_overhead(type))
 	{
-		if(pld_mode == PAYLOAD_ALIAS)	//use pointer arithmetic to have the pld->msg refer to the payload section of the frame layer message
+		return DARTT_ERROR_MALFORMED_MESSAGE;	
+	}
+
+	size_t head = 0;
+	size_t tail = 0;
+	if(type == TYPE_SERIAL_MESSAGE)
+	{
+		int rc = validate_crc(ser_msg);
+		if(rc != DARTT_PROTOCOL_SUCCESS)
 		{
-			pld->msg.buf = ser_msg->buf;
-			pld->msg.size = ser_msg->size;
-			pld->msg.len = ser_msg->len;
+			return rc;	//checksum must match
 		}
-		else if(pld_mode == PAYLOAD_COPY)	//make a copy
+
+		//extract address
+		pld->address = ser_msg->buf[head++];
+		tail = NUM_BYTES_CHECKSUM;
+	}
+	else if(type == TYPE_ADDR_MESSAGE)
+	{
+		int rc = validate_crc(ser_msg);
+		if(rc != DARTT_PROTOCOL_SUCCESS)
 		{
-			if(pld->msg.buf == NULL)
-			{
-				return DARTT_ERROR_INVALID_ARGUMENT;
-			}
-			if(ser_msg->len > pld->msg.size)
-			{
-				return DARTT_ERROR_MEMORY_OVERRUN;
-			}
-			for(size_t i = 0; i < ser_msg->len; i++)
-			{
-				pld->msg.buf[i] = ser_msg->buf[i];
-			}
-			pld->msg.len = ser_msg->len;
+			return rc;	//checksum must match
 		}
-		else
+		tail = NUM_BYTES_CHECKSUM;
+	}
+	else if (type != TYPE_ADDR_CRC_MESSAGE)
+	{
+		return DARTT_ERROR_INVALID_ARGUMENT;
+	}
+
+	if(pld_mode == PAYLOAD_ALIAS)	//Use pointer arithmetic
+	{
+		//truncate off checksum, address and rw_index
+		pld->msg.buf = &ser_msg->buf[head];
+		pld->msg.len = ser_msg->len - (head + tail);
+		pld->msg.size = ser_msg->size - (head + tail);						
+	}
+	else if(pld_mode == PAYLOAD_COPY)	//
+	{
+		if(pld->msg.buf == NULL)
 		{
 			return DARTT_ERROR_INVALID_ARGUMENT;
 		}
-		return DARTT_PROTOCOL_SUCCESS;
+		size_t newlen  = ser_msg->len - (head + tail);
+		if(newlen > pld->msg.size)
+		{
+			return DARTT_ERROR_MEMORY_OVERRUN;
+		}
+		unsigned char * sm_start = ser_msg->buf + head; //skip address and rw_index
+		
+		for(size_t i = 0; i < newlen; i++)
+		{
+			pld->msg.buf[i] = sm_start[i];
+		}
+		pld->msg.len = newlen;
 	}
-	return DARTT_ERROR_INVALID_ARGUMENT;
+	else
+	{
+		return DARTT_ERROR_INVALID_ARGUMENT;
+	}
+	return DARTT_PROTOCOL_SUCCESS;
+
 }
 
 /**

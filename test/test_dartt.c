@@ -37,13 +37,13 @@ typedef struct comms_t
 void test_read_request_overhead(void)
 {
 	size_t size = 0;
-	size = dartt_read_request_overhead(TYPE_SERIAL_MESSAGE);
-	TEST_ASSERT_EQUAL(7, size);
-	size = dartt_read_request_overhead(TYPE_ADDR_MESSAGE);
-	TEST_ASSERT_EQUAL(6, size);
-	size = dartt_read_request_overhead(TYPE_ADDR_CRC_MESSAGE);
+	size = dartt_rw_overhead(TYPE_SERIAL_MESSAGE);
+	TEST_ASSERT_EQUAL(5, size);
+	size = dartt_rw_overhead(TYPE_ADDR_MESSAGE);
 	TEST_ASSERT_EQUAL(4, size);
-	size = dartt_read_request_overhead(3);
+	size = dartt_rw_overhead(TYPE_ADDR_CRC_MESSAGE);
+	TEST_ASSERT_EQUAL(2, size);
+	size = dartt_rw_overhead(3);
 	TEST_ASSERT_EQUAL(0, size);
 }
 
@@ -1084,11 +1084,11 @@ void f2p_malformed_input_helper(serial_message_type_t type, payload_mode_t mode)
 	// Create a frame that's too short
 	size_t min_len = 0;
 	if(type == TYPE_SERIAL_MESSAGE) {
-		min_len = NUM_BYTES_ADDRESS + NUM_BYTES_CHECKSUM;
+		min_len = NUM_BYTES_ADDRESS + NUM_BYTES_CHECKSUM + NUM_BYTES_INDEX;
 	} else if(type == TYPE_ADDR_MESSAGE) {
-		min_len = NUM_BYTES_CHECKSUM;
+		min_len = NUM_BYTES_CHECKSUM + NUM_BYTES_INDEX;
 	} else { // TYPE_ADDR_CRC_MESSAGE
-		min_len = 1; // Needs at least some content
+		min_len = NUM_BYTES_INDEX; // Needs at least some content
 	}
 	
 	frame.len = min_len; // Exactly at the minimum (should be malformed)
@@ -1098,12 +1098,7 @@ void f2p_malformed_input_helper(serial_message_type_t type, payload_mode_t mode)
 	setup_payload_msg(mode, &pld, copy_buf, sizeof(copy_buf));
 	
 	int rc = dartt_frame_to_payload(&frame, type, mode, &pld);
-	if(type == TYPE_ADDR_CRC_MESSAGE) {
-		// TYPE_ADDR_CRC_MESSAGE with len=1 should actually work
-		TEST_ASSERT_EQUAL(DARTT_PROTOCOL_SUCCESS, rc);
-	} else {
-		TEST_ASSERT_EQUAL(DARTT_ERROR_MALFORMED_MESSAGE, rc);
-	}
+	TEST_ASSERT_EQUAL(DARTT_ERROR_MALFORMED_MESSAGE, rc);
 }
 
 // Test invalid argument scenarios
