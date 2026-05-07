@@ -621,10 +621,6 @@ int dartt_parse_read_reply(payload_layer_msg_t * payload, misc_read_message_t * 
         return DARTT_ERROR_CTL_READ_LEN_MISMATCH;
     }
 
-    // Calculate the offset into the destination buffer based on the original read index
-    // size_t requested_byte_offset = ((size_t)original_msg->index) * sizeof(uint32_t);
-
-    size_t bidx = 0;
     size_t byte_offset = ((size_t)payload->index_arg)*sizeof(uint32_t);
 
     // Validate that the offset and data length don't exceed destination buffer bounds
