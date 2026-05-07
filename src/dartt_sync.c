@@ -207,14 +207,14 @@ int dartt_sync(dartt_mem_t * ctl, dartt_sync_t * psync)
 				return rc;
 			}
 
-            if(write_msg.payload.len + NUM_BYTES_READ_REPLY_OVERHEAD_PLD > pld_msg.msg.size)    //overrun guard for the comparison below. May be protected but I think that is non-obvious
+            if(write_msg.payload.len > pld_msg.msg.size)    //overrun guard for the comparison below. May be protected but I think that is non-obvious
             {
                 return DARTT_ERROR_MEMORY_OVERRUN;
             }
 
             for(int i = 0; i < write_msg.payload.len; i++)
             {
-                if(write_msg.payload.buf[i] != pld_msg.msg.buf[i + NUM_BYTES_READ_REPLY_OVERHEAD_PLD])
+                if(write_msg.payload.buf[i] != pld_msg.msg.buf[i])
                 {
                     return DARTT_ERROR_SYNC_MISMATCH;
                 }
@@ -390,14 +390,7 @@ int dartt_ctl_read(dartt_mem_t * ctl, dartt_sync_t * psync)
 	{
 		//parse read reply gets the shadow copy offset from the data itself, not from the read message.
 		//so if it's nonzero, do a little extra work: extract it, subtract it, and re-insert it to the raw message data.
-		size_t bidx = 0;
-		uint16_t reply_index = 0;
-		reply_index |= (uint16_t)(pld_msg.msg.buf[bidx++]);
-		reply_index |= (((uint16_t)(pld_msg.msg.buf[bidx++])) << 8);
-		reply_index -= psync->base_offset;	//this may underflow, but it's checked in parse read reply so it's safe to not check it here
-		bidx = 0;
-		pld_msg.msg.buf[bidx++] = (unsigned char)(reply_index & 0x00FF);
-		pld_msg.msg.buf[bidx++] = (unsigned char)((reply_index & 0xFF00) >> 8);
+		pld_msg.index_arg -= psync->base_offset;
 	}
     return dartt_parse_read_reply(&pld_msg, &read_msg, &psync->periph_base);
 }

@@ -958,9 +958,9 @@ void test_f2p_memory_overrun_bug(void)
 		append_crc(&serial_msg);
 		payload_layer_msg_t pld = {};
 		int rc = dartt_frame_to_payload(&serial_msg, TYPE_SERIAL_MESSAGE, PAYLOAD_ALIAS, &pld);
-		TEST_ASSERT_EQUAL(sizeof(buf)-(NUM_BYTES_ADDRESS+NUM_BYTES_CHECKSUM), pld.msg.len);
-		TEST_ASSERT_EQUAL(serial_msg.len - (NUM_BYTES_ADDRESS+NUM_BYTES_CHECKSUM), pld.msg.len);
-		TEST_ASSERT_EQUAL(serial_msg.size - (NUM_BYTES_ADDRESS+NUM_BYTES_CHECKSUM), pld.msg.size);
+		TEST_ASSERT_EQUAL(sizeof(buf)-(NUM_BYTES_ADDRESS+NUM_BYTES_INDEX+NUM_BYTES_CHECKSUM), pld.msg.len);
+		TEST_ASSERT_EQUAL(serial_msg.len - (NUM_BYTES_ADDRESS+NUM_BYTES_INDEX+NUM_BYTES_CHECKSUM), pld.msg.len);
+		TEST_ASSERT_EQUAL(serial_msg.size - (NUM_BYTES_ADDRESS+NUM_BYTES_INDEX+NUM_BYTES_CHECKSUM), pld.msg.size);
 	}
 
 		{	//
@@ -972,8 +972,8 @@ void test_f2p_memory_overrun_bug(void)
 		append_crc(&serial_msg);
 		payload_layer_msg_t pld = {};
 		int rc = dartt_frame_to_payload(&serial_msg, TYPE_SERIAL_MESSAGE, PAYLOAD_ALIAS, &pld);
-		TEST_ASSERT_EQUAL(serial_msg.len - (NUM_BYTES_ADDRESS+NUM_BYTES_CHECKSUM), pld.msg.len);
-		TEST_ASSERT_EQUAL(serial_msg.size - (NUM_BYTES_ADDRESS+NUM_BYTES_CHECKSUM), pld.msg.size);
+		TEST_ASSERT_EQUAL(serial_msg.len - (NUM_BYTES_ADDRESS+NUM_BYTES_INDEX+NUM_BYTES_CHECKSUM), pld.msg.len);
+		TEST_ASSERT_EQUAL(serial_msg.size - (NUM_BYTES_ADDRESS+NUM_BYTES_INDEX+NUM_BYTES_CHECKSUM), pld.msg.size);
 	}
 
 }
@@ -994,7 +994,8 @@ void f2p_happy_path_helper(serial_message_type_t type, payload_mode_t mode)
 	
 	int rc = dartt_frame_to_payload(&frame, type, mode, &pld);
 	TEST_ASSERT_EQUAL(DARTT_PROTOCOL_SUCCESS, rc);
-	
+	TEST_ASSERT_EQUAL(0x1234, pld.index_arg);
+	TEST_ASSERT_EQUAL(0, pld.rw_bit);
 	// Verify address is extracted correctly for TYPE_SERIAL_MESSAGE
 	if(type == TYPE_SERIAL_MESSAGE) {
 		TEST_ASSERT_EQUAL(msg.address, pld.address);
@@ -1003,11 +1004,11 @@ void f2p_happy_path_helper(serial_message_type_t type, payload_mode_t mode)
 	// Verify payload length is correct
 	size_t expected_payload_len = 0;
 	if(type == TYPE_SERIAL_MESSAGE) {
-		expected_payload_len = frame.len - NUM_BYTES_ADDRESS - NUM_BYTES_CHECKSUM;
+		expected_payload_len = frame.len - NUM_BYTES_ADDRESS - NUM_BYTES_INDEX - NUM_BYTES_CHECKSUM;
 	} else if(type == TYPE_ADDR_MESSAGE) {
-		expected_payload_len = frame.len - NUM_BYTES_CHECKSUM;
+		expected_payload_len = frame.len - NUM_BYTES_INDEX - NUM_BYTES_CHECKSUM;
 	} else { // TYPE_ADDR_CRC_MESSAGE
-		expected_payload_len = frame.len;
+		expected_payload_len = frame.len - NUM_BYTES_INDEX;
 	}
 	
 	TEST_ASSERT_EQUAL(expected_payload_len, pld.msg.len);
@@ -1016,15 +1017,15 @@ void f2p_happy_path_helper(serial_message_type_t type, payload_mode_t mode)
 	if(mode == PAYLOAD_ALIAS) {
 		// For alias mode, verify pointer points into original frame
 		if(type == TYPE_SERIAL_MESSAGE) {
-			TEST_ASSERT_EQUAL_PTR(frame.buf + NUM_BYTES_ADDRESS, pld.msg.buf);
+			TEST_ASSERT_EQUAL_PTR(frame.buf + NUM_BYTES_ADDRESS + NUM_BYTES_INDEX, pld.msg.buf);
 		} else if(type == TYPE_ADDR_MESSAGE) {
-			TEST_ASSERT_EQUAL_PTR(frame.buf, pld.msg.buf);
+			TEST_ASSERT_EQUAL_PTR(frame.buf + NUM_BYTES_INDEX, pld.msg.buf);
 		} else { // TYPE_ADDR_CRC_MESSAGE
-			TEST_ASSERT_EQUAL_PTR(frame.buf, pld.msg.buf);
+			TEST_ASSERT_EQUAL_PTR(frame.buf + NUM_BYTES_INDEX, pld.msg.buf);
 		}
 	} else { // PAYLOAD_COPY
 		// For copy mode, verify content was copied correctly
-		unsigned char * expected_start = frame.buf;
+		unsigned char * expected_start = frame.buf + NUM_BYTES_INDEX;
 		if(type == TYPE_SERIAL_MESSAGE) {
 			expected_start += NUM_BYTES_ADDRESS;
 		}
@@ -1181,10 +1182,12 @@ void test_parse_base_read_reply_overhead(void)
 	};
 	payload_layer_msg_t pld_msg = {
 		.address = 0x42,
+		.rw_bit = READ_WRITE_BITMASK,
+		.index_arg = 0,
 		.msg = {
-			.buf = read_pld,
-			.size = sizeof(read_pld),
-			.len = sizeof(read_pld)
+			.buf = read_pld + NUM_BYTES_INDEX,
+			.size = sizeof(read_pld) - NUM_BYTES_INDEX,
+			.len = sizeof(read_pld) - NUM_BYTES_INDEX
 		}
 	};
 
@@ -1261,12 +1264,15 @@ void test_parse_general_message_reply_overhead(void)
 		};
 		payload_layer_msg_t pld_msg = {
 			.address = 0x42,
+			.rw_bit = READ_WRITE_BITMASK,
+			.index_arg = 0,
 			.msg = {
-				.buf = read_pld,
-				.size = sizeof(read_pld),
-				.len = sizeof(read_pld)
+				.buf = read_pld + NUM_BYTES_INDEX,
+				.size = sizeof(read_pld) - NUM_BYTES_INDEX,
+				.len = sizeof(read_pld) - NUM_BYTES_INDEX
 			}
 		};
+
 
 		//allocate generous reply buffer
 		unsigned char reply_mem[64] = {};
@@ -1338,5 +1344,5 @@ void test_dartt_frame_to_payload(void)
 	rc = dartt_frame_to_payload(&output, TYPE_SERIAL_MESSAGE, PAYLOAD_ALIAS, &pld);	
 	TEST_ASSERT_EQUAL(DARTT_PROTOCOL_SUCCESS, rc);
 	TEST_ASSERT_EQUAL(output.buf[0], pld.address);
-	TEST_ASSERT_EQUAL(output.len, pld.msg.len + NUM_BYTES_ADDRESS + NUM_BYTES_CHECKSUM);
+	TEST_ASSERT_EQUAL(output.len, pld.msg.len + NUM_BYTES_ADDRESS + NUM_BYTES_INDEX + NUM_BYTES_CHECKSUM);
 }

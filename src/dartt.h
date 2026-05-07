@@ -83,6 +83,8 @@ typedef struct dartt_mem_t
 typedef struct payload_layer_msg_t
 {
 	unsigned char address;
+	uint16_t rw_bit;
+	uint16_t index_arg;
 	dartt_buffer_t msg;
 } payload_layer_msg_t;
 

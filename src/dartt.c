@@ -314,6 +314,11 @@ int check_read_args(misc_read_message_t * msg, serial_message_type_t type, dartt
     return DARTT_PROTOCOL_SUCCESS;
 }
 
+/**
+ * @brief Returns the number of bytes of DARTT overhead for a given message type
+ * @param type Frame type
+ * @returns The overhead in bytes, or 0 if the type argument is invalid
+ */
 size_t dartt_rw_overhead(serial_message_type_t type)
 {
 	size_t overhead = NUM_BYTES_INDEX;
@@ -416,7 +421,7 @@ int dartt_parse_base_serial_message(payload_layer_msg_t* pld_msg, const dartt_me
 {
     assert(pld_msg != NULL && mem_base != NULL && reply_base != NULL);
     assert(pld_msg->msg.buf != NULL && mem_base->buf != NULL && reply_base->buf != NULL);
-    assert(pld_msg->msg.size > NUM_BYTES_INDEX && mem_base->size > 0 && reply_base->size > 0);
+    assert(mem_base->size > 0 && reply_base->size > 0);
     assert(pld_msg->msg.len <= pld_msg->msg.size && reply_base->len <= reply_base->size);
     int cb = check_buffer(reply_base);
     if(cb != DARTT_PROTOCOL_SUCCESS)
@@ -425,21 +430,16 @@ int dartt_parse_base_serial_message(payload_layer_msg_t* pld_msg, const dartt_me
     }
     
     //critical check - keep as runtime since this is data-dependent
-    if(pld_msg->msg.len <= NUM_BYTES_INDEX)   //if write, it must contain at least one byte of payload. If read, it must contain exactly two additional bytes of read size
+    if(pld_msg->msg.len == 0)   //if write, it must contain at least one byte of payload. If read, it must contain exactly two additional bytes of read size
     {
         return DARTT_ERROR_MALFORMED_MESSAGE;
     }
 
     size_t bidx = 0;
-    uint16_t rw_index = 0;
-    rw_index |= (uint16_t)(pld_msg->msg.buf[bidx++]);
-    rw_index |= (((uint16_t)(pld_msg->msg.buf[bidx++])) << 8);
-    uint16_t rw_bit = rw_index & READ_WRITE_BITMASK;  //omit the shift and perform zero comparison for speed
-    uint16_t index_arg = rw_index & (~READ_WRITE_BITMASK);
-    size_t word_offset = ((size_t)(index_arg))*sizeof(uint32_t); 
-    if(rw_bit != 0) //read
+    size_t word_offset = ((size_t)(pld_msg->index_arg))*sizeof(uint32_t); 
+    if(pld_msg->rw_bit != 0) //read
     {
-        if(pld_msg->msg.len != NUM_BYTES_INDEX + NUM_BYTES_NUMWORDS_READREQUEST)  //read messages must have precisely this content (once addr and crc are removed, if relevant)
+        if(pld_msg->msg.len != NUM_BYTES_NUMWORDS_READREQUEST)  //read messages must have precisely this content (once addr and crc are removed, if relevant)
         {
             return DARTT_ERROR_MALFORMED_MESSAGE;
         }
@@ -469,8 +469,8 @@ int dartt_parse_base_serial_message(payload_layer_msg_t* pld_msg, const dartt_me
         }
 
         reply_base->len = 0;
-        reply_base->buf[reply_base->len++] = (unsigned char)(index_arg & 0x00FF);     //prepend the word offset
-        reply_base->buf[reply_base->len++] = (unsigned char)((index_arg & 0xFF00) >> 8);  //prepend the word offset
+        reply_base->buf[reply_base->len++] = (unsigned char)(pld_msg->index_arg & 0x00FF);     //prepend the word offset
+        reply_base->buf[reply_base->len++] = (unsigned char)((pld_msg->index_arg & 0xFF00) >> 8);  //prepend the word offset
         for(uint16_t i = 0; i < num_bytes; i++)
         {
             reply_base->buf[reply_base->len++] = cpy_ptr[i];
@@ -478,21 +478,15 @@ int dartt_parse_base_serial_message(payload_layer_msg_t* pld_msg, const dartt_me
         return DARTT_PROTOCOL_SUCCESS; //caller needs to finish the reply formatting
     }
     else    //write
-    {
-        //from our min length and min size checks, we know the input buffer must have both minimum size and
-        //minimum length of 3, and we know that if we are here, bidx is equal to 2.
-        //Therefore, it is safe to subtract bidx from len
-        unsigned char * write_ptr = pld_msg->msg.buf + bidx;
-        size_t nbytes_to_write = pld_msg->msg.len - bidx; //this can be 1 at minimum, and cannot underflow due to our checks above. overrun protection is guaranteed here too due to size and len checks
-        
-        if(word_offset + nbytes_to_write > mem_base->size)
+    {        
+        if(word_offset + pld_msg->msg.len > mem_base->size)
         {
             return DARTT_ERROR_MEMORY_OVERRUN;
         }
         unsigned char * mem_ptr = mem_base->buf + word_offset;
-        for(size_t i = 0; i < nbytes_to_write; i++)
+        for(size_t i = 0; i < pld_msg->msg.len; i++)
         {
-            mem_ptr[i] = write_ptr[i];  //perform the copy
+            mem_ptr[i] = pld_msg->msg.buf[i];  //perform the copy
         }
         reply_base->len = 0;    //erase the reply. Success and nonzero reply len should trigger transmission of a reply frame, and we don't reply to write messages!
         return DARTT_PROTOCOL_SUCCESS; //no reply, so caller doesn't need to do anything else
@@ -622,7 +616,7 @@ int dartt_parse_read_reply(payload_layer_msg_t * payload, misc_read_message_t * 
         return cb;
     }
     
-    if(payload->msg.len != original_msg->num_bytes + NUM_BYTES_READ_REPLY_OVERHEAD_PLD)
+    if(payload->msg.len != original_msg->num_bytes)
     {
         return DARTT_ERROR_CTL_READ_LEN_MISMATCH;
     }
@@ -631,32 +625,19 @@ int dartt_parse_read_reply(payload_layer_msg_t * payload, misc_read_message_t * 
     // size_t requested_byte_offset = ((size_t)original_msg->index) * sizeof(uint32_t);
 
     size_t bidx = 0;
-    uint16_t reply_index = 0;
-    reply_index |= (uint16_t)(payload->msg.buf[bidx++]);
-    reply_index |= (((uint16_t)(payload->msg.buf[bidx++])) << 8);
-    if(payload->msg.len <= NUM_BYTES_READ_REPLY_OVERHEAD_PLD) //this means we have recieved a reply containing only the index
-    {
-        return DARTT_ERROR_INVALID_ARGUMENT;
-    }
-    dartt_buffer_t raw_data;
-    raw_data.buf = payload->msg.buf + NUM_BYTES_READ_REPLY_OVERHEAD_PLD;
-    raw_data.size = payload->msg.size - NUM_BYTES_READ_REPLY_OVERHEAD_PLD;  //this is overflow protected because size is guaranteed to be greater than or equal to len, and len is guaranteed to be greater than the reply overhead from the above check
-    raw_data.len = payload->msg.len - NUM_BYTES_READ_REPLY_OVERHEAD_PLD;
-
-
-    size_t byte_offset = ((size_t)reply_index)*sizeof(uint32_t);
+    size_t byte_offset = ((size_t)payload->index_arg)*sizeof(uint32_t);
 
     // Validate that the offset and data length don't exceed destination buffer bounds
-    if(byte_offset + raw_data.len > dest->size)
+    if(byte_offset + payload->msg.len > dest->size)
     {
         return DARTT_ERROR_MEMORY_OVERRUN;
     }
         
     // Copy the reply data to the correct offset in the destination buffer
     unsigned char * dest_ptr = dest->buf + byte_offset;
-    for(size_t i = 0; i < raw_data.len; i++)
+    for(size_t i = 0; i < payload->msg.len; i++)
     {
-        dest_ptr[i] = raw_data.buf[i];
+        dest_ptr[i] = payload->msg.buf[i];
     }
     
     return DARTT_PROTOCOL_SUCCESS;
@@ -747,6 +728,13 @@ int dartt_frame_to_payload(dartt_buffer_t * ser_msg, serial_message_type_t type,
 	{
 		return DARTT_ERROR_INVALID_ARGUMENT;
 	}
+
+	//extract rw_bit and index_arg, and advance head to truncate the rw_index header off the message
+	uint16_t rw_index = 0;
+    rw_index |= (uint16_t)(ser_msg->buf[head++]);
+    rw_index |= (((uint16_t)(ser_msg->buf[head++])) << 8);
+    pld->rw_bit = rw_index & READ_WRITE_BITMASK;  //omit the shift and perform zero comparison for speed
+    pld->index_arg = rw_index & (~READ_WRITE_BITMASK);
 
 	if(pld_mode == PAYLOAD_ALIAS)	//Use pointer arithmetic
 	{
