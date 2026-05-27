@@ -16,6 +16,8 @@ target_include_directories(dartt_protocol PUBLIC
     ${CMAKE_CURRENT_SOURCE_DIR}
 )
 
+target_link_libraries(dartt_protocol PUBLIC dartt_checksum)
+
 target_include_directories(dartt_checksum PUBLIC
     ${CMAKE_CURRENT_SOURCE_DIR}
 ) 
