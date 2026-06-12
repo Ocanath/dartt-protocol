@@ -224,6 +224,11 @@ int check_write_lengths(misc_write_message_t * msg, serial_message_type_t type, 
 int dartt_create_write_frame(misc_write_message_t * msg, serial_message_type_t type, dartt_buffer_t * output)
 {
     assert(check_write_args(msg,type,output) == DARTT_PROTOCOL_SUCCESS);  //assert to save on runtime execution
+    int cb = check_buffer(output);
+    if(cb != DARTT_PROTOCOL_SUCCESS)
+    {
+        return cb;
+    }
     int rc = check_write_lengths(msg,type,output);
     if(rc != DARTT_PROTOCOL_SUCCESS)
     {
@@ -421,9 +426,13 @@ int dartt_parse_base_serial_message(payload_layer_msg_t* pld_msg, const dartt_me
 {
     assert(pld_msg != NULL && mem_base != NULL && reply_base != NULL);
     assert(pld_msg->msg.buf != NULL && mem_base->buf != NULL && reply_base->buf != NULL);
-    assert(mem_base->size > 0 && reply_base->size > 0);
     assert(pld_msg->msg.len <= pld_msg->msg.size && reply_base->len <= reply_base->size);
-    int cb = check_buffer(reply_base);
+    int cb = check_mem_base(mem_base);
+    if(cb != DARTT_PROTOCOL_SUCCESS)
+    {
+        return cb;
+    }
+    cb = check_buffer(reply_base);
     if(cb != DARTT_PROTOCOL_SUCCESS)
     {
         return cb;
@@ -800,7 +809,12 @@ int dartt_parse_general_message(payload_layer_msg_t * pld_msg, serial_message_ty
     assert(pld_msg->msg.size != 0 && mem_base->size != 0 && reply->size != 0);
     assert(pld_msg->msg.len <= pld_msg->msg.size && reply->len <= reply->size);   
     assert(type == TYPE_SERIAL_MESSAGE || type == TYPE_ADDR_MESSAGE || type == TYPE_ADDR_CRC_MESSAGE);
-	int cb = check_buffer(reply);
+    int cb = check_mem_base(mem_base);
+    if(cb != DARTT_PROTOCOL_SUCCESS)
+    {
+        return cb;
+    }
+	cb = check_buffer(reply);
 	if(cb != DARTT_PROTOCOL_SUCCESS)
 	{
 		return cb;

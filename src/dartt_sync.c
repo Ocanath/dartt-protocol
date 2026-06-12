@@ -23,7 +23,11 @@ int dartt_sync(dartt_mem_t * ctl, dartt_sync_t * psync)
 	assert(psync->periph_base.buf != NULL);
     assert(psync->tx_buf.buf != NULL && psync->rx_buf.buf != NULL);
     assert(psync->ctl_base.buf != psync->periph_base.buf);
-    
+    int cm = check_mem_base(ctl);
+    if(cm != DARTT_PROTOCOL_SUCCESS)
+    {
+        return cm;
+    }
     if(psync->ctl_base.size != psync->periph_base.size)
 	{
 		return DARTT_ERROR_MEMORY_OVERRUN;
@@ -250,7 +254,11 @@ int dartt_ctl_write(dartt_mem_t * ctl, dartt_sync_t * psync)
 {
     assert(ctl != NULL && psync != NULL);
     assert(ctl->buf != NULL && psync->ctl_base.buf != NULL && psync->blocking_tx_callback != NULL && psync->tx_buf.buf != NULL);
-
+    int cm = check_mem_base(ctl);
+    if(cm != DARTT_PROTOCOL_SUCCESS)
+    {
+        return cm;
+    }
     // Runtime checks for buffer bounds - these could be caused by developer error in ctl configuration
     if (ctl->buf < psync->ctl_base.buf || ctl->buf >= (psync->ctl_base.buf + psync->ctl_base.size)) {
         return DARTT_ERROR_INVALID_ARGUMENT;
@@ -310,7 +318,11 @@ int dartt_ctl_read(dartt_mem_t * ctl, dartt_sync_t * psync)
 	assert(psync->periph_base.buf != NULL);
     assert(psync->rx_buf.size != 0);
     assert(psync->tx_buf.size != 0);
-
+    int cm = check_mem_base(ctl);
+    if(cm != DARTT_PROTOCOL_SUCCESS)
+    {
+        return cm;
+    }
     // Runtime checks for buffer bounds - these could be caused by developer error in ctl configuration
     if(ctl->size == 0)
     {
@@ -413,7 +425,11 @@ int dartt_read_multi(dartt_mem_t * ctl, dartt_sync_t * psync)
     assert(ctl != NULL && psync != NULL);
 	assert(psync->ctl_base.buf != NULL && psync->periph_base.buf != NULL);
 	assert(psync->ctl_base.buf != psync->periph_base.buf);	//basic sanity check - the master and shadow copy can't point to the same memory
-
+    int cm = check_mem_base(ctl);
+    if(cm != DARTT_PROTOCOL_SUCCESS)
+    {
+        return cm;
+    }
 	if(psync->ctl_base.size != psync->periph_base.size)
 	{
 		return DARTT_ERROR_MEMORY_OVERRUN;
@@ -486,7 +502,11 @@ int dartt_read_multi(dartt_mem_t * ctl, dartt_sync_t * psync)
 int dartt_write_multi(dartt_mem_t * ctl, dartt_sync_t * psync)
 {
 	assert(psync != NULL && ctl != NULL);
-	
+    int cm = check_mem_base(ctl);
+    if(cm != DARTT_PROTOCOL_SUCCESS)
+    {
+        return cm;
+    }
     size_t nbytes_writemsg_overhead = 0;
     if(psync->msg_type == TYPE_SERIAL_MESSAGE)
     {
@@ -559,7 +579,6 @@ int dartt_write_multi(dartt_mem_t * ctl, dartt_sync_t * psync)
 int dartt_update_controller(dartt_mem_t * ctl, dartt_sync_t * psync)
 {
 	assert(ctl != NULL && psync != NULL);
-	assert(ctl->buf != NULL);
 	assert(psync->ctl_base.buf != NULL && psync->periph_base.buf != NULL);
     int cb = check_mem_base(ctl);
     if(cb != DARTT_PROTOCOL_SUCCESS)
