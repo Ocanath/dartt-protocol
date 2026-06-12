@@ -424,9 +424,9 @@ int dartt_create_read_frame(misc_read_message_t * msg, serial_message_type_t typ
  */
 int dartt_parse_base_serial_message(payload_layer_msg_t* pld_msg, const dartt_mem_t * mem_base, dartt_buffer_t * reply_base)
 {
-    assert(pld_msg != NULL && mem_base != NULL && reply_base != NULL);
-    assert(pld_msg->msg.buf != NULL && mem_base->buf != NULL && reply_base->buf != NULL);
-    assert(pld_msg->msg.len <= pld_msg->msg.size && reply_base->len <= reply_base->size);
+    assert(pld_msg != NULL);
+    assert(pld_msg->msg.buf != NULL);
+    assert(pld_msg->msg.len <= pld_msg->msg.size);
     int cb = check_mem_base(mem_base);
     if(cb != DARTT_PROTOCOL_SUCCESS)
     {
@@ -682,7 +682,6 @@ int dartt_parse_read_reply(payload_layer_msg_t * payload, misc_read_message_t * 
 int dartt_frame_to_payload(dartt_buffer_t * ser_msg, serial_message_type_t type, payload_mode_t pld_mode, payload_layer_msg_t * pld)
 {
     assert(pld != NULL);
-    assert(type == TYPE_SERIAL_MESSAGE || type == TYPE_ADDR_MESSAGE || type == TYPE_ADDR_CRC_MESSAGE);
 	
 	//check for payload argument validity
 	if(pld_mode != PAYLOAD_ALIAS)
@@ -804,11 +803,10 @@ int dartt_frame_to_payload(dartt_buffer_t * ser_msg, serial_message_type_t type,
  */
 int dartt_parse_general_message(payload_layer_msg_t * pld_msg, serial_message_type_t type, const dartt_mem_t * mem_base, dartt_buffer_t * reply)
 {
-    assert(pld_msg != NULL && mem_base != NULL && reply != NULL);
-    assert(pld_msg->msg.buf != NULL && mem_base->buf != NULL && reply->buf != NULL);
-    assert(pld_msg->msg.size != 0 && mem_base->size != 0 && reply->size != 0);
-    assert(pld_msg->msg.len <= pld_msg->msg.size && reply->len <= reply->size);   
-    assert(type == TYPE_SERIAL_MESSAGE || type == TYPE_ADDR_MESSAGE || type == TYPE_ADDR_CRC_MESSAGE);
+    assert(pld_msg != NULL);
+    assert(pld_msg->msg.buf != NULL);
+    assert(pld_msg->msg.size != 0);
+    assert(pld_msg->msg.len <= pld_msg->msg.size);
     int cb = check_mem_base(mem_base);
     if(cb != DARTT_PROTOCOL_SUCCESS)
     {

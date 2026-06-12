@@ -18,7 +18,7 @@
  * */
 int dartt_sync(dartt_mem_t * ctl, dartt_sync_t * psync)
 {
-    assert(psync != NULL && ctl != NULL);
+    assert(psync != NULL);
     assert(psync->blocking_rx_callback != NULL && psync->blocking_tx_callback != NULL && psync->ctl_base.buf != NULL && psync->ctl_base.size != 0);
 	assert(psync->periph_base.buf != NULL);
     assert(psync->tx_buf.buf != NULL && psync->rx_buf.buf != NULL);
@@ -252,8 +252,8 @@ int dartt_sync(dartt_mem_t * ctl, dartt_sync_t * psync)
  */
 int dartt_ctl_write(dartt_mem_t * ctl, dartt_sync_t * psync)
 {
-    assert(ctl != NULL && psync != NULL);
-    assert(ctl->buf != NULL && psync->ctl_base.buf != NULL && psync->blocking_tx_callback != NULL && psync->tx_buf.buf != NULL);
+    assert(psync != NULL);
+    assert(psync->ctl_base.buf != NULL && psync->blocking_tx_callback != NULL && psync->tx_buf.buf != NULL);
     int cm = check_mem_base(ctl);
     if(cm != DARTT_PROTOCOL_SUCCESS)
     {
@@ -312,9 +312,9 @@ int dartt_ctl_write(dartt_mem_t * ctl, dartt_sync_t * psync)
  */
 int dartt_ctl_read(dartt_mem_t * ctl, dartt_sync_t * psync)
 {
-    assert(psync != NULL && ctl != NULL);
+    assert(psync != NULL);
 	assert(psync->ctl_base.size == psync->periph_base.size);
-    assert(ctl->buf != NULL && psync->ctl_base.buf != NULL && psync->blocking_tx_callback != NULL && psync->tx_buf.buf != NULL);
+    assert(psync->ctl_base.buf != NULL && psync->blocking_tx_callback != NULL && psync->tx_buf.buf != NULL);
 	assert(psync->periph_base.buf != NULL);
     assert(psync->rx_buf.size != 0);
     assert(psync->tx_buf.size != 0);
@@ -422,7 +422,7 @@ int dartt_ctl_read(dartt_mem_t * ctl, dartt_sync_t * psync)
  */
 int dartt_read_multi(dartt_mem_t * ctl, dartt_sync_t * psync)
 {
-    assert(ctl != NULL && psync != NULL);
+    assert(psync != NULL);
 	assert(psync->ctl_base.buf != NULL && psync->periph_base.buf != NULL);
 	assert(psync->ctl_base.buf != psync->periph_base.buf);	//basic sanity check - the master and shadow copy can't point to the same memory
     int cm = check_mem_base(ctl);
@@ -501,7 +501,7 @@ int dartt_read_multi(dartt_mem_t * ctl, dartt_sync_t * psync)
  */
 int dartt_write_multi(dartt_mem_t * ctl, dartt_sync_t * psync)
 {
-	assert(psync != NULL && ctl != NULL);
+	assert(psync != NULL);
     int cm = check_mem_base(ctl);
     if(cm != DARTT_PROTOCOL_SUCCESS)
     {
@@ -578,7 +578,7 @@ int dartt_write_multi(dartt_mem_t * ctl, dartt_sync_t * psync)
  */
 int dartt_update_controller(dartt_mem_t * ctl, dartt_sync_t * psync)
 {
-	assert(ctl != NULL && psync != NULL);
+	assert(psync != NULL);
 	assert(psync->ctl_base.buf != NULL && psync->periph_base.buf != NULL);
     int cb = check_mem_base(ctl);
     if(cb != DARTT_PROTOCOL_SUCCESS)
