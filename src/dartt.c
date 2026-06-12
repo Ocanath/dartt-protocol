@@ -1,8 +1,8 @@
 #include <stdint.h>
-#include <assert.h>
 #include <dartt_crc.h>
 #include "dartt.h"
 #include "dartt_check_buffer.h"
+#include "dartt_assert.h"
 
 /**
  * @brief Calculate the 32-bit word index of a field within a memory structure.
@@ -223,7 +223,7 @@ int check_write_lengths(misc_write_message_t * msg, serial_message_type_t type, 
  */
 int dartt_create_write_frame(misc_write_message_t * msg, serial_message_type_t type, dartt_buffer_t * output)
 {
-    assert(check_write_args(msg,type,output) == DARTT_PROTOCOL_SUCCESS);  //assert to save on runtime execution
+    DARTT_ASSERT(check_write_args(msg,type,output) == DARTT_PROTOCOL_SUCCESS);  //assert to save on runtime execution
     int cb = check_buffer(output);
     if(cb != DARTT_PROTOCOL_SUCCESS)
     {
@@ -366,7 +366,7 @@ size_t dartt_rw_overhead(serial_message_type_t type)
  */
 int dartt_create_read_frame(misc_read_message_t * msg, serial_message_type_t type, dartt_buffer_t * output)
 {
-    assert(check_read_args(msg,type,output) == DARTT_PROTOCOL_SUCCESS);
+    DARTT_ASSERT(check_read_args(msg,type,output) == DARTT_PROTOCOL_SUCCESS);
 	int rc = check_buffer(output);
 	if(rc != DARTT_PROTOCOL_SUCCESS)
 	{
@@ -424,9 +424,9 @@ int dartt_create_read_frame(misc_read_message_t * msg, serial_message_type_t typ
  */
 int dartt_parse_base_serial_message(payload_layer_msg_t* pld_msg, const dartt_mem_t * mem_base, dartt_buffer_t * reply_base)
 {
-    assert(pld_msg != NULL);
-    assert(pld_msg->msg.buf != NULL);
-    assert(pld_msg->msg.len <= pld_msg->msg.size);
+    DARTT_ASSERT(pld_msg != NULL);
+    DARTT_ASSERT(pld_msg->msg.buf != NULL);
+    DARTT_ASSERT(pld_msg->msg.len <= pld_msg->msg.size);
     int cb = check_mem_base(mem_base);
     if(cb != DARTT_PROTOCOL_SUCCESS)
     {
@@ -681,7 +681,7 @@ int dartt_parse_read_reply(payload_layer_msg_t * payload, misc_read_message_t * 
  */
 int dartt_frame_to_payload(dartt_buffer_t * ser_msg, serial_message_type_t type, payload_mode_t pld_mode, payload_layer_msg_t * pld)
 {
-    assert(pld != NULL);
+    DARTT_ASSERT(pld != NULL);
 	
 	//check for payload argument validity
 	if(pld_mode != PAYLOAD_ALIAS)
@@ -803,10 +803,10 @@ int dartt_frame_to_payload(dartt_buffer_t * ser_msg, serial_message_type_t type,
  */
 int dartt_parse_general_message(payload_layer_msg_t * pld_msg, serial_message_type_t type, const dartt_mem_t * mem_base, dartt_buffer_t * reply)
 {
-    assert(pld_msg != NULL);
-    assert(pld_msg->msg.buf != NULL);
-    assert(pld_msg->msg.size != 0);
-    assert(pld_msg->msg.len <= pld_msg->msg.size);
+    DARTT_ASSERT(pld_msg != NULL);
+    DARTT_ASSERT(pld_msg->msg.buf != NULL);
+    DARTT_ASSERT(pld_msg->msg.size != 0);
+    DARTT_ASSERT(pld_msg->msg.len <= pld_msg->msg.size);
     int cb = check_mem_base(mem_base);
     if(cb != DARTT_PROTOCOL_SUCCESS)
     {
