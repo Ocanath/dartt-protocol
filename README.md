@@ -36,20 +36,12 @@ The DARTT library is designed to be C language standards compliant - however, in
 
 ## Integration into Your Project
 
-The recommended way to include DARTT is as a git submodule. The required minimum files are:
-```
-checksum.c
-checksum.h
-dartt.c
-dartt.h
-```
+The recommended way to include DARTT is as a git submodule, and to link via cmake:
 
-For controller devices, it is recommended to also include:
+```cmake
+add_subdirectory(external/dartt-protocol)
+target_link_libraries(your_target PRIVATE dartt_protocol)
 ```
-dartt_sync.c
-dartt_sync.h
-```
-
 
 ## Building and Testing
 
@@ -60,10 +52,8 @@ dartt_sync.h
 
 ### Building the Project
 ```bash
-mkdir build
-cd build
-cmake ..
-cmake --build .
+cmake -B build
+cmake --build build
 ```
 
 ### Running Unit Tests
