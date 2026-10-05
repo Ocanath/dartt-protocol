@@ -87,28 +87,17 @@ Used for protocols with built-in addressing and CRC like CAN, UDP.
 
 ## Read Reply Frame Formats
 
-When a peripheral responds to a read request, the frame format varies by message type:
+Peripherals reply to read requests with a write frame. The destination address of the read reply is always the device which initiated the read request. There is no 'from' address field, which means that in systems that require it should be prepended as an extension to these message primitives.
 
-### TYPE_SERIAL_MESSAGE (Type 0) - Read Reply
-The reply contains the requested data block with a prepended address and appended CRC:
+Peripherals can use `dartt_write_multi` to send fragmented responses to large read requests.
 
-| Byte 0  |       Bytes 1-2         |       Bytes 3-N       | Bytes N+1 to N+2 |
-|---------|-------------------------|-----------------------|------------------|
-| Address |   Index (no R/W bit)    | Requested Data Block  | CRC              |
+Read replies lack a source field. If DARTT is implemented over a protocol with source addressing built in (such as UDP), this is not a problem. However, certain use cases (such as forwarding type 0 RS485 DARTT messages over UDP) may require addressing without supporting strict ordering. In these circumstances it is recommended to either break one of those requirements, or to prepend your own positional source address before processing the underlying DARTT message.
 
-### TYPE_ADDR_MESSAGE (Type 1) - Read Reply
-The reply contains the requested data block with an appended CRC:
+Examples of how to handle this in the DARTT UDP-RS485 forwarding case:
+- Give the UDP device its own DARTT map consisting of a control `misc_write_message_t`, a `misc_read_message_t` mailbox, a send/action register, and a status register. Ordering is enforced: fill control block, dispatch via send register, poll status register until flagged as ready, read mailbox.
+- Switch to a protocol that respects strict ordering, such as TCP. DARTT forwarding protcols (e.g. a network composed of multiple physically separate RS485 connections that is flattened through application defined routing protocols) should always use protocols with strict ordering. (Recommended)
+- Prepend source address in payload. This means the DARTT frame is rolled into an application defined wrapper, and must be processed before API use.
 
-|     Bytes 0-1     | Bytes 2-N            | Bytes N+1 to N+2 |
-|-------------------|----------------------|------------------|
-| Index (no R/W bit)| Requested Data Block | CRC              |
-
-### TYPE_ADDR_CRC_MESSAGE (Type 2) - Read Reply
-The reply contains only the requested data block with no additional data:
-
-|     Bytes 0-1     | Bytes 0-N            |
-|-------------------|----------------------|
-| Index (no R/W bit)| Requested Data Block |
 
 ## Field Descriptions
 
